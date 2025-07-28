@@ -1,16 +1,5 @@
-/// Book size calculation type
-enum SizeType {
-  /// Dimensions are fixed to the specified width and height values
-  /// Use this when you want exact pixel dimensions regardless of container size
-  fixed('fixed'),
-  
-  /// Dimensions are calculated based on the parent element's available space
-  /// Use this when you want the book to fill or fit within its container
-  stretch('stretch');
 
-  const SizeType(this.value);
-  final String value;
-}
+import 'enums/size_type.dart';
 
 /// Configuration object for PageFlip widget behavior and appearance
 class FlipSetting {
@@ -187,88 +176,6 @@ class FlipSetting {
       swipeDistance: swipeDistance ?? this.swipeDistance,
       showPageCorners: showPageCorners ?? this.showPageCorners,
       disableFlipByClick: disableFlipByClick ?? this.disableFlipByClick,
-    );
-  }
-}
-
-
-class Settings {
-  static const FlipSetting _default = FlipSetting(
-    startPage: 0,
-    size: SizeType.fixed,
-    width: 0,
-    height: 0,
-    minWidth: 0,
-    maxWidth: 0,
-    minHeight: 0,
-    maxHeight: 0,
-    drawShadow: true,
-    flippingTime: 1000,
-    usePortrait: true,
-    startZIndex: 0,
-    autoSize: true,
-    maxShadowOpacity: 1,
-    showCover: false,
-    mobileScrollSupport: true,
-    swipeDistance: 30,
-    clickEventForward: true,
-    useMouseEvents: true,
-    showPageCorners: true,
-    disableFlipByClick: false,
-  );
-
-  /// Processing parameters received from the user. Substitution default values
-  ///
-  /// @param userSetting
-  /// @returns {FlipSetting} Configuration object
-  FlipSetting getSettings(Map<String, dynamic> userSetting) {
-    if (userSetting.containsKey('size')) {
-      final sizeValue = userSetting['size'];
-      if (sizeValue != SizeType.stretch.value && sizeValue != SizeType.fixed.value) {
-        throw Exception('Invalid size type. Available only "fixed" and "stretch" value');
-      }
-    }
-
-    final width = (userSetting['width'] as num?)?.toDouble() ?? _default.width;
-    final height = (userSetting['height'] as num?)?.toDouble() ?? _default.height;
-
-    if (width <= 0 || height <= 0) {
-      throw Exception('Invalid width or height');
-    }
-
-    if (((userSetting['minWidth'] as num?)?.toDouble() ?? _default.minWidth) > width ||
-        ((userSetting['maxWidth'] as num?)?.toDouble() ?? _default.maxWidth) < width ||
-        ((userSetting['minHeight'] as num?)?.toDouble() ?? _default.minHeight) > height ||
-        ((userSetting['maxHeight'] as num?)?.toDouble() ?? _default.maxHeight) < height) {
-      throw Exception('Invalid size');
-    }
-
-    final sizeType = userSetting['size'] == SizeType.stretch.value 
-        ? SizeType.stretch 
-        : SizeType.fixed;
-
-    return FlipSetting(
-      startPage: userSetting['startPage'] as int? ?? _default.startPage,
-      size: sizeType,
-      width: width,
-      height: height,
-      minWidth: (userSetting['minWidth'] as num?)?.toDouble() ?? _default.minWidth,
-      maxWidth: (userSetting['maxWidth'] as num?)?.toDouble() ?? _default.maxWidth,
-      minHeight: (userSetting['minHeight'] as num?)?.toDouble() ?? _default.minHeight,
-      maxHeight: (userSetting['maxHeight'] as num?)?.toDouble() ?? _default.maxHeight,
-      drawShadow: userSetting['drawShadow'] as bool? ?? _default.drawShadow,
-      flippingTime: userSetting['flippingTime'] as int? ?? _default.flippingTime,
-      usePortrait: userSetting['usePortrait'] as bool? ?? _default.usePortrait,
-      startZIndex: userSetting['startZIndex'] as int? ?? _default.startZIndex,
-      autoSize: userSetting['autoSize'] as bool? ?? _default.autoSize,
-      maxShadowOpacity: (userSetting['maxShadowOpacity'] as num?)?.toDouble() ?? _default.maxShadowOpacity,
-      showCover: userSetting['showCover'] as bool? ?? _default.showCover,
-      mobileScrollSupport: userSetting['mobileScrollSupport'] as bool? ?? _default.mobileScrollSupport,
-      clickEventForward: userSetting['clickEventForward'] as bool? ?? _default.clickEventForward,
-      useMouseEvents: userSetting['useMouseEvents'] as bool? ?? _default.useMouseEvents,
-      swipeDistance: (userSetting['swipeDistance'] as num?)?.toDouble() ?? _default.swipeDistance,
-      showPageCorners: userSetting['showPageCorners'] as bool? ?? _default.showPageCorners,
-      disableFlipByClick: userSetting['disableFlipByClick'] as bool? ?? _default.disableFlipByClick,
     );
   }
 }

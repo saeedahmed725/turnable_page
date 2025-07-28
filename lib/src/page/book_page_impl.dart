@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import '../render/render.dart';
+import '../enums/page_density.dart';
+import '../enums/page_orientation.dart';
+import '../model/point.dart';
 import '../render/canvas_render.dart';
-import '../basic_types.dart';
-import 'page.dart';
+import '../render/render.dart';
+import 'book_page.dart';
 
 /// Enhanced class representing a book page as a widget that renders directly
 /// with improved performance and memory management
-class WidgetPage extends BookPage {
+class BookPageImp extends BookPage {
   /// Cached image for performance
   final ui.Image _image;
   
@@ -23,7 +25,7 @@ class WidgetPage extends BookPage {
     ..filterQuality = FilterQuality.high;
   
   /// Temporary copy reference to avoid unnecessary object creation
-  WidgetPage? _temporaryCopy;
+  BookPageImp? _temporaryCopy;
   
   /// Cache for clipping path to avoid recreation
   Path? _cachedClipPath;
@@ -31,7 +33,7 @@ class WidgetPage extends BookPage {
   /// Last known area points for cache invalidation
   List<Point>? _lastAreaPoints;
 
-  WidgetPage(Render render, this._image, this.pageIndex, PageDensity density)
+  BookPageImp(Render render, this._image, this.pageIndex, PageDensity density)
       : super(render, density) {
     _isLoaded = true;
   }
@@ -39,16 +41,16 @@ class WidgetPage extends BookPage {
   @override
   void draw([PageDensity? tempDensity]) {
     if (!_isLoaded) return;
-    
+
     final canvasRender = render as CanvasRender;
     final canvas = canvasRender.getCanvas();
     final rect = render.getRect();
-    
+
     final pagePos = render.convertToGlobal(state.position);
     if (pagePos == null) return;
 
     canvas.save();
-    
+
     try {
       canvas.translate(pagePos.x, pagePos.y);
 
@@ -65,11 +67,11 @@ class WidgetPage extends BookPage {
 
       // Use efficient image drawing with cached paint
       _drawImageOptimized(
-        canvas, 
-        0, 
-        0, 
-        rect.pageWidth, 
-        rect.height, 
+        canvas,
+        0,
+        0,
+        rect.pageWidth,
+        rect.height,
         tempDensity
       );
     } finally {
@@ -80,7 +82,7 @@ class WidgetPage extends BookPage {
   @override
   void simpleDraw(PageOrientation orient) {
     if (!_isLoaded) return;
-    
+
     final rect = render.getRect();
     final canvasRender = render as CanvasRender;
     final canvas = canvasRender.getCanvas();
@@ -107,7 +109,7 @@ class WidgetPage extends BookPage {
     // Use efficient image rect drawing with Flutter's Rect
     canvas.drawImageRect(
       _image,
-      ui.Rect.fromLTWH(0, 0, _image.width.toDouble(), _image.height.toDouble()),
+      ui.Rect.fromLTWH(0, 0, _image.width.toDouble() , _image.height.toDouble()),
       ui.Rect.fromLTWH(x, y, width, height),
       paint,
     );
@@ -187,14 +189,14 @@ class WidgetPage extends BookPage {
   }
 
   @override
-  void load() {
+  void loadPage() {
     _isLoaded = true;
   }
 
   @override
   BookPage newTemporaryCopy() {
     // Use cached copy if available to avoid object creation overhead
-    _temporaryCopy ??= WidgetPage(render, _image, pageIndex, getDensity());
+    _temporaryCopy ??= BookPageImp(render, _image, pageIndex, getDensity());
     return _temporaryCopy!;
   }
 

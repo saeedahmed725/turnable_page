@@ -1,6 +1,7 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:turnable_page/turnable_page.dart';
-
 
 void main() {
   runApp(MyApp());
@@ -22,7 +23,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -59,7 +59,7 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -126,6 +126,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Turnable Page Examples')),
       body: Column(
         children: [
           // Control panel
@@ -162,12 +163,12 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               color: Colors.grey[300],
               child: Center(
-                child: TurnablePage.singlePage(
+                child: TurnablePage.twoPages(
                   controller: _controller,
                   pageBuilder: _buildPage,
                   pageCount: _totalPages,
                   onPageChanged: (leftPageIndex, rightPageIndex) {
-                    print('Page changed: $leftPageIndex, $rightPageIndex');
+                    log('Page changed: $leftPageIndex, $rightPageIndex');
                     // Update current page index based on left page index
                     setState(() {
                       _currentPage = leftPageIndex;

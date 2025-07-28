@@ -1,44 +1,50 @@
-/// Data type passed to the event handler
-typedef DataType = dynamic;
+/// Signature for event callback functions.
+typedef EventCallback = void Function(WidgetEvent e);
 
-/// Type of object in event handlers
+/// An event object containing the event data and the source object.
+///
+/// Used in event callbacks to provide context and payload.
 class WidgetEvent {
-  final DataType data;
+  /// The data associated with the event.
+  final dynamic data;
+
+  /// The object that triggered the event.
   final dynamic object;
 
+  /// Creates a [WidgetEvent] with the given [data] and [object].
   const WidgetEvent({required this.data, required this.object});
 }
 
-typedef EventCallback = void Function(WidgetEvent e);
-
-/// A class implementing a basic event model
+/// Provides a basic event model for adding, removing, and triggering event handlers.
+///
+/// Extend this class to allow your objects to emit and listen for events.
 abstract class EventObject {
-  final Map<String, List<EventCallback>> _events = <String, List<EventCallback>>{};
+  /// Internal map of event names to their registered callbacks.
+  final Map<String, List<EventCallback>> _events =
+      <String, List<EventCallback>>{};
 
-  /// Add new event handler
+  /// Registers a new event handler for the given [eventName].
   ///
-  /// @param {String} eventName
-  /// @param {EventCallback} callback
+  /// Returns this object to allow method chaining.
   EventObject on(String eventName, EventCallback callback) {
     if (!_events.containsKey(eventName)) {
       _events[eventName] = [callback];
     } else {
       _events[eventName]!.add(callback);
     }
-
     return this;
   }
 
-  /// Removing all handlers from an event
-  ///
-  /// @param {String} event - Event name
+  /// Removes all handlers for the specified [event].
   void off(String event) {
     _events.remove(event);
   }
 
-  void trigger(String eventName, dynamic app, [DataType? data]) {
+  /// Triggers the event named [eventName], passing [app] as the source and optional [data].
+  ///
+  /// Calls all registered callbacks for the event.
+  void trigger(String eventName, dynamic app, [dynamic data]) {
     if (!_events.containsKey(eventName)) return;
-
     for (final callback in _events[eventName]!) {
       callback(WidgetEvent(data: data, object: app));
     }

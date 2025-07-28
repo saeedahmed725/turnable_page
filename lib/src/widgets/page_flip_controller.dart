@@ -1,5 +1,7 @@
-import '../page_flip.dart';
-import '../flip/flip_enums.dart';
+
+
+import '../enums/flip_corner.dart';
+import '../page/page_flip.dart';
 
 /// Controller for managing PageFlip widget state and operations.
 ///
@@ -115,3 +117,4 @@ class PageFlipController {
   /// Check if the controller is properly initialized
   bool get isInitialized => _pageFlip != null;
 }
+

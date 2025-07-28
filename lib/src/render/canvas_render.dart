@@ -1,113 +1,347 @@
-import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:turnable_page/src/page/page_flip.dart';
 import 'package:flutter/material.dart';
-import '../basic_types.dart' as book_types;
-import '../page_flip.dart';
-import '../page/page.dart';
-import '../flip/flip_enums.dart';
+import '../enums/book_orientation.dart';
+import '../enums/flip_direction.dart';
+import '../enums/page_orientation.dart';
+import '../enums/size_type.dart';
+import '../model/point.dart';
+import '../model/page_rect.dart';
+import '../model/rect_points.dart';
+import '../model/shadow.dart';
+import '../flip/flip_settings.dart';
+import '../page/book_page.dart';
+import '../enums/animation_process.dart';
 import 'render.dart';
+
 
 /// Class responsible for rendering the Canvas book
 class CanvasRender extends Render {
   Canvas? _canvas;
   Size? _size;
-  bool _isDirty = true; // Track if content has changed
 
-  CanvasRender(PageFlip super.app, super.setting);
+  CanvasRender(super.app);
 
+  @override
   Canvas getCanvas() {
     return _canvas!;
   }
 
+  @override
+  void updateApp(PageFlip app) {
+    this.app = app;
+  }
+
+  @override
   void setCanvas(Canvas canvas, Size size) {
+    orientation = app.getSettings.usePortrait
+        ? BookOrientation.portrait
+        : BookOrientation.landscape;
     _canvas = canvas;
     _size = size;
-  }
-
-  @override
-  double getBlockWidth() {
-    // Return the actual widget/canvas width, not the page width
-    return _size?.width ?? (setting.width * 2);  // Total book width = 2 * page width
-  }
-
-  @override
-  double getBlockHeight() {
-    // Return the actual widget/canvas height
-    return _size?.height ?? setting.height;
-  }
-
-  @override
-  void reload() {
-    // Clear current state and prepare for redraw
-    _isDirty = true;
-    if (_canvas != null) {
-      clear();
-    }
-  }
-
-  /// Mark content as dirty to trigger repaint
-  void markDirty() {
-    _isDirty = true;
   }
 
   @override
   void drawFrame() {
     if (_canvas == null || _size == null) return;
 
-    // Only clear and redraw if content has changed
-    if (_isDirty) {
-      clear();
-      _isDirty = false;
-    }
-
-    // Draw left page in landscape mode
     if (orientation != BookOrientation.portrait) {
       if (leftPage != null) {
         leftPage!.simpleDraw(PageOrientation.left);
       }
     }
 
-    // Draw right page
     if (rightPage != null) {
       rightPage!.simpleDraw(PageOrientation.right);
     }
 
-    // Draw bottom page (static page behind the flipping page)
     if (bottomPage != null) {
       bottomPage!.draw();
-      _isDirty = true; // Animation in progress
     }
 
-    // Draw book shadow (spine shadow)
     drawBookShadow();
 
-    // Draw flipping page
     if (flippingPage != null) {
       flippingPage!.draw();
-      _isDirty = true; // Animation in progress
     }
 
-    // Draw page shadows
     if (shadow != null) {
       drawOuterShadow();
       drawInnerShadow();
-      _isDirty = true; // Animation in progress
     }
 
-    // Clip for portrait mode
     final rect = getRect();
     if (orientation == BookOrientation.portrait) {
-      _canvas!.clipRect(Rect.fromLTWH(
-        rect.left + rect.pageWidth,
-        rect.top,
-        rect.width,
-        rect.height,
-      ));
+      _canvas!.clipRect(
+        Rect.fromLTWH(
+          rect.left + rect.pageWidth,
+          rect.top,
+          rect.width,
+          rect.height,
+        ),
+      );
     }
   }
 
+
+
+  @override
+  void render(double timer) {
+    if (animation != null) {
+      final frameIndex =
+          ((timer - animation!.startedAt) / animation!.durationFrame).round();
+
+      if (frameIndex < animation!.frames.length) {
+        animation!.frames[frameIndex]();
+      } else {
+        animation!.onAnimateEnd();
+        app.trigger('animationComplete', app, null);
+        animation = null;
+      }
+    }
+
+    this.timer = timer;
+    drawFrame();
+  }
+
+  @override
+  void startAnimation(
+    List<FrameAction> frames,
+    double duration,
+    AnimationSuccessAction onAnimateEnd,
+  ) {
+    finishAnimation();
+
+    animation = AnimationProcess(
+      frames: frames,
+      duration: duration,
+      durationFrame: duration / frames.length,
+      onAnimateEnd: onAnimateEnd,
+      startedAt: timer,
+    );
+  }
+
+  @override
+  void finishAnimation() {
+    if (animation != null) {
+      animation!.frames[animation!.frames.length - 1]();
+      animation!.onAnimateEnd();
+      app.trigger('animationComplete', app, null);
+    }
+
+    animation = null;
+  }
+
+  @override
+  BookOrientation calculateBoundsRect() {
+    BookOrientation orientation = BookOrientation.landscape;
+
+    final blockWidth = getBlockWidth();
+    final middlePoint = Point(blockWidth / 2, getBlockHeight() / 2);
+
+    final ratio = app.getSettings.width / app.getSettings.height;
+
+    double pageWidth = app.getSettings.width;
+    double pageHeight = app.getSettings.height;
+
+    double left = middlePoint.x - pageWidth;
+
+    if (app.getSettings.size == SizeType.stretch) {
+      if (blockWidth < app.getSettings.minWidth * 2 &&
+          app.getSettings.usePortrait) {
+        orientation = BookOrientation.portrait;
+      }
+
+      pageWidth = orientation == BookOrientation.portrait
+          ? getBlockWidth()
+          : getBlockWidth() / 2;
+
+      if (pageWidth > app.getSettings.maxWidth) {
+        pageWidth = app.getSettings.maxWidth;
+      }
+
+      pageHeight = pageWidth / ratio;
+      if (pageHeight > getBlockHeight()) {
+        pageHeight = getBlockHeight();
+        pageWidth = pageHeight * ratio;
+      }
+
+      left = orientation == BookOrientation.portrait
+          ? middlePoint.x - pageWidth / 2 - pageWidth
+          : middlePoint.x - pageWidth;
+    } else {
+      if (blockWidth < pageWidth * 2) {
+        if (app.getSettings.usePortrait) {
+          orientation = BookOrientation.portrait;
+          left = middlePoint.x - pageWidth / 2 - pageWidth;
+        }
+      }
+    }
+
+    boundsRect = PageRect(
+      left: left,
+      top: middlePoint.y - pageHeight / 2,
+      width: pageWidth * 2,
+      height: pageHeight,
+      pageWidth: pageWidth,
+    );
+
+    return orientation;
+  }
+
+  @override
+  void setShadowData(
+    Point pos,
+    double angle,
+    double progress,
+    FlipDirection direction,
+  ) {
+    if (!app.getSettings.drawShadow) return;
+
+    final maxShadowOpacity = 100 * getSettings().maxShadowOpacity;
+
+    shadow = Shadow(
+      pos: pos,
+      angle: angle,
+      width: (((getRect().pageWidth * 3) / 4) * progress) / 100,
+      opacity: ((100 - progress) * maxShadowOpacity) / 100 / 100,
+      direction: direction,
+      progress: progress * 2,
+    );
+  }
+
+  @override
+  void clearShadow() {
+    shadow = null;
+  }
+
+  @override
+  double getBlockWidth() {
+    return _size?.width ?? (app.getSettings.width * 2);
+  }
+
+  @override
+  double getBlockHeight() {
+    return _size?.height ?? app.getSettings.height;
+  }
+
+  @override
+  FlipDirection? getDirection() {
+    return direction;
+  }
+
+  @override
+  PageRect getRect() {
+    if (boundsRect == null) calculateBoundsRect();
+    return boundsRect!;
+  }
+
+  @override
+  FlipSetting getSettings() {
+    return app.getSettings;
+  }
+
+  @override
+  BookOrientation? getOrientation() {
+    return orientation;
+  }
+
+  @override
+  void setPageRect(RectPoints pageRect) {
+    this.pageRect = pageRect;
+  }
+
+  @override
+  void setDirection(FlipDirection direction) {
+    this.direction = direction;
+  }
+
+  @override
+  void setRightPage(BookPage? page) {
+    if (page != null) page.setOrientation(PageOrientation.right);
+    rightPage = page;
+  }
+
+  @override
+  void setLeftPage(BookPage? page) {
+    if (page != null) page.setOrientation(PageOrientation.left);
+    leftPage = page;
+  }
+
+  @override
+  void setBottomPage(BookPage? page) {
+    if (page != null) {
+      page.setOrientation(
+        direction == FlipDirection.back
+            ? PageOrientation.left
+            : PageOrientation.right,
+      );
+    }
+    bottomPage = page;
+  }
+
+  @override
+  void setFlippingPage(BookPage? page) {
+    if (page != null) {
+      page.setOrientation(
+        direction == FlipDirection.forward &&
+                orientation != BookOrientation.portrait
+            ? PageOrientation.left
+            : PageOrientation.right,
+      );
+    }
+    flippingPage = page;
+  }
+
+  @override
+  Point convertToBook(Point pos) {
+    final rect = getRect();
+    return Point(pos.x - rect.left, pos.y - rect.top);
+  }
+
+  @override
+  Point convertToPage(Point pos, [FlipDirection? direction]) {
+    direction ??= this.direction;
+
+    final rect = getRect();
+    final x = direction == FlipDirection.forward
+        ? pos.x - rect.left - rect.width / 2
+        : rect.width / 2 - pos.x + rect.left;
+
+    return Point(x, pos.y - rect.top);
+  }
+
+  @override
+  Point? convertToGlobal(Point? pos, [FlipDirection? direction]) {
+    direction ??= this.direction;
+
+    if (pos == null) return null;
+
+    final rect = getRect();
+
+    final x = direction == FlipDirection.forward
+        ? pos.x + rect.left + rect.width / 2
+        : rect.width / 2 - pos.x + rect.left;
+
+    return Point(x, pos.y + rect.top);
+  }
+
+  @override
+  RectPoints convertRectToGlobal(RectPoints rect, [FlipDirection? direction]) {
+    direction ??= this.direction;
+
+    return RectPoints(
+      topLeft: convertToGlobal(rect.topLeft, direction)!,
+      topRight: convertToGlobal(rect.topRight, direction)!,
+      bottomLeft: convertToGlobal(rect.bottomLeft, direction)!,
+      bottomRight: convertToGlobal(rect.bottomRight, direction)!,
+    );
+  }
+
+  @override
   void drawBookShadow() {
-    if (_canvas == null || _size == null || !setting.drawShadow) return;
+    if (_canvas == null || _size == null || !app.getSettings.drawShadow) return;
 
     final rect = getRect();
     final paint = Paint();
@@ -115,12 +349,13 @@ class CanvasRender extends Render {
     _canvas!.save();
 
     final shadowSize = rect.width / 20;
-    _canvas!.clipRect(Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height));
+    _canvas!.clipRect(
+      Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height),
+    );
 
-    final shadowPos = book_types.Point(rect.left + rect.width / 2 - shadowSize / 2, 0);
+    final shadowPos = Point(rect.left + rect.width / 2 - shadowSize / 2, 0);
     _canvas!.translate(shadowPos.x, shadowPos.y);
 
-    // Create gradient for book spine shadow
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(shadowSize, 0),
@@ -141,13 +376,17 @@ class CanvasRender extends Render {
     _canvas!.restore();
   }
 
+  @override
   void drawOuterShadow() {
-    if (_canvas == null || shadow == null || !setting.drawShadow) return;
+    if (_canvas == null || shadow == null || !app.getSettings.drawShadow)
+      return;
 
     final rect = getRect();
     _canvas!.save();
 
-    _canvas!.clipRect(Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height));
+    _canvas!.clipRect(
+      Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height),
+    );
 
     final shadowPos = convertToGlobal(shadow!.pos);
     if (shadowPos == null) {
@@ -186,13 +425,22 @@ class CanvasRender extends Render {
     );
 
     paint.shader = gradient;
-    _canvas!.drawRect(Rect.fromLTWH(0, 0, shadow!.width, rect.height * 2), paint);
+    _canvas!.drawRect(
+      Rect.fromLTWH(0, 0, shadow!.width, rect.height * 2),
+      paint,
+    );
 
     _canvas!.restore();
   }
 
+  @override
   void drawInnerShadow() {
-    if (_canvas == null || shadow == null || pageRect == null || !setting.drawShadow) return;
+    if (_canvas == null ||
+        shadow == null ||
+        pageRect == null ||
+        !app.getSettings.drawShadow) {
+      return;
+    }
 
     final rect = getRect();
     _canvas!.save();
@@ -204,15 +452,14 @@ class CanvasRender extends Render {
     }
 
     final pageRectGlobal = convertRectToGlobal(pageRect!);
-    
-    // Create clipping path for the page
+
     final path = Path();
     path.moveTo(pageRectGlobal.topLeft.x, pageRectGlobal.topLeft.y);
     path.lineTo(pageRectGlobal.topRight.x, pageRectGlobal.topRight.y);
     path.lineTo(pageRectGlobal.bottomRight.x, pageRectGlobal.bottomRight.y);
     path.lineTo(pageRectGlobal.bottomLeft.x, pageRectGlobal.bottomLeft.y);
     path.close();
-    
+
     _canvas!.clipPath(path);
 
     _canvas!.translate(shadowPos.x, shadowPos.y);
@@ -256,10 +503,4 @@ class CanvasRender extends Render {
     _canvas!.restore();
   }
 
-  void clear() {
-    if (_canvas == null || _size == null) return;
-    
-    final paint = Paint()..color = Colors.white;
-    _canvas!.drawRect(Rect.fromLTWH(0, 0, _size!.width, _size!.height), paint);
-  }
 }

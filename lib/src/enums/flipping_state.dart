@@ -1,18 +1,3 @@
-/// Flipping direction
-enum FlipDirection {
-  forward,
-  back,
-}
-
-/// Active corner when flipping
-enum FlipCorner {
-  top('top'),
-  bottom('bottom');
-
-  const FlipCorner(this.value);
-  final String value;
-}
-
 /// State of the book
 enum FlippingState {
   /// The user folding the page

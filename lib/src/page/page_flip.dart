@@ -1,15 +1,19 @@
-import 'package:flutter/material.dart';
-import 'dart:math';
-import 'basic_types.dart';
-import 'settings.dart';
-import 'event/event_object.dart';
-import 'render/render.dart';
-import 'collection/page_collection.dart';
-import 'collection/widget_page_collection.dart';
-import 'flip/flip_enums.dart';
-import 'flip/flip.dart';
-import 'page/page.dart';
+import 'dart:math' hide Point;
 import 'dart:ui' as dart;
+import '../collection/page_collection.dart';
+import '../collection/page_collection_impl.dart';
+import '../enums/book_orientation.dart';
+import '../enums/flip_corner.dart';
+import '../enums/flipping_state.dart';
+import '../event/event_object.dart';
+import '../model/page_rect.dart';
+import '../model/point.dart';
+import '../render/canvas_render.dart';
+import '../render/render.dart';
+import '../ui/canvas_interaction_handler.dart';
+import 'book_page.dart';
+import '../flip/flip_settings.dart';
+import '../flip/flip_process.dart';
 
 /// Class representing a main PageFlip object
 class PageFlip extends EventObject {
@@ -17,142 +21,79 @@ class PageFlip extends EventObject {
   bool isUserTouch = false;
   bool isUserMove = false;
 
-  late final FlipSetting setting;
-  late final Widget rootWidget; // Root Flutter Widget
+  late FlipSetting setting;
+  late FlipProcess flipProcess;
+  late Render render;
+  late CanvasInteractionHandler canvasInteractionHandler;
 
   PageCollection? pages;
-  Flip? flipController; // Flip controller
-  Render? render;
-
-  dynamic ui; // UI - will be defined later
-
-  /// Create a new PageFlip instance
-  ///
-  /// @param {Widget} rootWidget - Root Flutter Widget
-  /// @param {Map<String, dynamic>} setting - Configuration object
-  PageFlip(this.rootWidget, Map<String, dynamic> setting) : super() {
-    this.setting = Settings().getSettings(setting);
-  }
 
   /// Create a new PageFlip instance with FlipSetting object
-  ///
-  /// @param {Widget} rootWidget - Root Flutter Widget
-  /// @param {FlipSetting} setting - Configuration object
-  PageFlip.withSettings(this.rootWidget, this.setting) : super();
-
-  /// Destructor. Remove a root widget and all event handlers
-  void destroy() {
-    ui?.destroy();
-    // In Flutter, widget disposal is handled by the framework
+  ///  FlipSetting [setting] - Configuration object
+  PageFlip(this.setting) : super() {
+    render = CanvasRender(this);
+    canvasInteractionHandler = CanvasInteractionHandler(this);
+    flipProcess = FlipProcess(this, render);
   }
 
-  /// Update the render area. Re-show current page.
-  void update() {
-    render?.update();
-    pages?.show();
+  void updateSetting(FlipSetting setting) {
+    this.setting = setting;
+    render.updateApp(this);
+    canvasInteractionHandler.updateApp(this);
+    flipProcess.updateApp(this, render);
   }
 
-  /// Load pages from Flutter widgets
-  ///
-  /// @param {List<Widget>} items - List of page widgets
   void loadFromWidgets(List<dart.Image> images) {
-    if (render == null) {
-      throw Exception('Render must be initialized before loading widgets');
-    }
-
-    // Initialize flip controller
-    flipController = Flip(render!, this);
-
-
-
     // Create simple widget page collection
-    pages = WidgetPageCollection(this, render!, images);
-    pages!.load();
+    pages = PageCollectionImpl(this, render, images);
+    pages!.loadBookPages();
 
-    // Start rendering
-    render!.start();
+
 
     // Show initial page
     pages!.show(setting.startPage);
 
     Future.delayed(const Duration(milliseconds: 1), () {
-      ui?.update();
       trigger('init', this, {
         'page': setting.startPage,
-        'mode': render!.getOrientation(),
+        'mode': render.getOrientation(),
       });
     });
   }
 
 
-
-  /// Update pages from Flutter widgets
-  ///
-  /// @param {List<Widget>} items - List of page widgets
-  void updateFromWidgets(List<dart.Image> images) {
-    if (pages != null && render != null) {
-      final current = pages!.getCurrentPageIndex();
-      
-      // Destroy current pages
-      pages!.destroy();
-      
-
-      
-      // Create new widget page collection
-      pages = WidgetPageCollection(this, render!, images);
-      pages!.load();
-      
-      // Reload render
-      render!.reload();
-      
-      // Show current page (or first page if current is out of bounds)
-      final pageToShow = current < images.length ? current : 0;
-      pages!.show(pageToShow);
-      
-      trigger('update', this, {
-        'page': pageToShow,
-        'mode': render!.getOrientation(),
-      });
-    }
-  }
-
   /// Clear all pages
   void clear() {
     pages?.destroy();
-    ui?.update();
-    
     trigger('clear', this, {});
   }
 
-  /// Turn to previous page
+  /// Turn to previous page without animation
   void turnToPrevPage() {
     pages?.showPrev();
   }
 
-  /// Turn to next page
+  /// Turn to next page without animation
   void turnToNextPage() {
     pages?.showNext();
   }
 
   /// Turn to specific page
   ///
-  /// @param {int} page - Page index
+  /// int [page] - Page index without animation
   void turnToPage(int page) {
     pages?.show(page);
   }
 
   /// Show page by number with optional corner specification
-  /// 
+  ///
   /// @param {int} pageNum - Page number to show (0-based)
   /// @param {String} corner - Corner to flip from ('top' or 'bottom')
   void showPage(int pageNum, [String? corner]) {
     if (pages != null) {
       pages!.show(pageNum);
-      
-      trigger('flip', this, {
-        'page': pageNum,
-        'mode': render!.getOrientation(),
-      });
+
+      trigger('flip', this, {'page': pageNum, 'mode': render.getOrientation()});
     }
   }
 
@@ -161,22 +102,13 @@ class PageFlip extends EventObject {
   /// @param {FlipCorner} corner - Corner to flip from
   void flipNext([FlipCorner corner = FlipCorner.top]) {
     if (pages == null) return;
-    
+
     final currentIndex = getCurrentPageIndex();
     final totalPages = getPageCount();
-    
+
     if (currentIndex < totalPages - 1) {
-      // Use flip controller for animation if available
-      if (flipController != null) {
-        flipController!.flipNext(corner);
-      } else {
-        turnToNextPage();
-      }
-      
-      trigger('flip', this, {
-        'page': currentIndex + 1,
-        'direction': 'next',
-      });
+      flipProcess.flipNext(corner);
+      trigger('flip', this, {'page': currentIndex + 1, 'direction': 'next'});
     }
   }
 
@@ -185,21 +117,13 @@ class PageFlip extends EventObject {
   /// @param {FlipCorner} corner - Corner to flip from
   void flipPrev([FlipCorner corner = FlipCorner.top]) {
     if (pages == null) return;
-    
+
     final currentIndex = getCurrentPageIndex();
-    
+
     if (currentIndex > 0) {
       // Use flip controller for animation if available
-      if (flipController != null) {
-        flipController!.flipPrev(corner);
-      } else {
-        turnToPrevPage();
-      }
-      
-      trigger('flip', this, {
-        'page': currentIndex - 1,
-        'direction': 'prev',
-      });
+      flipProcess.flipPrev(corner);
+      trigger('flip', this, {'page': currentIndex - 1, 'direction': 'prev'});
     }
   }
 
@@ -209,19 +133,14 @@ class PageFlip extends EventObject {
   /// @param {FlipCorner} corner - Corner to flip from
   void flip(int page, [FlipCorner corner = FlipCorner.top]) {
     if (pages == null) return;
-    
+
     final totalPages = getPageCount();
-    
+
     if (page >= 0 && page < totalPages) {
       final currentIndex = getCurrentPageIndex();
-      
-      // Use flip controller for animation if available
-      if (flipController != null) {
-        flipController!.flipToPage(page, corner);
-      } else {
-        turnToPage(page);
-      }
-      
+
+      flipProcess.flipToPage(page, corner);
+
       trigger('flip', this, {
         'page': page,
         'direction': page > currentIndex ? 'next' : 'prev',
@@ -243,15 +162,6 @@ class PageFlip extends EventObject {
     trigger('flip', this, newPage);
   }
 
-  /// Update orientation
-  ///
-  /// @param {BookOrientation} newOrientation - New orientation
-  void updateOrientation(BookOrientation newOrientation) {
-    // Update UI orientation style if available
-    ui?.setOrientationStyle(newOrientation);
-    update();
-    trigger('changeOrientation', this, newOrientation);
-  }
 
   /// Get total page count
   int getPageCount() {
@@ -277,35 +187,27 @@ class PageFlip extends EventObject {
 
   /// Get flip controller
   dynamic getFlipController() {
-    return flipController;
+    return flipProcess;
   }
 
   /// Get current orientation
   BookOrientation? getOrientation() {
-    return render?.getOrientation();
+    return render.getOrientation();
   }
 
   /// Get bounds rectangle
   PageRect? getBoundsRect() {
-    return render?.getRect();
+    return render.getRect();
   }
 
   /// Get settings
-  FlipSetting getSettings() {
+  FlipSetting get getSettings {
     return setting;
-  }
-
-  /// Get UI object
-  dynamic getUI() {
-    if (ui == null) {
-      throw Exception('UI has not been initialized yet');
-    }
-    return ui;
   }
 
   /// Get current flipping state
   FlippingState? getState() {
-    return flipController?.getState();
+    return flipProcess.getState();
   }
 
   /// Get page collection
@@ -331,11 +233,7 @@ class PageFlip extends EventObject {
     isUserTouch = true;
     isUserMove = false;
     mousePosition = pos;
-
-    // Initialize flip interaction if flip controller is available
-    if (flipController != null) {
-      flipController!.fold(pos);
-    }
+    flipProcess.fold(pos);
   }
 
   /// Handle user move
@@ -344,12 +242,11 @@ class PageFlip extends EventObject {
   /// @param {bool} isTouch - Whether this is a touch event
   void userMove(Point pos, bool isTouch) {
     if (isUserTouch) {
-      if (mousePosition != null && _getDistanceBetweenPoints(mousePosition!, pos) > 5) {
+      if (mousePosition != null &&
+          _getDistanceBetweenPoints(mousePosition!, pos) > 5) {
         isUserMove = true;
         // Continue flip interaction
-        if (flipController != null) {
-          flipController!.fold(pos);
-        }
+        flipProcess.fold(pos);
       }
     }
   }
@@ -365,14 +262,10 @@ class PageFlip extends EventObject {
       if (!isSwipe) {
         if (!isUserMove) {
           // Single click/tap - trigger flip
-          if (flipController != null) {
-            flipController!.flip(pos);
-          }
+          flipProcess.flip(pos);
         } else {
           // End drag movement
-          if (flipController != null) {
-            flipController!.stopMove();
-          }
+          flipProcess.stopMove();
         }
       }
     }

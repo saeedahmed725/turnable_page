@@ -4,11 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../flip/flip_enums.dart';
-import '../page_flip.dart';
-import '../render/canvas_render.dart';
-import '../settings.dart';
-import '../ui/canvas_ui.dart';
+import '../enums/flip_corner.dart';
+import '../flip/flip_settings.dart';
+import '../page/page_flip.dart';
+import '../render/render.dart';
 import 'page_flip_controller.dart';
 
 typedef TurnableBuilder =
@@ -73,7 +72,6 @@ class _TurnablePageState extends State<TurnablePage>
   late PageFlip _pageFlip;
   late AnimationController _animationController;
   late FlipSetting settings;
-  CanvasRender? _render;
   int _currentPageIndex = 0;
   bool _needsRepaint = true;
   late final List<GlobalKey> globalKeys;
@@ -85,7 +83,7 @@ class _TurnablePageState extends State<TurnablePage>
   int get totalpageCount =>
       _needsWhitePage ? widget.pageCount + 1 : widget.pageCount;
 
-  Size bookSize = const Size(0, 0);
+  Size bookSize = const Size(400, 600);
 
   Size calculateBookSize({
     required double maxWidth,
@@ -122,12 +120,10 @@ class _TurnablePageState extends State<TurnablePage>
     // Only animate when needed - not continuously
     _animationController.addListener(() {
       if (_needsRepaint && mounted) {
-        setState(() {
-          // Trigger repaint only when necessary
-        });
+        setState(() {});
       }
     });
-
+    _pageFlip = PageFlip(widget.settings);
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,49 +177,10 @@ class _TurnablePageState extends State<TurnablePage>
   @override
   void dispose() {
     _animationController.dispose();
-    _pageFlip.destroy();
     super.dispose();
   }
 
   Future<void> _setupPageFlip() async {
-    // Calculate individual page dimensions
-    final pageWidth = widget.settings.usePortrait
-        ? bookSize.width
-        : bookSize.width / 2;
-    final pageHeight = bookSize.height;
-
-    // Update the settings with calculated dimensions
-    settings = FlipSetting(
-      startPage: widget.settings.startPage,
-      size: widget.settings.size,
-      width: pageWidth,
-      height: pageHeight,
-      minWidth: pageWidth,
-      maxWidth: pageWidth,
-      minHeight: pageHeight,
-      maxHeight: pageHeight,
-      drawShadow: widget.settings.drawShadow,
-      flippingTime: widget.settings.flippingTime,
-      usePortrait: widget.settings.usePortrait,
-      startZIndex: widget.settings.startZIndex,
-      autoSize: widget.settings.autoSize,
-      maxShadowOpacity: widget.settings.maxShadowOpacity,
-      showCover: widget.settings.showCover,
-      mobileScrollSupport: widget.settings.mobileScrollSupport,
-      swipeDistance: widget.settings.swipeDistance,
-      clickEventForward: widget.settings.clickEventForward,
-      useMouseEvents: widget.settings.useMouseEvents,
-      disableFlipByClick: widget.settings.disableFlipByClick,
-      showPageCorners: widget.settings.showPageCorners,
-    );
-
-    _pageFlip = PageFlip.withSettings(Container(), settings);
-
-    // Initialize UI and render
-    _pageFlip.ui = CanvasUI(this, _pageFlip, _pageFlip.setting);
-    _render = CanvasRender(_pageFlip, _pageFlip.setting);
-    _pageFlip.render = _render;
-
     await _loadPageContent();
     // Initialize the controller if provided
     widget.controller?.initializeController(
@@ -314,9 +271,7 @@ class _TurnablePageState extends State<TurnablePage>
     final canvas = Canvas(recorder);
 
     // Calculate individual page dimensions
-    final pageWidth = widget.settings.usePortrait
-        ? bookSize.width
-        : bookSize.width / 2;
+    final pageWidth = bookSize.width;
     final pageHeight = bookSize.height;
 
     // Create a pure white background
@@ -335,9 +290,7 @@ class _TurnablePageState extends State<TurnablePage>
     final canvas = Canvas(recorder);
 
     // Calculate individual page dimensions
-    final pageWidth = widget.settings.usePortrait
-        ? bookSize.width
-        : bookSize.width / 2;
+    final pageWidth = bookSize.width;
     final pageHeight = bookSize.height;
 
     // Create a white background with error message
@@ -382,11 +335,21 @@ class _TurnablePageState extends State<TurnablePage>
         if (_oldBookSize == null ||
             bookSize.hasSignificantChange(_oldBookSize!)) {
           _oldBookSize = bookSize;
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (mounted) {
-              await _setupPageFlip();
-            }
-          });
+          if (mounted) {
+            _pageFlip.updateSetting(
+              widget.settings.copyWith(
+                height: bookSize.height,
+                width: bookSize.width / (widget.settings.usePortrait ? 1 : 2),
+                minHeight: bookSize.height,
+                minWidth:
+                    bookSize.width / (widget.settings.usePortrait ? 1 : 2),
+                maxHeight: bookSize.height,
+                maxWidth:
+                    bookSize.width / (widget.settings.usePortrait ? 1 : 2),
+              ),
+            );
+            _setupPageFlip();
+          }
         }
 
         return Stack(
@@ -399,20 +362,20 @@ class _TurnablePageState extends State<TurnablePage>
                   onPanStart: (details) {
                     final position = details.localPosition;
                     _startAnimation();
-                    (_pageFlip.ui as CanvasUI?)?.handleMouseDown(position);
+                    (_pageFlip.canvasInteractionHandler).handleMouseDown(position);
                   },
                   onPanUpdate: (details) {
                     final position = details.localPosition;
-                    (_pageFlip.ui as CanvasUI?)?.handleMouseMove(position);
+                    _pageFlip.canvasInteractionHandler.handleMouseMove(position);
                   },
                   onPanEnd: (details) {
                     final position = details.localPosition;
-                    (_pageFlip.ui as CanvasUI?)?.handleMouseUp(position);
+                    _pageFlip.canvasInteractionHandler.handleMouseUp(position);
                   },
                   onTapUp: (details) {
                     final position = details.localPosition;
                     _startAnimation();
-                    (_pageFlip.ui as CanvasUI?)?.handleClick(position);
+                    _pageFlip.canvasInteractionHandler.handleClick(position);
                     Future.delayed(const Duration(milliseconds: 500), () {
                       if (mounted) _stopAnimation();
                     });
@@ -422,7 +385,10 @@ class _TurnablePageState extends State<TurnablePage>
                     builder: (context, child) {
                       return CustomPaint(
                         size: Size(bookSize.width, bookSize.height),
-                        painter: _PageFlipPainter(_render, _needsRepaint),
+                        painter: _PageFlipPainter(
+                          _pageFlip.render,
+                          _needsRepaint,
+                        ),
                       );
                     },
                   ),
@@ -434,7 +400,7 @@ class _TurnablePageState extends State<TurnablePage>
               left: -bookSize.height * 3,
               top: 0,
               child: SizedBox(
-                width: bookSize.width / 2,
+                width: bookSize.width / (widget.settings.usePortrait ? 1 : 2),
                 height: bookSize.height,
                 child: SingleChildScrollView(
                   child: Column(
@@ -452,8 +418,12 @@ class _TurnablePageState extends State<TurnablePage>
                               child: widget.pageBuilder(
                                 index,
                                 BoxConstraints(
-                                  maxWidth: bookSize.width,
-                                  minWidth: bookSize.width / 2,
+                                  maxWidth:
+                                      bookSize.width /
+                                      (widget.settings.usePortrait ? 1 : 2),
+                                  minWidth:
+                                      bookSize.width /
+                                      (widget.settings.usePortrait ? 1 : 2),
                                   minHeight: bookSize.height,
                                   maxHeight: bookSize.height,
                                 ),
@@ -464,7 +434,9 @@ class _TurnablePageState extends State<TurnablePage>
                       }),
                       if (_needsWhitePage)
                         SizedBox(
-                          width: bookSize.width / 2,
+                          width:
+                              bookSize.width /
+                              (widget.settings.usePortrait ? 1 : 2),
                           height: bookSize.height,
                           child: RepaintBoundary(
                             key: globalKeys[widget.pageCount],
@@ -484,7 +456,7 @@ class _TurnablePageState extends State<TurnablePage>
 }
 
 class _PageFlipPainter extends CustomPainter {
-  final CanvasRender? render;
+  final Render? render;
   final bool needsRepaint;
 
   _PageFlipPainter(this.render, this.needsRepaint);

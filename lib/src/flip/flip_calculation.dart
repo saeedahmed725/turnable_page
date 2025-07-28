@@ -1,7 +1,11 @@
 import 'dart:math' as math;
-import '../basic_types.dart';
-import '../helper.dart';
-import 'flip_enums.dart';
+import '../enums/flip_corner.dart';
+import '../enums/flip_direction.dart';
+import '../helpers/helper.dart';
+import '../model/point.dart';
+import '../model/rect.dart';
+import '../model/rect_points.dart';
+import '../model/segment.dart';
 
 /// Class representing mathematical methods for calculating page position (rotation angle, clip area ...)
 class FlipCalculation {

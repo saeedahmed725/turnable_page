@@ -1,12 +1,15 @@
 import 'dart:math' as math;
-import 'basic_types.dart';
+
+import '../model/point.dart';
+import '../model/rect.dart';
+import '../model/segment.dart';
 
 /// A class containing helping mathematical methods
 class Helper {
-  /// Get the distance between two points
+  /// Returns the distance between two points.
   ///
-  /// @param {Point} point1
-  /// @param {Point} point2
+  /// [point1] The first point.
+  /// [point2] The second point.
   static double getDistanceBetweenTwoPoint(Point? point1, Point? point2) {
     if (point1 == null || point2 == null) {
       return double.infinity;
@@ -15,33 +18,34 @@ class Helper {
     return math.sqrt(math.pow(point2.x - point1.x, 2) + math.pow(point2.y - point1.y, 2));
   }
 
-  /// Get the length of the line segment
+  /// Returns the length of the given line segment.
   ///
-  /// @param {Segment} segment
+  /// [segment] The segment whose length is calculated.
   static double getSegmentLength(Segment segment) {
     return getDistanceBetweenTwoPoint(segment.start, segment.end);
   }
 
-  /// Get the angle between two lines
+  /// Returns the angle (in radians) between two line segments.
   ///
-  /// @param {Segment} line1
-  /// @param {Segment} line2
+  /// [line1] The first line segment.
+  /// [line2] The second line segment.
   static double getAngleBetweenTwoLine(Segment line1, Segment line2) {
-    final A1 = line1.start.y - line1.end.y;
-    final A2 = line2.start.y - line2.end.y;
+    final a1 = line1.start.y - line1.end.y;
+    final a2 = line2.start.y - line2.end.y;
 
-    final B1 = line1.end.x - line1.start.x;
-    final B2 = line2.end.x - line2.start.x;
+    final b1 = line1.end.x - line1.start.x;
+    final b2 = line2.end.x - line2.start.x;
 
-    return math.acos((A1 * A2 + B1 * B2) / (math.sqrt(A1 * A1 + B1 * B1) * math.sqrt(A2 * A2 + B2 * B2)));
+    return math.acos((a1 * a2 + b1 * b2) /
+        (math.sqrt(a1 * a1 + b1 * b1) * math.sqrt(a2 * a2 + b2 * b2)));
   }
 
-  /// Check for a point in a rectangle
+  /// Checks if a point is inside a rectangle.
   ///
-  /// @param {Rect} rect
-  /// @param {Point} pos
+  /// Returns the point if it is inside the rectangle, otherwise returns null.
   ///
-  /// @returns {Point} If the point enters the rectangle its coordinates will be returned, otherwise - null
+  /// [rect] The rectangle to check.
+  /// [pos] The point to check.
   static Point? pointInRect(Rect rect, Point? pos) {
     if (pos == null) {
       return null;
@@ -56,13 +60,13 @@ class Helper {
     return null;
   }
 
-  /// Transform point coordinates to a given angle
+  /// Rotates a point around a reference point by a given angle (in radians).
   ///
-  /// @param {Point} transformedPoint - Point to rotate
-  /// @param {Point} startPoint - Transformation reference point
-  /// @param {number} angle - Rotation angle (in radians)
+  /// [transformedPoint] The point to rotate.
+  /// [startPoint] The reference point for rotation.
+  /// [angle] The rotation angle in radians.
   ///
-  /// @returns {Point} Point coordinates after rotation
+  /// Returns the new coordinates after rotation.
   static Point getRotatedPoint(Point transformedPoint, Point startPoint, double angle) {
     return Point(
       transformedPoint.x * math.cos(angle) + transformedPoint.y * math.sin(angle) + startPoint.x,
@@ -70,14 +74,9 @@ class Helper {
     );
   }
 
-  /// Limit a point "linePoint" to a given circle centered at point "startPoint" and a given radius
+  /// Limits a point to a given circle centered at [startPoint] with the given [radius].
   ///
-  /// @param {Point} startPoint - Circle center
-  /// @param {number} radius - Circle radius
-  /// @param {Point} limitedPoint - Сhecked point
-  ///
-  /// @returns {Point} If "linePoint" enters the circle, then its coordinates are returned.
-  /// Else will be returned the intersection point between the line ([startPoint, linePoint]) and the circle
+  /// If [limitedPoint] is inside the circle, returns it. Otherwise, returns the intersection point between the line ([startPoint], [limitedPoint]) and the circle.
   static Point limitPointToCircle(Point startPoint, double radius, Point limitedPoint) {
     // If "linePoint" enters the circle, do nothing
     if (getDistanceBetweenTwoPoint(startPoint, limitedPoint) <= radius) {
@@ -103,39 +102,32 @@ class Helper {
     return Point(x, y);
   }
 
-  /// Find the intersection of two lines bounded by a rectangle "rectBorder"
+  /// Finds the intersection of two line segments, bounded by a rectangle [rectBorder].
   ///
-  /// @param {Rect} rectBorder
-  /// @param {Segment} one
-  /// @param {Segment} two
-  ///
-  /// @returns {Point} The intersection point, or "null" if it does not exist, or it lies outside the rectangle "rectBorder"
+  /// Returns the intersection point, or null if it does not exist or lies outside the rectangle.
   static Point? getIntersectBetweenTwoSegment(Rect rectBorder, Segment one, Segment two) {
     return pointInRect(rectBorder, getIntersectBetweenTwoLine(one, two));
   }
 
-  /// Find the intersection point of two lines
+  /// Finds the intersection point of two lines.
   ///
-  /// @param one
-  /// @param two
-  ///
-  /// @returns {Point} The intersection point, or "null" if it does not exist
-  /// @throws Error if the segments are on the same line
+  /// Returns the intersection point, or null if it does not exist.
+  /// Throws an [Exception] if the segments are on the same line.
   static Point? getIntersectBetweenTwoLine(Segment one, Segment two) {
-    final A1 = one.start.y - one.end.y;
-    final A2 = two.start.y - two.end.y;
+    final a1 = one.start.y - one.end.y;
+    final a2 = two.start.y - two.end.y;
 
-    final B1 = one.end.x - one.start.x;
-    final B2 = two.end.x - two.start.x;
+    final b1 = one.end.x - one.start.x;
+    final b2 = two.end.x - two.start.x;
 
-    final C1 = one.start.x * one.end.y - one.end.x * one.start.y;
-    final C2 = two.start.x * two.end.y - two.end.x * two.start.y;
+    final c1 = one.start.x * one.end.y - one.end.x * one.start.y;
+    final c2 = two.start.x * two.end.y - two.end.x * two.start.y;
 
-    final det1 = A1 * C2 - A2 * C1;
-    final det2 = B1 * C2 - B2 * C1;
+    final det1 = a1 * c2 - a2 * c1;
+    final det2 = b1 * c2 - b2 * c1;
 
-    final x = -((C1 * B2 - C2 * B1) / (A1 * B2 - A2 * B1));
-    final y = -((A1 * C2 - A2 * C1) / (A1 * B2 - A2 * B1));
+    final x = -((c1 * b2 - c2 * b1) / (a1 * b2 - a2 * b1));
+    final y = -((a1 * c2 - a2 * c1) / (a1 * b2 - a2 * b1));
 
     if (x.isFinite && y.isFinite) {
       return Point(x, y);
@@ -146,12 +138,12 @@ class Helper {
     return null;
   }
 
-  /// Get a list of coordinates (step: 1px) between two points
+  /// Returns a list of coordinates (step: 1px) between two points.
   ///
-  /// @param pointOne
-  /// @param pointTwo
+  /// [pointOne] The starting point.
+  /// [pointTwo] The ending point.
   ///
-  /// @returns {Point[]}
+  /// Returns a list of [Point] objects between the two points.
   static List<Point> getCordsFromTwoPoint(Point pointOne, Point pointTwo) {
     final sizeX = (pointOne.x - pointTwo.x).abs();
     final sizeY = (pointOne.y - pointTwo.y).abs();
