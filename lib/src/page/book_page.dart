@@ -35,7 +35,7 @@ abstract class BookPage {
   /// Render dynamic page, using state
   ///
   /// @param {PageDensity} tempDensity - Density at the time of rendering
-  void draw([PageDensity? tempDensity]);
+  void draw();
 
   /// Page loading
   void loadPage();
@@ -114,7 +114,7 @@ abstract class BookPage {
     return state.hardAngle;
   }
 
-  BookPage newTemporaryCopy();
+  /// Get the temporary copy of the book page
   BookPage getTemporaryCopy();
-  void hideTemporaryCopy();
+
 }

@@ -1,9 +1,6 @@
-import 'dart:developer';
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-
 import '../enums/flip_corner.dart';
 import '../flip/flip_settings.dart';
 import '../page/page_flip.dart';
@@ -16,16 +13,37 @@ typedef TurnablePageCallback =
     void Function(int leftPageIndex, int rightPageIndex);
 
 class TurnablePage extends StatefulWidget {
-  /// Optional controller for programmatic control
+  /// Optional controller to enable programmatic page turning and control.
+  ///
+  /// If provided, this controller allows you to flip pages, jump to a specific page,
+  /// or listen to page flip events from outside the widget.
   final PageFlipController? controller;
 
-  /// Custom page builder function for widget content
+  /// Builder function to generate the content of each page.
+  ///
+  /// This function is called for every page and provides the current `pageIndex`
+  /// and the `BoxConstraints` for sizing. Return the widget you want to display
+  /// for the given page index.
+  ///
+  /// Example:
+  ///   (index, constraints) => MyPageWidget(index: index, constraints: constraints)
   final TurnableBuilder pageBuilder;
 
   /// Total number of pages
   final int pageCount;
 
-  /// Callback when page changes
+  /// Callback triggered when the visible page changes.
+  ///
+  /// The callback provides the indexes of the left and right pages currently displayed:
+  /// - In single page mode, `leftPageIndex` will be `-1` and `rightPageIndex` will be the current page.
+  /// - In two-page mode, both indexes are provided. If the last page is a white filler (due to an odd page count),
+  ///   `rightPageIndex` will be `-1`.
+  ///
+  /// Example:
+  ///   onPageChanged: (left, right) {
+  ///     // left: index of the left page, or -1 if not present
+  ///     // right: index of the right page, or -1 if not present
+  ///   }
   final TurnablePageCallback? onPageChanged;
 
   /// Page flip settings configuration
@@ -58,7 +76,7 @@ class TurnablePage extends StatefulWidget {
     required this.pageBuilder,
     required this.pageCount,
     this.onPageChanged,
-    this.aspectRatio = 3 / 4,
+    this.aspectRatio = (2 / 3) * 2,
     this.pixelRatio = 1.0,
     FlipSetting? settings,
   }) : settings = const FlipSetting(usePortrait: false);
@@ -77,29 +95,25 @@ class _TurnablePageState extends State<TurnablePage>
   late final List<GlobalKey> globalKeys;
 
   /// Check if we need to add a white page in the end of the book for even total page count
-  bool get _needsWhitePage => widget.pageCount % 2 == 1;
+  bool get _needsWhitePage => (widget.pageCount % 2 == 1) &&
+      !widget.settings.usePortrait;
 
   /// Get the actual page count including white page if needed
   int get totalpageCount =>
       _needsWhitePage ? widget.pageCount + 1 : widget.pageCount;
 
-  Size bookSize = const Size(400, 600);
+  Size bookSize = const Size(0, 0);
 
   Size calculateBookSize({
     required double maxWidth,
     required double maxHeight,
-    required double aspectRatio,
   }) {
-    final effectiveAspectRatio = widget.settings.usePortrait
-        ? aspectRatio
-        : aspectRatio * 2;
-
     double width = maxWidth;
-    double height = width / effectiveAspectRatio;
+    double height = width / widget.aspectRatio;
 
     if (height > maxHeight) {
       height = maxHeight;
-      width = height * effectiveAspectRatio;
+      width = height * widget.aspectRatio;
     }
 
     return Size(width, height);
@@ -124,6 +138,7 @@ class _TurnablePageState extends State<TurnablePage>
       }
     });
     _pageFlip = PageFlip(widget.settings);
+    
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -212,7 +227,9 @@ class _TurnablePageState extends State<TurnablePage>
               if (rightPageIndex >= widget.pageCount) {
                 rightPageIndex = -1; // No right page if it's the white page
               }
-
+              if (widget.settings.usePortrait) {
+                leftPageIndex = -1;
+              }
               widget.onPageChanged?.call(leftPageIndex, rightPageIndex);
             }
           });
@@ -221,12 +238,10 @@ class _TurnablePageState extends State<TurnablePage>
     });
 
     _pageFlip.on('init', (data) {
-      log('PageFlip init complete, showing page: ${widget.settings.startPage}');
       setState(() {});
     });
 
     _pageFlip.on('animationComplete', (data) {
-      log('PageFlip animation complete');
       if (mounted) {
         _stopAnimation();
       }
@@ -330,7 +345,6 @@ class _TurnablePageState extends State<TurnablePage>
         bookSize = calculateBookSize(
           maxWidth: constraints.maxWidth,
           maxHeight: constraints.maxHeight,
-          aspectRatio: widget.aspectRatio,
         );
         if (_oldBookSize == null ||
             bookSize.hasSignificantChange(_oldBookSize!)) {
@@ -340,12 +354,6 @@ class _TurnablePageState extends State<TurnablePage>
               widget.settings.copyWith(
                 height: bookSize.height,
                 width: bookSize.width / (widget.settings.usePortrait ? 1 : 2),
-                minHeight: bookSize.height,
-                minWidth:
-                    bookSize.width / (widget.settings.usePortrait ? 1 : 2),
-                maxHeight: bookSize.height,
-                maxWidth:
-                    bookSize.width / (widget.settings.usePortrait ? 1 : 2),
               ),
             );
             _setupPageFlip();
@@ -353,45 +361,48 @@ class _TurnablePageState extends State<TurnablePage>
         }
 
         return Stack(
+          alignment: Alignment.center,
           children: [
-            Center(
-              child: SizedBox(
-                width: bookSize.width,
-                height: bookSize.height,
-                child: GestureDetector(
-                  onPanStart: (details) {
-                    final position = details.localPosition;
-                    _startAnimation();
-                    (_pageFlip.canvasInteractionHandler).handleMouseDown(position);
+            SizedBox(
+              width: bookSize.width,
+              height: bookSize.height,
+              child: GestureDetector(
+                onPanStart: (details) {
+                  final position = details.localPosition;
+                  _startAnimation();
+                  (_pageFlip.canvasInteractionHandler).handleMouseDown(
+                    position,
+                  );
+                },
+                onPanUpdate: (details) {
+                  final position = details.localPosition;
+                  _pageFlip.canvasInteractionHandler.handleMouseMove(
+                    position,
+                  );
+                },
+                onPanEnd: (details) {
+                  final position = details.localPosition;
+                  _pageFlip.canvasInteractionHandler.handleMouseUp(position);
+                },
+                onTapUp: (details) {
+                  final position = details.localPosition;
+                  _startAnimation();
+                  _pageFlip.canvasInteractionHandler.handleClick(position);
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (mounted) _stopAnimation();
+                  });
+                },
+                child: AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      size: Size(bookSize.width, bookSize.height),
+                      painter: _PageFlipPainter(
+                        _pageFlip.render,
+                        _needsRepaint,
+                      ),
+                    );
                   },
-                  onPanUpdate: (details) {
-                    final position = details.localPosition;
-                    _pageFlip.canvasInteractionHandler.handleMouseMove(position);
-                  },
-                  onPanEnd: (details) {
-                    final position = details.localPosition;
-                    _pageFlip.canvasInteractionHandler.handleMouseUp(position);
-                  },
-                  onTapUp: (details) {
-                    final position = details.localPosition;
-                    _startAnimation();
-                    _pageFlip.canvasInteractionHandler.handleClick(position);
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      if (mounted) _stopAnimation();
-                    });
-                  },
-                  child: AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return CustomPaint(
-                        size: Size(bookSize.width, bookSize.height),
-                        painter: _PageFlipPainter(
-                          _pageFlip.render,
-                          _needsRepaint,
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ),
             ),

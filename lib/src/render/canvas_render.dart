@@ -148,7 +148,7 @@ class CanvasRender extends Render {
     double left = middlePoint.x - pageWidth;
 
     if (app.getSettings.size == SizeType.stretch) {
-      if (blockWidth < app.getSettings.minWidth * 2 &&
+      if (blockWidth < app.getSettings.width * 2 &&
           app.getSettings.usePortrait) {
         orientation = BookOrientation.portrait;
       }
@@ -157,8 +157,8 @@ class CanvasRender extends Render {
           ? getBlockWidth()
           : getBlockWidth() / 2;
 
-      if (pageWidth > app.getSettings.maxWidth) {
-        pageWidth = app.getSettings.maxWidth;
+      if (pageWidth > app.getSettings.width) {
+        pageWidth = app.getSettings.width;
       }
 
       pageHeight = pageWidth / ratio;

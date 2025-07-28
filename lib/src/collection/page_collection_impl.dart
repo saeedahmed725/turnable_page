@@ -138,7 +138,7 @@ class PageCollectionImpl extends PageCollection {
 
     if (render.getOrientation() == BookOrientation.portrait) {
       return direction == FlipDirection.forward
-          ? pages[current].newTemporaryCopy()
+          ? pages[current].getTemporaryCopy()
           : pages[current - 1];
     } else {
       final spread = direction == FlipDirection.forward

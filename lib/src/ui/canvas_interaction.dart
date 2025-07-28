@@ -6,7 +6,7 @@ import '../page/page_flip.dart';
 /// Abstract UI Class, represents work with Flutter widgets
 abstract class CanvasInteraction {
   late PageFlip app;
-  double swipeDistance = 30.0;
+  double swipeDistance = 0.0;
   SwipeData? touchPoint;
   final int swipeTimeout = 250;
 

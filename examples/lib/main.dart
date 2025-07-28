@@ -33,7 +33,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late PageFlipController _controller;
-  int _currentPage = 0;
   final int _totalPages = 5;
 
   @override
@@ -48,7 +47,6 @@ class _HomePageState extends State<HomePage> {
       height: constraints.maxHeight,
       decoration: BoxDecoration(
         color: _getPageColor(index),
-        border: Border.all(color: Colors.black, width: 2),
       ),
       child: Stack(
         children: [
@@ -126,59 +124,16 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Turnable Page Examples')),
-      body: Column(
-        children: [
-          // Control panel
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    _controller.previousPage();
-                  },
-                  child: const Text('Previous'),
-                ),
-                Text(
-                  'Page ${_currentPage + 1} of $_totalPages',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    _controller.nextPage();
-                  },
-                  child: const Text('Next'),
-                ),
-              ],
-            ),
-          ),
-          // Page flip widget
-          Expanded(
-            child: Container(
-              color: Colors.grey[300],
-              child: Center(
-                child: TurnablePage.twoPages(
-                  controller: _controller,
-                  pageBuilder: _buildPage,
-                  pageCount: _totalPages,
-                  onPageChanged: (leftPageIndex, rightPageIndex) {
-                    log('Page changed: $leftPageIndex, $rightPageIndex');
-                    // Update current page index based on left page index
-                    setState(() {
-                      _currentPage = leftPageIndex;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-        ],
+      body: Center(
+        child: TurnablePage.singlePage(
+          controller: _controller,
+          pageBuilder: _buildPage,
+          pageCount: _totalPages,
+          aspectRatio: 5/10,
+          onPageChanged: (leftPageIndex, rightPageIndex) {
+            log('Page changed: $leftPageIndex, $rightPageIndex');
+          },
+        ),
       ),
     );
   }

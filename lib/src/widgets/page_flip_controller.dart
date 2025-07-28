@@ -1,6 +1,5 @@
-
-
 import '../enums/flip_corner.dart';
+import '../event/event_object.dart';
 import '../page/page_flip.dart';
 
 /// Controller for managing PageFlip widget state and operations.
@@ -18,7 +17,7 @@ import '../page/page_flip.dart';
 /// controller.goToPage(5);
 /// ```
 class PageFlipController {
-  PageFlip? _pageFlip;
+  late PageFlip _pageFlip;
 
   initializeController({
     required PageFlip pageFlip,
@@ -41,18 +40,23 @@ class PageFlipController {
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
 
   /// Internal setters for control callbacks
-  set onNextPage(void Function([FlipCorner corner])? callback) => _onNextPage = callback;
-  set onPreviousPage(void Function([FlipCorner corner])? callback) => _onPreviousPage = callback;
-  set onGoToPage(void Function(int pageIndex)? callback) => _onGoToPage = callback;
+  set onNextPage(void Function([FlipCorner corner])? callback) =>
+      _onNextPage = callback;
+  set onPreviousPage(void Function([FlipCorner corner])? callback) =>
+      _onPreviousPage = callback;
+  set onGoToPage(void Function(int pageIndex)? callback) =>
+      _onGoToPage = callback;
 
   /// Get the current page index (0-based)
-  int get currentPageIndex => _pageFlip?.getCurrentPageIndex() ?? 0;
+  int get currentPageIndex => _pageFlip.getCurrentPageIndex();
 
   /// Get the total number of pages
-  int get pageCount => _pageFlip?.getPageCount() ?? 0;
+  int get pageCount => _pageFlip.getPageCount();
 
   /// Check if there is a next page available
-  bool get hasNextPage => currentPageIndex < pageCount - 1;
+  bool get hasNextPage =>
+      currentPageIndex + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
+      (pageCount - 1);
 
   /// Check if there is a previous page available
   bool get hasPreviousPage => currentPageIndex > 0;
@@ -62,7 +66,7 @@ class PageFlipController {
   /// [corner] - The corner to flip from (default: top)
   /// Returns true if the flip was successful, false if already at the last page
   bool nextPage([FlipCorner corner = FlipCorner.top]) {
-    if (_pageFlip == null || !hasNextPage) return false;
+    if (!hasNextPage) return false;
     _onNextPage?.call(corner);
     return true;
   }
@@ -72,7 +76,7 @@ class PageFlipController {
   /// [corner] - The corner to flip from (default: top)
   /// Returns true if the flip was successful, false if already at the first page
   bool previousPage([FlipCorner corner = FlipCorner.top]) {
-    if (_pageFlip == null || !hasPreviousPage) return false;
+    if (!hasPreviousPage) return false;
     _onPreviousPage?.call(corner);
     return true;
   }
@@ -82,7 +86,7 @@ class PageFlipController {
   /// [pageIndex] - The page index to navigate to (0-based)
   /// Returns true if the navigation was successful, false if the page index is invalid
   bool goToPage(int pageIndex) {
-    if (_pageFlip == null || pageIndex < 0 || pageIndex >= pageCount)return false;
+    if (pageIndex < 0 || pageIndex >= pageCount) return false;
     _onGoToPage?.call(pageIndex);
     return true;
   }
@@ -97,15 +101,15 @@ class PageFlipController {
   ///
   /// [event] - The event name ('flip', 'changeOrientation', etc.)
   /// [callback] - The callback function to execute
-  void addEventListener(String event, Function(dynamic) callback) {
-    _pageFlip?.on(event, callback);
+  void addEventListener(String event, EventCallback callback) {
+    _pageFlip.on(event, callback);
   }
 
   /// Remove an event listener
   ///
   /// [event] - The event name
   void removeEventListener(String event) {
-    _pageFlip?.off(event);
+    _pageFlip.off(event);
   }
 
   /// Get the underlying PageFlip instance for advanced operations
@@ -113,8 +117,4 @@ class PageFlipController {
   /// Use this only when you need direct access to PageFlip methods
   /// not exposed through this controller
   PageFlip? get pageFlipInstance => _pageFlip;
-
-  /// Check if the controller is properly initialized
-  bool get isInitialized => _pageFlip != null;
 }
-

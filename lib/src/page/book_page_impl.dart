@@ -12,34 +12,54 @@ import 'book_page.dart';
 class BookPageImp extends BookPage {
   /// Cached image for performance
   final ui.Image _image;
-  
+
   /// Page index for identification
   final int pageIndex;
-  
+
   /// Whether the page is loaded and ready to render
   bool _isLoaded = false;
-  
+
   /// Cached paint objects for performance
   static final Paint _defaultPaint = Paint()
     ..isAntiAlias = true
-    ..filterQuality = FilterQuality.high;
-  
-  /// Temporary copy reference to avoid unnecessary object creation
-  BookPageImp? _temporaryCopy;
-  
+    ..filterQuality = FilterQuality.high
+    ..colorFilter = const ColorFilter.matrix([
+      0.95,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.95,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.95,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+    ]);
+
+
   /// Cache for clipping path to avoid recreation
   Path? _cachedClipPath;
-  
+
   /// Last known area points for cache invalidation
   List<Point>? _lastAreaPoints;
 
   BookPageImp(Render render, this._image, this.pageIndex, PageDensity density)
-      : super(render, density) {
+    : super(render, density) {
     _isLoaded = true;
   }
 
   @override
-  void draw([PageDensity? tempDensity]) {
+  void draw() {
     if (!_isLoaded) return;
 
     final canvasRender = render as CanvasRender;
@@ -65,15 +85,7 @@ class BookPageImp extends BookPage {
         canvas.rotate(state.angle);
       }
 
-      // Use efficient image drawing with cached paint
-      _drawImageOptimized(
-        canvas,
-        0,
-        0,
-        rect.pageWidth,
-        rect.height,
-        tempDensity
-      );
+      _drawImageOptimized(canvas, 0, 0, rect.pageWidth, rect.height);
     } finally {
       canvas.restore();
     }
@@ -95,6 +107,19 @@ class BookPageImp extends BookPage {
     _drawImageOptimized(canvas, x, y, rect.pageWidth, rect.height);
   }
 
+  void _drawWhitePage(
+    Canvas canvas,
+    double x,
+    double y,
+    double width,
+    double height,
+  ) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..isAntiAlias = true;
+    canvas.drawRect(Rect.fromLTWH(x, y, width, height), paint);
+  }
+
   /// Optimized image drawing with performance enhancements
   void _drawImageOptimized(
     Canvas canvas,
@@ -102,47 +127,24 @@ class BookPageImp extends BookPage {
     double y,
     double width,
     double height,
-    [PageDensity? tempDensity]
   ) {
-    final paint = _getPaintForDensity(tempDensity);
-    
     // Use efficient image rect drawing with Flutter's Rect
     canvas.drawImageRect(
       _image,
-      ui.Rect.fromLTWH(0, 0, _image.width.toDouble() , _image.height.toDouble()),
+      ui.Rect.fromLTWH(0, 0, _image.width.toDouble(), _image.height.toDouble()),
       ui.Rect.fromLTWH(x, y, width, height),
-      paint,
+      _defaultPaint,
     );
-  }
-
-  /// Get appropriate paint based on page density for visual effects
-  Paint _getPaintForDensity([PageDensity? tempDensity]) {
-    final density = tempDensity ?? nowDrawingDensity;
-    
-    if (density == PageDensity.hard) {
-      // Apply subtle shadow/depth effect for hard pages
-      return Paint()
-        ..isAntiAlias = true
-        ..filterQuality = FilterQuality.high
-        ..colorFilter = const ColorFilter.matrix([
-          0.95, 0, 0, 0, 0,
-          0, 0.95, 0, 0, 0,
-          0, 0, 0.95, 0, 0,
-          0, 0, 0, 1, 0,
-        ]);
-    }
-    
-    return _defaultPaint;
   }
 
   /// Update clipping path with caching for performance
   void _updateClipPath() {
     // Check if area has changed to avoid unnecessary path recreation
-    if (_lastAreaPoints != null && 
+    if (_lastAreaPoints != null &&
         _arePointListsEqual(_lastAreaPoints!, state.area)) {
       return; // Use cached path
     }
-    
+
     if (state.area.isEmpty) {
       _cachedClipPath = null;
       _lastAreaPoints = null;
@@ -167,7 +169,7 @@ class BookPageImp extends BookPage {
         }
       }
     }
-    
+
     if (!first) {
       path.close();
       _cachedClipPath = path;
@@ -178,9 +180,9 @@ class BookPageImp extends BookPage {
   /// Efficient point list comparison
   bool _arePointListsEqual(List<Point> list1, List<Point> list2) {
     if (list1.length != list2.length) return false;
-    
+
     for (int i = 0; i < list1.length; i++) {
-      if ((list1[i].x - list2[i].x).abs() > 0.01 || 
+      if ((list1[i].x - list2[i].x).abs() > 0.01 ||
           (list1[i].y - list2[i].y).abs() > 0.01) {
         return false;
       }
@@ -193,38 +195,27 @@ class BookPageImp extends BookPage {
     _isLoaded = true;
   }
 
-  @override
-  BookPage newTemporaryCopy() {
-    // Use cached copy if available to avoid object creation overhead
-    _temporaryCopy ??= BookPageImp(render, _image, pageIndex, getDensity());
-    return _temporaryCopy!;
-  }
+
 
   @override
   BookPage getTemporaryCopy() {
-    return _temporaryCopy ?? this;
-  }
-
-  @override
-  void hideTemporaryCopy() {
-    // Clear temporary copy to free memory
-    _temporaryCopy = null;
+    return this;
   }
 
   /// Dispose method for proper resource cleanup
   void dispose() {
     _cachedClipPath = null;
     _lastAreaPoints = null;
-    _temporaryCopy = null;
     _isLoaded = false;
   }
 
   /// Get image dimensions
   Size get imageSize => Size(_image.width.toDouble(), _image.height.toDouble());
-  
+
   /// Get underlying image
   ui.Image get image => _image;
-  
+
   /// Check if page is ready for rendering
   bool get isReady => _isLoaded && !_image.debugDisposed;
 }
+
