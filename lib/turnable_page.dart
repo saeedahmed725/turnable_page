@@ -1,24 +1,25 @@
 // Core classes
-export 'src/page_flip.dart';
-export 'src/basic_types.dart';
-export 'src/settings.dart';
-export 'src/helper.dart';
+export 'page_flip.dart';
+export 'basic_types.dart';
+export 'settings.dart';
+export 'helper.dart';
 
 // Event system
-export 'src/event/event_object.dart';
+export 'event/event_object.dart';
 
 // Page system
-export 'src/page/page.dart';
+export 'page/page.dart';
 
 // Render system
-export 'src/render/render.dart';
+export 'render/render.dart';
 
 // Collection system
-export 'src/collection/page_collection.dart';
+export 'collection/page_collection.dart';
 
 // Flip system
-export 'src/flip/flip_enums.dart';
+export 'flip/flip_enums.dart';
 
 // Widget
-export 'src/widgets/page_flip_controller.dart';
-export 'src/widgets/turnable_page.dart';
+export 'widgets/page_flip_controller.dart';
+export 'widgets/turnable_page.dart';
+
