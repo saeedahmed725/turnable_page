@@ -1,13 +1,6 @@
-import 'dart:developer';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
-import '../enums/flip_corner.dart';
 import '../flip/flip_settings.dart';
-import '../page/page_flip.dart';
-import '../render/render.dart';
 import 'page_flip_controller.dart';
 import 'turnable_page_view.dart';
 
@@ -41,7 +34,6 @@ class TurnablePage extends StatelessWidget {
   /// Pixel ratio for high-quality rendering
   final double pixelRatio;
 
-  /// Create a PageFlipWidget in portrait mode (single page view)
   const TurnablePage.singlePage({
     super.key,
     this.controller,
@@ -54,7 +46,6 @@ class TurnablePage extends StatelessWidget {
     FlipSetting? settings,
   }) : settings = const FlipSetting(usePortrait: true);
 
-  /// Create a PageFlipWidget in landscape mode (two-page spread view)
   const TurnablePage.twoPages({
     super.key,
     this.controller,
@@ -64,9 +55,8 @@ class TurnablePage extends StatelessWidget {
     this.aspectRatio = 3 / 4,
     this.pixelRatio = 1.0,
     FlipSetting? settings,
-  })  :
-        autoResponse=false,
-        settings = const FlipSetting(usePortrait: false);
+  }) : autoResponse = false,
+       settings = const FlipSetting(usePortrait: false);
 
   final bool autoResponse;
 
@@ -74,8 +64,7 @@ class TurnablePage extends StatelessWidget {
     required double maxWidth,
     required double maxHeight,
     required double aspectRatio,
-  })
-  {
+  }) {
     final effectiveAspectRatio = settings.usePortrait
         ? aspectRatio
         : aspectRatio * 2;
@@ -91,23 +80,19 @@ class TurnablePage extends StatelessWidget {
     return Size(width, height);
   }
 
-
   @override
   Widget build(BuildContext context) {
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        print("constraints: $constraints");
         final isMobile = constraints.maxWidth < 600;
         final aspectRatio = isMobile ? 2 / 3 : 3 / 4;
-
-       final bookSize = calculateBookSize(
-          maxWidth: constraints.maxWidth * 0.95, // لتقليل الحجم قليلاً
+        final bookSize = calculateBookSize(
+          maxWidth: constraints.maxWidth * 0.95,
           maxHeight: constraints.maxHeight * 0.95,
           aspectRatio: aspectRatio,
         );
 
-        return TurnablePageView.twoPages(
+        return TurnablePageView(
           pageBuilder: pageBuilder,
           bookSize: bookSize,
           settings: settings,
@@ -121,4 +106,3 @@ class TurnablePage extends StatelessWidget {
     );
   }
 }
-

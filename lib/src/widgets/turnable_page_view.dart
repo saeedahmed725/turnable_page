@@ -9,7 +9,6 @@ import '../enums/flip_corner.dart';
 import '../flip/flip_settings.dart';
 import '../page/page_flip.dart';
 import '../render/render.dart';
-import 'page_flip_controller.dart';
 
 class TurnablePageView extends StatefulWidget {
   /// Optional controller for programmatic control
@@ -36,29 +35,15 @@ class TurnablePageView extends StatefulWidget {
   final double pixelRatio;
   final Size bookSize;
 
-  /// Create a PageFlipWidget in portrait mode (single page view)
-  const TurnablePageView.singlePage({
-    super.key,
-    this.controller,
-    required this.pageBuilder,
-    required this.pageCount,
-    this.onPageChanged,
-    this.aspectRatio = 2 / 3,
-    this.pixelRatio = 1.0,
-    this.autoResponse = true,
-    required this.bookSize,
-    FlipSetting? settings,
-  }) : settings = const FlipSetting(usePortrait: true);
-
   /// Create a PageFlipWidget in landscape mode (two-page spread view)
-  const TurnablePageView.twoPages({
+  const TurnablePageView({
     super.key,
     this.controller,
+    this.onPageChanged,
     required this.pageBuilder,
     required this.pageCount,
-    this.onPageChanged,
-    this.aspectRatio = 3 / 4,
-    this.pixelRatio = 1.0,
+    required this.aspectRatio,
+    required this.pixelRatio,
     required this.bookSize,
     FlipSetting? settings,
   }) : autoResponse = false,
@@ -82,16 +67,16 @@ class _TurnablePageViewState extends State<TurnablePageView>
   bool get _needsWhitePage => widget.pageCount % 2 == 1;
 
   /// Get the actual page count including white page if needed
-  int get totalpageCount =>
+  int get totalPageCount =>
       _needsWhitePage ? widget.pageCount + 1 : widget.pageCount;
 
   late Size bookSize;
 
   @override
   void initState() {
-    bookSize =widget.bookSize;
+    bookSize = widget.bookSize;
     globalKeys = List.generate(
-      totalpageCount,
+      totalPageCount,
       (index) => GlobalKey(debugLabel: "PageFlipWidgetPageKey-$index"),
     );
     _currentPageIndex = widget.settings.startPage;
@@ -112,10 +97,10 @@ class _TurnablePageViewState extends State<TurnablePageView>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupPageFlip();
-
     });
   }
-  void _updateSize(){
+
+  void _updateSize() {
     bookSize = widget.bookSize;
     final isPortrait = bookSize.width < bookSize.height;
 
@@ -134,12 +119,11 @@ class _TurnablePageViewState extends State<TurnablePageView>
 
   @override
   void didUpdateWidget(covariant TurnablePageView oldWidget) {
-    if (
-        widget.bookSize.width != oldWidget.bookSize.width &&
+    if (widget.bookSize.width != oldWidget.bookSize.width &&
         widget.bookSize.height != oldWidget.bookSize.height) {
       _updateSize();
       _setupPageFlip(); // تحميل الصفحات بالحجم الجديد
-        setState(() {});
+      setState(() {});
     }
 
     super.didUpdateWidget(oldWidget);
@@ -335,49 +319,43 @@ class _TurnablePageViewState extends State<TurnablePageView>
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-
-    return Center(
-      child: SizedBox(
-        width: bookSize.width,
-        height: bookSize.height,
-        child: GestureDetector(
-          onPanStart: (details) {
-            final position = details.localPosition;
-            _startAnimation();
-            (_pageFlip.canvasInteractionHandler).handleMouseDown(position);
+    return SizedBox(
+      width: bookSize.width,
+      height: bookSize.height,
+      child: GestureDetector(
+        onPanStart: (details) {
+          final position = details.localPosition;
+          _startAnimation();
+          (_pageFlip.canvasInteractionHandler).handleMouseDown(position);
+        },
+        onPanUpdate: (details) {
+          final position = details.localPosition;
+          _pageFlip.canvasInteractionHandler.handleMouseMove(position);
+        },
+        onPanEnd: (details) {
+          final position = details.localPosition;
+          _pageFlip.canvasInteractionHandler.handleMouseUp(position);
+        },
+        onTapUp: (details) {
+          final position = details.localPosition;
+          _startAnimation();
+          _pageFlip.canvasInteractionHandler.handleClick(position);
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) _stopAnimation();
+          });
+        },
+        child: AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return CustomPaint(
+              key: ValueKey(
+                bookSize.width.toString() + bookSize.height.toString(),
+              ),
+              painter: _PageFlipPainter(_pageFlip.render, _needsRepaint),
+            );
           },
-          onPanUpdate: (details) {
-            final position = details.localPosition;
-            _pageFlip.canvasInteractionHandler.handleMouseMove(position);
-          },
-          onPanEnd: (details) {
-            final position = details.localPosition;
-            _pageFlip.canvasInteractionHandler.handleMouseUp(position);
-          },
-          onTapUp: (details) {
-            final position = details.localPosition;
-            _startAnimation();
-            _pageFlip.canvasInteractionHandler.handleClick(position);
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) _stopAnimation();
-            });
-          },
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-
-              return CustomPaint(
-                key: ValueKey(bookSize.width.toString() + bookSize.height.toString()),
-                willChange: true,
-                painter: _PageFlipPainter(
-
-                    _pageFlip.render, _needsRepaint),
-              );
-            },
-          ),
         ),
       ),
     );
