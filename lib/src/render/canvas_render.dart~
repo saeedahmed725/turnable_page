@@ -135,6 +135,7 @@ class CanvasRender extends Render {
 
   @override
   BookOrientation calculateBoundsRect() {
+    print("ssssssssssssssssss");
     BookOrientation orientation = BookOrientation.landscape;
 
     final blockWidth = getBlockWidth();
@@ -234,7 +235,7 @@ class CanvasRender extends Render {
 
   @override
   PageRect getRect() {
-      calculateBoundsRect();
+    if (boundsRect == null) calculateBoundsRect();
     return boundsRect!;
   }
 

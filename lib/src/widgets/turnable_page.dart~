@@ -61,7 +61,7 @@ class TurnablePage extends StatelessWidget {
     required this.pageBuilder,
     required this.pageCount,
     this.onPageChanged,
-    this.aspectRatio = 3 / 4,
+    this.aspectRatio = 2 / 3,
     this.pixelRatio = 1.0,
     FlipSetting? settings,
   })  :

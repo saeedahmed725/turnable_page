@@ -70,7 +70,7 @@ class FlipSetting {
     this.startPage = 0,
     
     /// Size calculation method. Default: SizeType.fixed
-    this.size = SizeType.stretch,
+    this.size = SizeType.fixed,
     
     /// Book width in pixels. Default: 267px (400 * 2/3 ratio)
     this.width = 400 * (2 / 3),
