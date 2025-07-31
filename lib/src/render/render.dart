@@ -94,7 +94,7 @@ abstract class Render {
   PageRect getRect();
 
   /// Get configuration object
-  FlipSetting getSettings();
+  FlipSettings getSettings();
 
   /// Get current book orientation
   BookOrientation? getOrientation();

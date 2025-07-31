@@ -1,83 +1,82 @@
 import 'package:flutter/material.dart';
 
+import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
+import '../model/paper_boundary_decoration.dart';
 import 'page_flip_controller.dart';
 import 'turnable_page_view.dart';
 
 typedef TurnableBuilder =
     Widget Function(int pageIndex, BoxConstraints constraints);
-
 typedef TurnablePageCallback =
     void Function(int leftPageIndex, int rightPageIndex);
 
 class TurnablePage extends StatelessWidget {
-  /// Optional controller for programmatic control
   final PageFlipController? controller;
-
-  /// Custom page builder function for widget content
   final TurnableBuilder pageBuilder;
-
-  /// Total number of pages
   final int pageCount;
-
-  /// Callback when page changes
   final TurnablePageCallback? onPageChanged;
-
-  /// Page flip settings configuration
-  final FlipSetting settings;
-
-  /// Aspect ratio for individual pages (width/height ratio)
-  /// Default: 2/3 ≈ 0.667 for single page (6" × 9") and 3/4 ≈ 0.75 for two-page spread (8.5" × 11")
-  /// Adjust based on your design requirements
-  final double aspectRatio;
-
-  /// Pixel ratio for high-quality rendering
+  final FlipSettings settings;
+  final PageViewMode pageViewMode;
   final double pixelRatio;
+  final bool autoResponseSize;
+  final PaperBoundaryDecoration paperBoundaryDecoration;
+  final double? aspectRatio;
 
-  const TurnablePage.singlePage({
+  TurnablePage({
     super.key,
     this.controller,
+    this.aspectRatio,
     required this.pageBuilder,
     required this.pageCount,
     this.onPageChanged,
-    this.aspectRatio = 2 / 3,
+    this.pageViewMode = PageViewMode.single,
     this.pixelRatio = 1.0,
-    this.autoResponse = true,
-    FlipSetting? settings,
-  }) : settings = const FlipSetting(usePortrait: true);
+    this.autoResponseSize = true,
+    this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
+    FlipSettings? settings,
+  }) : settings = settings ?? FlipSettings() {
+    if (settings != null) {
+      assert(
+        this.settings.startPageIndex >= 0,
+        'Page count must be greater than 0',
+      );
+      assert(
+        this.settings.startPageIndex < pageCount,
+        'Start page index must be less than page count',
+      );
+    }
+  }
 
-  const TurnablePage.twoPages({
-    super.key,
-    this.controller,
-    required this.pageBuilder,
-    required this.pageCount,
-    this.onPageChanged,
-    this.aspectRatio = 3 / 4,
-    this.pixelRatio = 1.0,
-    FlipSetting? settings,
-  }) : autoResponse = false,
-       settings = const FlipSetting(usePortrait: false);
-
-  final bool autoResponse;
-
-  Size calculateBookSize({
+  Size _calculateBookSize({
     required double maxWidth,
     required double maxHeight,
     required double aspectRatio,
   }) {
-    final effectiveAspectRatio = settings.usePortrait
-        ? aspectRatio
-        : aspectRatio * 2;
-
-    double width = maxWidth;
-    double height = width / effectiveAspectRatio;
-
+    double height = maxWidth / aspectRatio;
     if (height > maxHeight) {
       height = maxHeight;
-      width = height * effectiveAspectRatio;
+      maxWidth = height * aspectRatio;
     }
+    return Size(maxWidth, height);
+  }
 
-    return Size(width, height);
+  double _getAspectRatio(bool isMobile) {
+    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
+      return aspectRatio?? 2 / 3;
+    }
+    if (pageViewMode == PageViewMode.single) {
+      return aspectRatio??2 / 3 * (isMobile ? 1 : 2);
+    }
+    return aspectRatio??(2 / 3) * 2;
+  }
+
+  FlipSettings _getAdjustedSetting(bool isMobile) {
+    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
+      return settings.copyWith(usePortrait: true);
+    }
+    final usePortrait = pageViewMode == PageViewMode.single && isMobile;
+    return settings.copyWith(usePortrait: usePortrait);
   }
 
   @override
@@ -85,22 +84,28 @@ class TurnablePage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
-        final aspectRatio = isMobile ? 2 / 3 : 3 / 4;
-        final bookSize = calculateBookSize(
-          maxWidth: constraints.maxWidth * 0.95,
-          maxHeight: constraints.maxHeight * 0.95,
+        final aspectRatio = _getAspectRatio(isMobile);
+        FlipSettings adjustedSettings = _getAdjustedSetting(isMobile);
+
+        final bookSize = _calculateBookSize(
+          maxWidth: constraints.maxWidth,
+          maxHeight: constraints.maxHeight,
           aspectRatio: aspectRatio,
         );
-
+        adjustedSettings = adjustedSettings.copyWith(
+          width: bookSize.width,
+          height: bookSize.height,
+        );
         return TurnablePageView(
           pageBuilder: pageBuilder,
           bookSize: bookSize,
-          settings: settings,
+          settings: adjustedSettings,
           pageCount: pageCount,
           pixelRatio: pixelRatio,
           controller: controller,
           aspectRatio: aspectRatio,
           onPageChanged: onPageChanged,
+          paperBoundaryDecoration: paperBoundaryDecoration,
         );
       },
     );

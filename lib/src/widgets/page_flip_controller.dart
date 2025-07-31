@@ -21,31 +21,20 @@ class PageFlipController {
 
   initializeController({
     required PageFlip pageFlip,
-    void Function([FlipCorner corner])? onNextPage,
-    void Function([FlipCorner corner])? onPreviousPage,
-    void Function(int pageIndex)? onGoToPage,
+    void Function()? startAnimation,
+    void Function()? stopAnimation,
   }) {
     _pageFlip = pageFlip;
-    _onNextPage = onNextPage;
-    _onPreviousPage = onPreviousPage;
-    _onGoToPage = onGoToPage;
+    _startAnimation = startAnimation;
+    _stopAnimation = stopAnimation;
   }
 
   // Callbacks to widget methods for animation control
-  void Function([FlipCorner corner])? _onNextPage;
-  void Function([FlipCorner corner])? _onPreviousPage;
-  void Function(int pageIndex)? _onGoToPage;
+  void Function()? _startAnimation;
+  void Function()? _stopAnimation;
 
   /// Internal setter for the PageFlip instance
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
-
-  /// Internal setters for control callbacks
-  set onNextPage(void Function([FlipCorner corner])? callback) =>
-      _onNextPage = callback;
-  set onPreviousPage(void Function([FlipCorner corner])? callback) =>
-      _onPreviousPage = callback;
-  set onGoToPage(void Function(int pageIndex)? callback) =>
-      _onGoToPage = callback;
 
   /// Get the current page index (0-based)
   int get currentPageIndex => _pageFlip.getCurrentPageIndex();
@@ -67,7 +56,11 @@ class PageFlipController {
   /// Returns true if the flip was successful, false if already at the last page
   bool nextPage([FlipCorner corner = FlipCorner.top]) {
     if (!hasNextPage) return false;
-    _onNextPage?.call(corner);
+    _startAnimation?.call();
+    _pageFlip.flipNext(corner);
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _stopAnimation?.call();
+    });
     return true;
   }
 
@@ -77,7 +70,11 @@ class PageFlipController {
   /// Returns true if the flip was successful, false if already at the first page
   bool previousPage([FlipCorner corner = FlipCorner.top]) {
     if (!hasPreviousPage) return false;
-    _onPreviousPage?.call(corner);
+    _startAnimation?.call();
+    _pageFlip.flipPrev(corner);
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _stopAnimation?.call();
+    });
     return true;
   }
 
@@ -87,7 +84,11 @@ class PageFlipController {
   /// Returns true if the navigation was successful, false if the page index is invalid
   bool goToPage(int pageIndex) {
     if (pageIndex < 0 || pageIndex >= pageCount) return false;
-    _onGoToPage?.call(pageIndex);
+    _startAnimation?.call();
+    _pageFlip.flip(pageIndex, FlipCorner.top);
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _stopAnimation?.call();
+    });
     return true;
   }
 

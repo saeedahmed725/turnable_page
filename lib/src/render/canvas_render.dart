@@ -239,7 +239,7 @@ class CanvasRender extends Render {
   }
 
   @override
-  FlipSetting getSettings() {
+  FlipSettings getSettings() {
     return app.getSettings;
   }
 

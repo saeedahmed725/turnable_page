@@ -1,9 +1,9 @@
 import '../enums/size_type.dart';
 
 /// Configuration object for PageFlip widget behavior and appearance
-class FlipSetting {
+class FlipSettings {
   /// Initial page to display when the book loads (0-based index)
-  final int startPage;
+  int startPageIndex;
 
   /// How the book size is calculated - fixed dimensions or stretch to fit parent
   final SizeType size;
@@ -36,7 +36,7 @@ class FlipSetting {
   final bool clickEventForward;
 
   /// Enable mouse events (hover effects, etc.)
-  final bool useMouseEvents;
+  // final bool useMouseEvents;
 
   /// Minimum distance in pixels for a swipe gesture to register
   final double swipeDistance;
@@ -47,9 +47,9 @@ class FlipSetting {
   /// Disable page flipping when clicking on the page (only allow drag gestures)
   final bool disableFlipByClick;
 
-  const FlipSetting({
+  FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
-    this.startPage = 0,
+    this.startPageIndex = 0,
 
     /// Size calculation method. Default: SizeType.fixed
     this.size = SizeType.fixed,
@@ -76,16 +76,16 @@ class FlipSetting {
     this.showCover = false,
 
     /// Enable mobile scroll support. Default: true
-    this.mobileScrollSupport = false,
+    this.mobileScrollSupport = true,
 
-    /// Forward click events to parent. Default: true
+    /// Forward click events to parent. Default: false
     this.clickEventForward = false,
 
     /// Enable mouse hover effects. Default: true
-    this.useMouseEvents = false,
+    // this.useMouseEvents = false,
 
     /// Swipe distance threshold in pixels. Default: 30px
-    this.swipeDistance = 0.0,
+    this.swipeDistance = 100.0,
 
     /// Show corner highlights on hover. Default: true
     this.showPageCorners = true,
@@ -94,7 +94,7 @@ class FlipSetting {
     this.disableFlipByClick = false,
   });
 
-  FlipSetting copyWith({
+  FlipSettings copyWith({
     int? startPage,
     SizeType? size,
     double? width,
@@ -112,10 +112,10 @@ class FlipSetting {
     bool? showPageCorners,
     bool? disableFlipByClick,
   }) {
-    return FlipSetting(
-      startPage: startPage ?? this.startPage,
+    return FlipSettings(
+      startPageIndex: startPage ?? startPageIndex,
       size: size ?? this.size,
-      width: width ?? this.width,
+      width: (width ?? this.width) / (usePortrait ?? this.usePortrait ? 1 : 2),
       height: height ?? this.height,
       drawShadow: drawShadow ?? this.drawShadow,
       flippingTime: flippingTime ?? this.flippingTime,
@@ -124,7 +124,7 @@ class FlipSetting {
       showCover: showCover ?? this.showCover,
       mobileScrollSupport: mobileScrollSupport ?? this.mobileScrollSupport,
       clickEventForward: clickEventForward ?? this.clickEventForward,
-      useMouseEvents: useMouseEvents ?? this.useMouseEvents,
+      // useMouseEvents: useMouseEvents ?? this.useMouseEvents,
       swipeDistance: swipeDistance ?? this.swipeDistance,
       showPageCorners: showPageCorners ?? this.showPageCorners,
       disableFlipByClick: disableFlipByClick ?? this.disableFlipByClick,
