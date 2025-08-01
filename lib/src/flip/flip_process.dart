@@ -5,12 +5,13 @@ import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
 import '../enums/flipping_state.dart';
 import '../enums/page_density.dart';
+import '../helpers/helper.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart';
 import '../page/book_page.dart';
+import '../page/page_flip.dart';
 import '../render/render.dart';
 import 'flip_calculation.dart';
-import '../page/page_flip.dart';
 
 /// Class representing the flipping process
 class FlipProcess {
@@ -25,7 +26,6 @@ class FlipProcess {
   FlippingState state = FlippingState.read;
 
   FlipProcess(this.app, this.render) {
-    // Initialize the flipping process
     reset();
   }
 
@@ -143,8 +143,8 @@ class FlipProcess {
       calc = FlipCalculation(
         direction,
         flipCorner,
-        rect.pageWidth.toString(),
-        rect.height.toString(),
+        rect.pageWidth,
+        rect.height,
       );
 
       return true;
@@ -218,10 +218,12 @@ class FlipProcess {
   /// @param {FlipCorner} corner - Active page corner when turning
   void flipNext(FlipCorner corner) {
     final rect = getBoundsRect();
-    flip(Point(
-      rect.left + rect.pageWidth * 2 - 10,
-      corner == FlipCorner.top ? 1 : rect.height - 2,
-    ));
+    flip(
+      Point(
+        rect.left + rect.pageWidth * 2 - 10,
+        corner == FlipCorner.top ? 1 : rect.height - 2,
+      ),
+    );
   }
 
   /// Turn to the previous page (with animation)
@@ -229,10 +231,7 @@ class FlipProcess {
   /// @param {FlipCorner} corner - Active page corner when turning
   void flipPrev(FlipCorner corner) {
     final rect = getBoundsRect();
-    flip(Point(
-      10,
-      corner == FlipCorner.top ? 1 : rect.height - 2,
-    ));
+    flip(Point(10, corner == FlipCorner.top ? 1 : rect.height - 2));
   }
 
   /// Called when the user has stopped flipping
@@ -283,7 +282,9 @@ class FlipProcess {
         calc!.calc(Point(pageWidth - 1, 1));
 
         const fixedCornerSize = 50.0;
-        final yStart = calc!.getCorner() == FlipCorner.bottom ? rect.height - 1 : 1;
+        final yStart = calc!.getCorner() == FlipCorner.bottom
+            ? rect.height - 1
+            : 1;
 
         final yDest = calc!.getCorner() == FlipCorner.bottom
             ? rect.height - fixedCornerSize
@@ -312,7 +313,7 @@ class FlipProcess {
     bool isTurned, [
     bool needReset = true,
   ]) {
-    final points = _getCordsFromTwoPoint(start, dest);
+    final points = Helper.getCordsFromTwoPoint(start, dest);
 
     final frames = <void Function()>[];
     for (final point in points) {
@@ -449,7 +450,8 @@ class FlipProcess {
     final rect = getBoundsRect();
     final pageWidth = rect.pageWidth;
 
-    final operatingDistance = math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) / 5;
+    final operatingDistance =
+        math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) / 5;
 
     final bookPos = render.convertToBook(globalPos);
 
@@ -457,49 +459,9 @@ class FlipProcess {
         bookPos.y > 0 &&
         bookPos.x < rect.width &&
         bookPos.y < rect.height &&
-        (bookPos.x < operatingDistance || bookPos.x > rect.width - operatingDistance) &&
-        (bookPos.y < operatingDistance || bookPos.y > rect.height - operatingDistance);
-  }
-
-  /// Start flipping animation with specified direction and corner
-  void startFlipping(FlipDirection direction, FlipCorner corner) {
-    if (!checkDirection(direction)) return;
-
-    if (calc != null) render.finishAnimation();
-
-    final rect = getBoundsRect();
-
-    // Create a realistic touch position for the given direction and corner
-    // This simulates where a user would touch to initiate a flip
-    final touchPos = direction == FlipDirection.forward
-        ? Point(
-            rect.width - 10,
-            corner == FlipCorner.top ? 10 : rect.height - 10,
-          )
-        : Point(10, corner == FlipCorner.top ? 10 : rect.height - 10);
-
-    // Use the standard flip process which handles all the logic
-    if (!start(touchPos)) return;
-
-    setState(FlippingState.flipping);
-
-    // Calculate animation positions like the standard flip() method
-    final topMargins = rect.height / 10;
-
-    // Defining animation start points
-    final yStart = calc!.getCorner() == FlipCorner.bottom
-        ? rect.height - topMargins
-        : topMargins;
-    final yDest = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
-
-    // Calculations for these points
-    calc!.calc(Point(rect.pageWidth - topMargins, yStart));
-
-    // Run flipping animation
-    animateFlippingTo(
-      Point(rect.pageWidth - topMargins, yStart),
-      Point(-rect.pageWidth.toDouble(), yDest.toDouble()),
-      true,
-    );
+        (bookPos.x < operatingDistance ||
+            bookPos.x > rect.width - operatingDistance) &&
+        (bookPos.y < operatingDistance ||
+            bookPos.y > rect.height - operatingDistance);
   }
 }

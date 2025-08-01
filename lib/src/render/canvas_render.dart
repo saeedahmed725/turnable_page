@@ -1,27 +1,62 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-import 'package:turnable_page/src/page/page_flip.dart';
+
 import 'package:flutter/material.dart';
+import 'package:turnable_page/src/page/page_flip.dart';
+
+import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
-import '../model/point.dart';
+import '../flip/flip_settings.dart';
 import '../model/page_rect.dart';
+import '../model/point.dart';
 import '../model/rect_points.dart';
 import '../model/shadow.dart';
-import '../flip/flip_settings.dart';
 import '../page/book_page.dart';
-import '../enums/animation_process.dart';
 import 'render.dart';
-
 
 /// Class responsible for rendering the Canvas book
 class CanvasRender extends Render {
   Canvas? _canvas;
   Size? _size;
+  late PageFlip app; // PageFlip - will be defined later
 
-  CanvasRender(super.app);
+  /// Left static book page
+  BookPage? leftPage;
+
+  /// Right static book page
+  BookPage? rightPage;
+
+  /// Page currently flipping
+  BookPage? flippingPage;
+
+  /// Next page at the time of flipping
+  BookPage? bottomPage;
+
+  /// Current flipping direction
+  FlipDirection? direction;
+
+  /// Current book orientation
+  BookOrientation? orientation;
+
+  /// Current state of the shadows
+  Shadow? shadow;
+
+  /// Current animation process
+  AnimationProcess? animation;
+
+  /// Page borders while flipping
+  RectPoints? pageRect;
+
+  /// Current book area
+  PageRect? boundsRect;
+
+  /// Timer started from start of rendering
+  double timer = 0;
+
+  CanvasRender(this.app);
 
   @override
   Canvas getCanvas() {
@@ -83,8 +118,6 @@ class CanvasRender extends Render {
       );
     }
   }
-
-
 
   @override
   void render(double timer) {
@@ -170,8 +203,7 @@ class CanvasRender extends Render {
       left = orientation == BookOrientation.portrait
           ? middlePoint.x - pageWidth / 2 - pageWidth
           : middlePoint.x - pageWidth;
-    }
-    else {
+    } else {
       if (blockWidth < pageWidth * 2) {
         if (app.getSettings.usePortrait) {
           orientation = BookOrientation.portrait;
@@ -234,7 +266,7 @@ class CanvasRender extends Render {
 
   @override
   PageRect getRect() {
-      calculateBoundsRect();
+    calculateBoundsRect();
     return boundsRect!;
   }
 
@@ -503,5 +535,4 @@ class CanvasRender extends Render {
 
     _canvas!.restore();
   }
-
 }

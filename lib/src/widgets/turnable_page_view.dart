@@ -10,7 +10,6 @@ import '../page/page_flip.dart';
 import 'page_flip_painter.dart';
 import 'paper_widget.dart';
 
-
 class TurnablePageView extends StatefulWidget {
   final PageFlipController? controller;
   final TurnableBuilder pageBuilder;
@@ -133,7 +132,7 @@ class _TurnablePageViewState extends State<TurnablePageView>
   void _stopAnimation() {
     _resizeTimer?.cancel();
     _resizeTimer = Timer(
-      Duration(milliseconds: widget.settings.flippingTime ),
+      Duration(milliseconds: widget.settings.flippingTime),
       () {
         _needsRepaint = false;
         if (_animationController.isAnimating) {
@@ -215,7 +214,7 @@ class _TurnablePageViewState extends State<TurnablePageView>
 
     // Add white page for odd page count
     if (_needsWhitePage) {
-      images.add(await _createWhitePage());
+      images.add(await _createTransparentImage());
     }
 
     // Load images and show start page
@@ -223,20 +222,12 @@ class _TurnablePageViewState extends State<TurnablePageView>
     _pageFlip.pages?.show(widget.settings.startPageIndex);
   }
 
-  Future<ui.Image> _createWhitePage() async {
+  Future<ui.Image> _createTransparentImage() async {
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final size = widget.bookSize;
-
-    // Draw white background
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = Colors.white,
-    );
-
+    final _ = Canvas(recorder);
     return recorder.endRecording().toImage(
-      (size.width * widget.pixelRatio).toInt(),
-      (size.height * widget.pixelRatio).toInt(),
+      (widget.settings.width).toInt(),
+      (widget.settings.height).toInt(),
     );
   }
 

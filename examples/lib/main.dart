@@ -1,7 +1,12 @@
 import 'dart:developer';
 
+// import 'package:examples/src/widgets/turnable_page.dart';
 import 'package:flutter/material.dart';
 import 'package:turnable_page/turnable_page.dart';
+
+// import 'src/enums/page_view_mode.dart';
+// import 'src/model/paper_boundary_decoration.dart';
+// import 'src/widgets/page_flip_controller.dart';
 
 void main() {
   runApp(MyApp());
@@ -45,9 +50,7 @@ class _HomePageState extends State<HomePage> {
     return Container(
       width: constraints.maxWidth,
       height: constraints.maxHeight,
-      decoration: BoxDecoration(
-        color: _getPageColor(index),
-      ),
+      decoration: BoxDecoration(color: _getPageColor(index)),
       child: Stack(
         children: [
           // Page number in top corner
@@ -124,14 +127,29 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // appBar: AppBar(
+      //   title: const Text('Page Flip Flutter Demo'),
+      //   actions: [
+      //     IconButton(
+      //       icon: const Icon(Icons.refresh),
+      //       onPressed: () {
+      //         _controller.previousPage();
+      //       },
+      //     ),
+      //   ],
+      // ),
       body: Center(
-        child: TurnablePage.singlePage(
+        child: TurnablePage(
           controller: _controller,
-          pageBuilder: _buildPage,
           pageCount: _totalPages,
-          aspectRatio: 5/10,
+          // aspectRatio: 5/10,
+          pageViewMode: PageViewMode.single,
+          paperBoundaryDecoration: PaperBoundaryDecoration.vintage,
           onPageChanged: (leftPageIndex, rightPageIndex) {
             log('Page changed: $leftPageIndex, $rightPageIndex');
+          },
+          pageBuilder: (pageIndex, constraints) {
+            return _buildPage(pageIndex, constraints);
           },
         ),
       ),

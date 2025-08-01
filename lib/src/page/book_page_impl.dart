@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+
 import '../enums/page_density.dart';
 import '../enums/page_orientation.dart';
+import '../model/page_state.dart';
 import '../model/point.dart';
 import '../render/canvas_render.dart';
 import '../render/render.dart';
@@ -13,11 +16,23 @@ class BookPageImp extends BookPage {
   /// Cached image for performance
   final ui.Image _image;
 
+  /// State of the page on the basis of which rendering
+  late final PageState state;
+
+  /// Render object
+  late final Render render;
+
+  /// Page Orientation
+  late PageOrientation orientation;
+
+  /// Density at creation
+  late final PageDensity createdDensity;
+
+  /// Density at the time of rendering (Depends on neighboring pages)
+  late PageDensity nowDrawingDensity;
+
   /// Page index for identification
   final int pageIndex;
-
-  /// Whether the page is loaded and ready to render
-  bool _isLoaded = false;
 
   /// Cached paint objects for performance
   static final Paint _defaultPaint = Paint()
@@ -46,26 +61,23 @@ class BookPageImp extends BookPage {
       0,
     ]);
 
-
   /// Cache for clipping path to avoid recreation
   Path? _cachedClipPath;
 
   /// Last known area points for cache invalidation
   List<Point>? _lastAreaPoints;
 
-  BookPageImp(Render render, this._image, this.pageIndex, PageDensity density)
-    : super(render, density) {
-    _isLoaded = true;
+  BookPageImp(this.render, this._image, this.pageIndex, PageDensity density) {
+    state = PageState();
+    createdDensity = density;
+    nowDrawingDensity = createdDensity;
   }
 
   @override
   void draw() {
-    if (!_isLoaded) return;
-
     final canvasRender = render as CanvasRender;
     final canvas = canvasRender.getCanvas();
     final rect = render.getRect();
-
     final pagePos = render.convertToGlobal(state.position);
     if (pagePos == null) return;
 
@@ -93,8 +105,6 @@ class BookPageImp extends BookPage {
 
   @override
   void simpleDraw(PageOrientation orient) {
-    if (!_isLoaded) return;
-
     final rect = render.getRect();
     final canvasRender = render as CanvasRender;
     final canvas = canvasRender.getCanvas();
@@ -103,7 +113,6 @@ class BookPageImp extends BookPage {
         ? rect.left + rect.pageWidth
         : rect.left;
     final y = rect.top;
-
     _drawImageOptimized(canvas, x, y, rect.pageWidth, rect.height);
   }
 
@@ -191,11 +200,55 @@ class BookPageImp extends BookPage {
   }
 
   @override
-  void loadPage() {
-    _isLoaded = true;
+  void setDensity(PageDensity density) {
+    nowDrawingDensity = density;
   }
 
+  @override
+  void setDrawingDensity(PageDensity density) {
+    nowDrawingDensity = density;
+  }
 
+  @override
+  void setPosition(Point pagePos) {
+    state.position = pagePos;
+  }
+
+  @override
+  void setAngle(double angle) {
+    state.angle = angle;
+  }
+
+  @override
+  void setArea(List<Point> area) {
+    state.area = area;
+  }
+
+  @override
+  void setHardDrawingAngle(double angle) {
+    state.hardDrawingAngle = angle;
+  }
+
+  @override
+  void setHardAngle(double angle) {
+    state.hardAngle = angle;
+    state.hardDrawingAngle = angle;
+  }
+
+  @override
+  void setOrientation(PageOrientation orientation) {
+    this.orientation = orientation;
+  }
+
+  @override
+  PageDensity getDrawingDensity() {
+    return nowDrawingDensity;
+  }
+
+  @override
+  PageDensity getDensity() {
+    return createdDensity;
+  }
 
   @override
   BookPage getTemporaryCopy() {
@@ -206,7 +259,6 @@ class BookPageImp extends BookPage {
   void dispose() {
     _cachedClipPath = null;
     _lastAreaPoints = null;
-    _isLoaded = false;
   }
 
   /// Get image dimensions
@@ -216,6 +268,5 @@ class BookPageImp extends BookPage {
   ui.Image get image => _image;
 
   /// Check if page is ready for rendering
-  bool get isReady => _isLoaded && !_image.debugDisposed;
+  bool get isReady => !_image.debugDisposed;
 }
-
