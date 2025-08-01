@@ -1,3 +1,5 @@
+import '../page/page_flip.dart';
+
 /// Signature for event callback functions.
 typedef EventCallback = void Function(WidgetEvent e);
 
@@ -9,7 +11,7 @@ class WidgetEvent {
   final dynamic data;
 
   /// The object that triggered the event.
-  final dynamic object;
+  final PageFlip object;
 
   /// Creates a [WidgetEvent] with the given [data] and [object].
   const WidgetEvent({required this.data, required this.object});

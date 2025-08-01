@@ -1,18 +1,18 @@
-# Flutter PageFlip
+# Turnable Page
 
 A complete Flutter/Dart port of the popular [StPageFlip](https://github.com/Nodlik/StPageFlip) JavaScript library. This package provides a realistic page-flipping effect for digital books, magazines, catalogs, and other multi-page content in Flutter applications.
 
 ## Features
 
-✅ **Faithful Port**: Complete 1:1 conversion from the original TypeScript/JavaScript implementation
-✅ **Realistic Physics**: Advanced flip animations with proper physics and shadows
-✅ **Touch Support**: Full touch and gesture support for mobile devices
-✅ **Multiple Orientations**: Automatic portrait/landscape orientation handling
-✅ **Image Support**: Load pages from image URLs or assets
-✅ **Widget Support**: Use Flutter widgets as pages (planned)
-✅ **Customizable**: Extensive configuration options
-✅ **Performance**: Optimized for smooth 60fps animations
-✅ **Events**: Rich event system for interaction handling
+✅ **Faithful Port**: Complete 1:1 conversion from the original TypeScript/JavaScript implementation  
+✅ **Realistic Physics**: Advanced flip animations with proper physics and shadows  
+✅ **Touch Support**: Full touch and gesture support for mobile devices  
+✅ **Multiple Orientations**: Automatic portrait/landscape orientation handling  
+✅ **Widget Support**: Use any Flutter widget as page content  
+✅ **Customizable**: Extensive configuration options  
+✅ **Performance**: Hardware-accelerated rendering for smooth 60fps animations  
+✅ **Events**: Rich event system for interaction handling  
+✅ **Responsive**: Auto-sizing and responsive layout support  
 
 ## Installation
 
@@ -20,37 +20,122 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_pageflip: ^1.0.0
+  turnable_page: ^0.0.1
+```
+
+Then run:
+```bash
+flutter pub get
 ```
 
 ## Basic Usage
 
-### Simple Image Book
+### Simple Widget-Based Book
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_pageflip/flutter_pageflip.dart';
+import 'package:turnable_page/turnable_page.dart';
 
 class MyBook extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final images = [
-      'https://example.com/page1.jpg',
-      'https://example.com/page2.jpg',
-      'https://example.com/page3.jpg',
-    ];
-
     return Scaffold(
       body: Center(
-        child: PageFlipWidget(
-          images: images,
-          settings: {
-            'width': 400.0,
-            'height': 600.0,
-            'showCover': true,
-            'drawShadow': true,
-          },
+        child: SizedBox(
+          width: 400,
+          height: 600,
+          child: TurnablePage(
+            pageCount: 6,
+            pageBuilder: (index, constraints) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: Center(
+                  child: Text(
+                    'Page ${index + 1}',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
+      ),
+    );
+  }
+}
+```
+
+### With Controller and Events
+
+```dart
+class BookWithController extends StatefulWidget {
+  @override
+  _BookWithControllerState createState() => _BookWithControllerState();
+}
+
+class _BookWithControllerState extends State<BookWithController> {
+  late PageFlipController _controller;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageFlipController();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Page ${_currentPage + 1}'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: _controller.hasPreviousPage 
+              ? () => _controller.previousPage() 
+              : null,
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_forward),
+            onPressed: _controller.hasNextPage 
+              ? () => _controller.nextPage() 
+              : null,
+          ),
+        ],
+      ),
+      body: TurnablePage(
+        controller: _controller,
+        pageCount: 10,
+        onPageChanged: (leftIndex, rightIndex) {
+          setState(() {
+            _currentPage = leftIndex;
+          });
+        },
+        pageBuilder: (index, constraints) {
+          return Container(
+            color: Colors.primaries[index % Colors.primaries.length],
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Page ${index + 1}',
+                    style: TextStyle(fontSize: 32, color: Colors.white),
+                  ),
+                  SizedBox(height: 20),
+                  Icon(
+                    Icons.book,
+                    size: 64,
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -60,128 +145,169 @@ class MyBook extends StatelessWidget {
 ### Advanced Configuration
 
 ```dart
-PageFlipWidget(
-  images: images,
-  settings: {
-    // Page dimensions
-    'width': 400.0,
-    'height': 600.0,
-    'size': 'fixed', // or 'stretch'
+TurnablePage(
+  pageCount: 20,
+  pageBuilder: pageBuilder,
+  controller: controller,
+  onPageChanged: onPageChanged,
+  
+  // Visual appearance
+  pageViewMode: PageViewMode.single, // or PageViewMode.double
+  pixelRatio: 3.0,
+  aspectRatio: 2/3, // Custom aspect ratio
+  autoResponseSize: true,
+  paperBoundaryDecoration: PaperBoundaryDecoration.vintage,
+  
+  // Flip settings
+  settings: FlipSettings(
+    // Page positioning
+    startPageIndex: 0,
     
-    // Bounds
-    'minWidth': 315.0,
-    'maxWidth': 1000.0,
-    'minHeight': 420.0,
-    'maxHeight': 1350.0,
+    // Size configuration
+    size: SizeType.fixed, // or SizeType.stretch
+    width: 400.0,
+    height: 600.0,
     
     // Visual effects
-    'drawShadow': true,
-    'maxShadowOpacity': 1.0,
-    'showPageCorners': true,
+    drawShadow: true,
+    maxShadowOpacity: 1.0,
+    showPageCorners: true,
     
     // Animation
-    'flippingTime': 1000,
+    flippingTime: 700, // milliseconds
     
     // Behavior
-    'usePortrait': true,
-    'showCover': true,
-    'autoSize': true,
-    'swipeDistance': 30.0,
-    'disableFlipByClick': false,
-    
-    // Starting page
-    'startPage': 0,
-  },
+    usePortrait: true,
+    showCover: false,
+    mobileScrollSupport: true,
+    clickEventForward: false,
+    swipeDistance: 100.0,
+    disableFlipByClick: false,
+  ),
 )
 ```
 
 ## API Reference
 
-### PageFlip Class
+### TurnablePage Widget
 
-The main class that handles the page flipping logic.
+The main widget for creating a page-flipping book interface.
 
 #### Constructor
+
 ```dart
-PageFlip(Widget rootWidget, Map<String, dynamic> settings)
+TurnablePage({
+  Key? key,
+  PageFlipController? controller,
+  double? aspectRatio,
+  required TurnableBuilder pageBuilder,
+  required int pageCount,
+  TurnablePageCallback? onPageChanged,
+  PageViewMode pageViewMode = PageViewMode.single,
+  double pixelRatio = 3.0,
+  bool autoResponseSize = true,
+  PaperBoundaryDecoration paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
+  FlipSettings? settings,
+})
 ```
+
+#### Parameters
+
+- `controller` - Optional controller for programmatic page control
+- `pageBuilder` - Builder function that creates widget content for each page
+- `pageCount` - Total number of pages in the book
+- `onPageChanged` - Callback fired when page changes
+- `pageViewMode` - Display mode: single page or double page spread
+- `pixelRatio` - Rendering pixel ratio for quality
+- `autoResponseSize` - Whether to automatically adjust size to container
+- `aspectRatio` - Custom aspect ratio for the book
+- `paperBoundaryDecoration` - Visual style for page boundaries
+- `settings` - Detailed flip behavior configuration
+
+### PageFlipController
+
+Controller class for programmatic page manipulation.
 
 #### Methods
 
-- `loadFromImages(List<String> images)` - Load pages from image URLs
-- `turnToNextPage()` - Turn to the next page
-- `turnToPrevPage()` - Turn to the previous page
-- `turnToPage(int page)` - Turn to a specific page
-- `flipNext([FlipCorner corner])` - Flip next page with animation
-- `flipPrev([FlipCorner corner])` - Flip previous page with animation
-- `getPageCount()` - Get total number of pages
-- `getCurrentPageIndex()` - Get current page index
-- `getOrientation()` - Get current orientation
-- `update()` - Update the render area
+- `nextPage()` - Turn to the next page (without animation)
+- `previousPage()` - Turn to the previous page (without animation)
+- `goToPage(int pageIndex)` - Jump to a specific page (without animation)
+- `flipNext([FlipCorner corner])` - Flip to next page with animation
+- `flipPrev([FlipCorner corner])` - Flip to previous page with animation
+- `flipToPage(int pageIndex, [FlipCorner corner])` - Flip to specific page with animation
 
-#### Events
+#### Properties
+
+- `currentPageIndex` - Get current page index (0-based)
+- `pageCount` - Get total number of pages
+- `hasNextPage` - Check if next page is available
+- `hasPreviousPage` - Check if previous page is available
+- `canFlipNext` - Check if can flip to next page
+- `canFlipPrev` - Check if can flip to previous page
+
+### FlipSettings Configuration
+
+Configuration object for customizing flip behavior and appearance.
+
+#### Constructor Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `startPageIndex` | `int` | `0` | Initial page to display (0-based index) |
+| `size` | `SizeType` | `SizeType.fixed` | Size calculation: fixed dimensions or stretch to fit |
+| `width` | `double` | `0` | Width of the book in pixels |
+| `height` | `double` | `0` | Height of the book in pixels |
+| `drawShadow` | `bool` | `true` | Whether to draw realistic shadow effects |
+| `flippingTime` | `int` | `700` | Duration of flip animation in milliseconds |
+| `usePortrait` | `bool` | `true` | Portrait mode (single page) vs landscape (two-page spread) |
+| `maxShadowOpacity` | `double` | `1.0` | Maximum opacity for shadow effects (0.0 to 1.0) |
+| `showCover` | `bool` | `false` | Whether the book has a front/back cover |
+| `mobileScrollSupport` | `bool` | `true` | Enable touch scrolling on mobile devices |
+| `clickEventForward` | `bool` | `false` | Whether click events propagate to parent widgets |
+| `swipeDistance` | `double` | `100.0` | Minimum distance in pixels for swipe gesture |
+| `showPageCorners` | `bool` | `true` | Show interactive corner highlighting on hover |
+| `disableFlipByClick` | `bool` | `false` | Disable page flipping via click (drag only) |
+
+### TurnableBuilder
+
+Type definition for the page builder function:
 
 ```dart
-pageFlip.on('flip', (event) {
-  print('Flipped to page: ${event.data}');
-});
-
-pageFlip.on('changeOrientation', (event) {
-  print('Orientation changed to: ${event.data}');
-});
-
-pageFlip.on('init', (event) {
-  print('PageFlip initialized');
-});
+typedef TurnableBuilder = Widget Function(int pageIndex, BoxConstraints constraints);
 ```
 
-### Settings
+### TurnablePageCallback
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `width` | `double` | `0` | Page width in pixels |
-| `height` | `double` | `0` | Page height in pixels |
-| `size` | `String` | `'fixed'` | Size calculation type: 'fixed' or 'stretch' |
-| `minWidth` | `double` | `0` | Minimum page width |
-| `maxWidth` | `double` | `0` | Maximum page width |
-| `minHeight` | `double` | `0` | Minimum page height |
-| `maxHeight` | `double` | `0` | Maximum page height |
-| `drawShadow` | `bool` | `true` | Enable/disable shadows |
-| `flippingTime` | `int` | `1000` | Animation duration in milliseconds |
-| `usePortrait` | `bool` | `true` | Enable portrait mode |
-| `autoSize` | `bool` | `true` | Auto-size to parent container |
-| `maxShadowOpacity` | `double` | `1.0` | Maximum shadow opacity (0-1) |
-| `showCover` | `bool` | `false` | Show hard cover pages |
-| `swipeDistance` | `double` | `30.0` | Minimum swipe distance for page turn |
-| `showPageCorners` | `bool` | `true` | Show folded corners on hover |
-| `disableFlipByClick` | `bool` | `false` | Disable clicking to flip pages |
-| `startPage` | `int` | `0` | Initial page index |
+Type definition for the page change callback:
 
-## Architecture
+```dart
+typedef TurnablePageCallback = void Function(int leftPageIndex, int rightPageIndex);
+```
 
-This package is a faithful port of the original StPageFlip library with the following components:
+### Enums
 
-### Core Components
+#### PageViewMode
+- `PageViewMode.single` - Single page view (portrait orientation)
+- `PageViewMode.double` - Double page spread (landscape orientation)
 
-1. **PageFlip** - Main controller class
-2. **BookPage** - Abstract base class for pages
-3. **Render** - Abstract rendering engine
-4. **PageCollection** - Manages page collections
-5. **Helper** - Mathematical utilities
+#### SizeType
+- `SizeType.fixed` - Fixed dimensions specified by width/height
+- `SizeType.stretch` - Stretch to fit parent container
 
-### Page Types
+#### FlipCorner
+- `FlipCorner.topLeft` - Flip from top-left corner
+- `FlipCorner.topRight` - Flip from top-right corner  
+- `FlipCorner.bottomLeft` - Flip from bottom-left corner
+- `FlipCorner.bottomRight` - Flip from bottom-right corner
 
-- **ImagePage** - Pages rendered from images
-- **HTMLPage** - Pages from HTML/Widget content (planned)
-
-### Rendering
-
-- **CanvasRender** - Hardware-accelerated rendering (planned)
-- **HTMLRender** - Widget-based rendering (planned)
+#### PaperBoundaryDecoration
+- `PaperBoundaryDecoration.vintage` - Vintage paper styling
+- `PaperBoundaryDecoration.modern` - Modern clean styling
 
 ## Examples
 
-### Basic Book Reader
+### Basic Book Reader with Navigation
 
 ```dart
 class BookReader extends StatefulWidget {
@@ -190,8 +316,23 @@ class BookReader extends StatefulWidget {
 }
 
 class _BookReaderState extends State<BookReader> {
-  late PageFlip pageFlip;
-  int currentPage = 0;
+  late PageFlipController _controller;
+  int _currentPage = 0;
+  
+  final List<Color> _pageColors = [
+    Colors.red,
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.teal,
+  ];
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageFlipController();
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -200,41 +341,562 @@ class _BookReaderState extends State<BookReader> {
         title: Text('Book Reader'),
         actions: [
           IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () => pageFlip.turnToPrevPage(),
+            icon: Icon(Icons.first_page),
+            onPressed: () => _controller.goToPage(0),
           ),
-          Text('${currentPage + 1}'),
+          IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: _controller.hasPreviousPage 
+              ? () => _controller.flipPrev() 
+              : null,
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Center(
+              child: Text('${_currentPage + 1} / ${_pageColors.length}'),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.arrow_forward),
-            onPressed: () => pageFlip.turnToNextPage(),
+            onPressed: _controller.hasNextPage 
+              ? () => _controller.flipNext() 
+              : null,
+          ),
+          IconButton(
+            icon: Icon(Icons.last_page),
+            onPressed: () => _controller.goToPage(_pageColors.length - 1),
           ),
         ],
       ),
-      body: PageFlipWidget(
-        images: bookImages,
-        settings: {'showCover': true},
+      body: TurnablePage(
+        controller: _controller,
+        pageCount: _pageColors.length,
+        onPageChanged: (leftIndex, rightIndex) {
+          setState(() {
+            _currentPage = leftIndex;
+          });
+        },
+        settings: FlipSettings(
+          showCover: true,
+          drawShadow: true,
+          flippingTime: 600,
+        ),
+        pageBuilder: (index, constraints) {
+          return Container(
+            decoration: BoxDecoration(
+              color: _pageColors[index % _pageColors.length],
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(2, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_stories,
+                    size: 64,
+                    color: Colors.white,
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Page ${index + 1}',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'This is the content of page ${index + 1}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white70,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 ```
 
+### Photo Album with Custom Styling
+
+```dart
+class PhotoAlbum extends StatelessWidget {
+  final List<String> _photoUrls = [
+    'https://picsum.photos/400/600?random=1',
+    'https://picsum.photos/400/600?random=2',
+    'https://picsum.photos/400/600?random=3',
+    'https://picsum.photos/400/600?random=4',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.brown[100],
+      appBar: AppBar(
+        title: Text('Photo Album'),
+        backgroundColor: Colors.brown[300],
+      ),
+      body: Center(
+        child: Container(
+          margin: EdgeInsets.all(20),
+          child: TurnablePage(
+            pageCount: _photoUrls.length,
+            pageViewMode: PageViewMode.single,
+            autoResponseSize: true,
+            paperBoundaryDecoration: PaperBoundaryDecoration.vintage,
+            settings: FlipSettings(
+              drawShadow: true,
+              maxShadowOpacity: 0.8,
+              flippingTime: 800,
+              showPageCorners: true,
+              showCover: true,
+            ),
+            pageBuilder: (index, constraints) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.brown[300]!, width: 2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _photoUrls[index],
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Photo ${index + 1}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown[700],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Interactive Magazine with Complex Content
+
+```dart
+class InteractiveMagazine extends StatefulWidget {
+  @override
+  _InteractiveMagazineState createState() => _InteractiveMagazineState();
+}
+
+class _InteractiveMagazineState extends State<InteractiveMagazine> {
+  late PageFlipController _controller;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageFlipController();
+  }
+
+  Widget _buildMagazinePage(int index, BoxConstraints constraints) {
+    final articles = [
+      {'title': 'Flutter Development', 'subtitle': 'Best Practices', 'icon': Icons.code},
+      {'title': 'Mobile Design', 'subtitle': 'UI/UX Trends', 'icon': Icons.design_services},
+      {'title': 'Performance', 'subtitle': 'Optimization Tips', 'icon': Icons.speed},
+      {'title': 'State Management', 'subtitle': 'Advanced Patterns', 'icon': Icons.account_tree},
+    ];
+    
+    final article = articles[index % articles.length];
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.indigo[100]!, Colors.indigo[300]!],
+        ),
+      ),
+      padding: EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(
+                article['icon'] as IconData,
+                size: 40,
+                color: Colors.indigo[700],
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      article['title'] as String,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo[800],
+                      ),
+                    ),
+                    Text(
+                      article['subtitle'] as String,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.indigo[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 24),
+          
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 150,
+                    decoration: BoxDecoration(
+                      color: Colors.indigo[200],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.image,
+                      size: 60,
+                      color: Colors.indigo[400],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '
+                    'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. '
+                    'Ut enim ad minim veniam, quis nostrud exercitation ullamco '
+                    'laboris nisi ut aliquip ex ea commodo consequat.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Colors.indigo[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Footer
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Page ${index + 1}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.indigo[500],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Button pressed on page ${index + 1}')),
+                  );
+                },
+                child: Text('Action'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo[600],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Interactive Magazine'),
+        backgroundColor: Colors.indigo[600],
+        foregroundColor: Colors.white,
+      ),
+      body: TurnablePage(
+        controller: _controller,
+        pageCount: 8,
+        pageViewMode: PageViewMode.single,
+        settings: FlipSettings(
+          drawShadow: true,
+          flippingTime: 500,
+          showPageCorners: true,
+          disableFlipByClick: false,
+          swipeDistance: 50.0,
+        ),
+        pageBuilder: _buildMagazinePage,
+        onPageChanged: (leftIndex, rightIndex) {
+          print('Page changed: $leftIndex -> $rightIndex');
+        },
+      ),
+    );
+  }
+}
+```
+
+## Architecture
+
+This package is a faithful Flutter/Dart port of the original StPageFlip library with the following architecture:
+
+### Core Components
+
+1. **TurnablePage** - Main widget that provides the page-flipping interface
+2. **TurnablePageView** - Internal view that handles rendering and animations  
+3. **PageFlipController** - Controller for programmatic page management
+4. **PageFlip** - Core logic engine that handles flip calculations and state
+5. **FlipSettings** - Configuration object for customizing behavior
+
+### Key Features
+
+- **Widget-Based Pages**: Use any Flutter widget as page content through the `pageBuilder` function
+- **Hardware Acceleration**: Leverages Flutter's rendering engine for smooth animations
+- **Responsive Design**: Automatic adaptation between portrait and landscape modes
+- **Touch Gestures**: Full support for swipe, drag, and tap interactions
+- **Event System**: Comprehensive callbacks for page change events
+- **Customizable Styling**: Extensive configuration options for appearance and behavior
+
+### File Structure
+
+```
+lib/
+├── turnable_page.dart              # Main export file
+└── src/
+    ├── widgets/
+    │   ├── turnable_page.dart      # Main widget
+    │   ├── turnable_page_view.dart # Internal view implementation  
+    │   └── page_flip_controller.dart # Controller class
+    ├── flip/
+    │   └── flip_settings.dart      # Configuration options
+    ├── enums/
+    │   ├── page_view_mode.dart     # Single/double page modes
+    │   ├── size_type.dart          # Fixed/stretch sizing
+    │   └── flip_corner.dart        # Corner flip directions
+    ├── model/
+    │   └── paper_boundary_decoration.dart # Styling options
+    └── [other internal components...]
+```
+
+## Best Practices
+
+### Performance Tips
+
+1. **Optimize Page Content**: Keep page widgets lightweight and avoid heavy computations in `pageBuilder`
+2. **Use Appropriate Pixel Ratio**: Higher values improve quality but impact performance
+3. **Limit Page Count**: Very large books may impact memory usage
+4. **Efficient Image Loading**: Use `Image.network` with proper caching for remote images
+
+### Responsive Design
+
+```dart
+// Automatic responsive behavior
+TurnablePage(
+  autoResponseSize: true,      // Adapts to container size
+  pageViewMode: PageViewMode.single, // Switches based on screen size
+  // ...
+)
+
+// Manual responsive control
+LayoutBuilder(
+  builder: (context, constraints) {
+    final isMobile = constraints.maxWidth < 600;
+    return TurnablePage(
+      pageViewMode: isMobile ? PageViewMode.single : PageViewMode.double,
+      settings: FlipSettings(
+        usePortrait: isMobile,
+        // ...
+      ),
+      // ...
+    );
+  },
+)
+```
+
+### Custom Page Layouts
+
+```dart
+Widget buildCustomPage(int index, BoxConstraints constraints) {
+  return Container(
+    padding: EdgeInsets.all(16),
+    child: Column(
+      children: [
+        // Header
+        Container(
+          height: 60,
+          child: Text('Chapter $index'),
+        ),
+        
+        // Content area
+        Expanded(
+          child: YourContentWidget(pageIndex: index),
+        ),
+        
+        // Footer
+        Container(
+          height: 40,
+          child: Text('Page ${index + 1}'),
+        ),
+      ],
+    ),
+  );
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Pages not rendering correctly:**
+- Ensure `pageCount` matches your actual content
+- Check that `pageBuilder` returns valid widgets for all indices
+- Verify container constraints are properly set
+
+**Performance issues:**
+- Reduce `pixelRatio` if animations are choppy
+- Optimize page widget complexity
+- Consider lazy loading for large content
+
+**Touch gestures not working:**
+- Ensure `mobileScrollSupport` is enabled
+- Check `swipeDistance` threshold
+- Verify no conflicting gesture detectors in parent widgets
+
+**Layout issues on different screen sizes:**
+- Use `autoResponseSize: true` for automatic adaptation
+- Test on various screen sizes and orientations
+- Consider using `LayoutBuilder` for custom responsive behavior
+
+## Migration from Other Libraries
+
+If you're migrating from the original StPageFlip JavaScript library or similar packages:
+
+### Key Differences
+
+- Uses Flutter widgets instead of HTML/CSS
+- Controller pattern instead of direct method calls
+- Type-safe configuration with `FlipSettings` class
+- Integrated with Flutter's gesture and animation systems
+
+### Migration Example
+
+**Original StPageFlip:**
+```javascript
+const pageFlip = new PageFlip(element, {
+  width: 400,
+  height: 600,
+  showCover: true
+});
+pageFlip.loadFromImages(images);
+```
+
+**Flutter TurnablePage:**
+```dart
+TurnablePage(
+  pageCount: images.length,
+  settings: FlipSettings(
+    width: 400,
+    height: 600,
+    showCover: true,
+  ),
+  pageBuilder: (index, constraints) {
+    return Image.network(images[index]);
+  },
+)
+```
+
 ## Roadmap
 
 - [x] Core page flipping logic
-- [x] Image page support
-- [x] Basic touch/gesture handling
-- [x] Event system
-- [ ] Widget-based pages
-- [ ] Advanced animations
-- [ ] PDF support
-- [ ] Performance optimizations
-- [ ] Web support
-- [ ] Accessibility features
+- [x] Widget-based pages  
+- [x] Touch/gesture handling
+- [x] Event system and callbacks
+- [x] Hardware-accelerated rendering
+- [x] Responsive design support
+- [x] Portrait/landscape orientation
+- [x] Customizable animations and effects
+- [ ] PDF document support
+- [ ] Enhanced accessibility features
+- [ ] Web platform optimizations
+- [ ] Advanced gesture recognition
+- [ ] Bookmark and navigation features
 
 ## Contributing
 
-This is a faithful port of the original StPageFlip library. Contributions are welcome! Please ensure any changes maintain compatibility with the original API.
+Contributions are welcome! This package maintains compatibility with the original StPageFlip API while leveraging Flutter's capabilities.
+
+### Development Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/saeedahmed725/turnable_page.git
+cd turnable_page
+```
+
+2. Install dependencies:
+```bash
+flutter pub get
+```
+
+3. Run the example:
+```bash
+cd examples
+flutter run
+```
+
+### Guidelines
+
+- Maintain consistency with the original StPageFlip API where possible
+- Follow Flutter development best practices
+- Include tests for new features
+- Update documentation for any API changes
+- Ensure backward compatibility
 
 ## License
 
@@ -243,8 +905,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Credits
 
 - Original [StPageFlip](https://github.com/Nodlik/StPageFlip) library by Nodlik
-- Ported to Flutter/Dart with ❤️
+- Ported to Flutter/Dart by [Saeed Ahmed](https://github.com/saeedahmed725)
+- Built with ❤️ for the Flutter community
 
 ## Support
 
-If you find this package helpful, please give it a ⭐ on GitHub!
+If you find this package helpful, please:
+- ⭐ Star the repository on GitHub
+- 🐛 Report issues on GitHub Issues
+- 💡 Suggest features and improvements
+- 📖 Contribute to documentation
+
+For support and questions, please use GitHub Issues or start a discussion in the repository.

@@ -1,23 +1,45 @@
+import 'dart:ui' as ui;
+
 import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
 import '../enums/page_density.dart';
-import '../page/book_page_impl.dart';
 import '../page/book_page.dart';
+import '../page/book_page_impl.dart';
+import '../page/page_flip.dart';
+import '../render/render.dart';
 import 'page_collection.dart';
-import 'dart:ui' as ui;
-
 
 /// Class representing a collection of pages as widgets that get converted to images
 class PageCollectionImpl extends PageCollection {
   final List<ui.Image> images;
+  late final PageFlip app;
+  late final Render render;
+  late final bool isShowCover;
 
-  PageCollectionImpl(super.app, super.render, this.images);
+  /// Pages List
+  final List<BookPage> pages = <BookPage>[];
+
+  /// Index of the current page in list
+  int currentPageIndex = 0;
+
+  /// Number of the current spread in book
+  int currentSpreadIndex = 0;
+
+  /// Two-page spread in landscape mode
+  final List<NumberArray> landscapeSpread = <NumberArray>[];
+
+  /// One-page spread in portrait mode
+  final List<NumberArray> portraitSpread = <NumberArray>[];
+
+  PageCollectionImpl(this.app, this.render, this.images) {
+    currentPageIndex = 0;
+    isShowCover = app.getSettings.showCover;
+  }
 
   @override
   void loadBookPages() {
     for (int i = 0; i < images.length; i++) {
       final page = BookPageImp(render, images[i], i, PageDensity.hard);
-      page.loadPage();
       pages.add(page);
     }
 
@@ -37,7 +59,7 @@ class PageCollectionImpl extends PageCollection {
     portraitSpread.clear();
 
     for (int i = 0; i < pages.length; i++) {
-      portraitSpread.add([i]); // In portrait mode - (one spread = one page)
+      portraitSpread.add([i]);
     }
 
     int start = 0;
@@ -73,7 +95,8 @@ class PageCollectionImpl extends PageCollection {
     final spread = getSpread();
 
     for (int i = 0; i < spread.length; i++) {
-      if (pageNum == spread[i][0] || (spread[i].length > 1 && pageNum == spread[i][1])) {
+      if (pageNum == spread[i][0] ||
+          (spread[i].length > 1 && pageNum == spread[i][1])) {
         return i;
       }
     }
@@ -138,7 +161,7 @@ class PageCollectionImpl extends PageCollection {
 
     if (render.getOrientation() == BookOrientation.portrait) {
       return direction == FlipDirection.forward
-          ? pages[current].newTemporaryCopy()
+          ? pages[current].getTemporaryCopy()
           : pages[current - 1];
     } else {
       final spread = direction == FlipDirection.forward

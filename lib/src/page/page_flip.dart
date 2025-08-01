@@ -10,7 +10,7 @@ import '../model/page_rect.dart';
 import '../model/point.dart';
 import '../render/canvas_render.dart';
 import '../render/render.dart';
-import '../ui/canvas_interaction_handler.dart';
+import '../interaction/canvas_interaction_handler.dart';
 import 'book_page.dart';
 import '../flip/flip_settings.dart';
 import '../flip/flip_process.dart';
@@ -21,7 +21,7 @@ class PageFlip extends EventObject {
   bool isUserTouch = false;
   bool isUserMove = false;
 
-  late FlipSetting setting;
+  late FlipSettings setting;
   late FlipProcess flipProcess;
   late Render render;
   late CanvasInteractionHandler canvasInteractionHandler;
@@ -36,11 +36,15 @@ class PageFlip extends EventObject {
     flipProcess = FlipProcess(this, render);
   }
 
-  void updateSetting(FlipSetting setting) {
+  void updateSetting(FlipSettings setting) {
     this.setting = setting;
     render.updateApp(this);
     canvasInteractionHandler.updateApp(this);
     flipProcess.updateApp(this, render);
+    trigger('updateSettings', this, {
+      'settings': setting,
+      'mode': render.getOrientation(),
+    });
   }
 
   void loadFromWidgets(List<dart.Image> images) {
@@ -51,11 +55,11 @@ class PageFlip extends EventObject {
 
 
     // Show initial page
-    pages!.show(setting.startPage);
+    pages!.show(setting.startPageIndex);
 
     Future.delayed(const Duration(milliseconds: 1), () {
       trigger('init', this, {
-        'page': setting.startPage,
+        'page': setting.startPageIndex,
         'mode': render.getOrientation(),
       });
     });
@@ -201,7 +205,7 @@ class PageFlip extends EventObject {
   }
 
   /// Get settings
-  FlipSetting get getSettings {
+  FlipSettings get getSettings {
     return setting;
   }
 

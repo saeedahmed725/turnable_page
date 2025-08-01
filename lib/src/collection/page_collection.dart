@@ -1,36 +1,10 @@
 import '../enums/flip_direction.dart';
-import '../page/page_flip.dart';
-import '../render/render.dart';
 import '../page/book_page.dart';
 
 typedef NumberArray = List<int>;
 
 /// Abstract class representing a collection of pages
 abstract class PageCollection {
-  late final PageFlip app;
-  late final Render render;
-  late final bool isShowCover;
-
-  /// Pages List
-  final List<BookPage> pages = <BookPage>[];
-
-  /// Index of the current page in list
-  int currentPageIndex = 0;
-
-  /// Number of the current spread in book
-  int currentSpreadIndex = 0;
-
-  /// Two-page spread in landscape mode
-  final List<NumberArray> landscapeSpread = <NumberArray>[];
-
-  /// One-page spread in portrait mode
-  final List<NumberArray> portraitSpread = <NumberArray>[];
-
-  PageCollection(this.app, this.render) {
-    currentPageIndex = 0;
-    isShowCover = app.getSettings.showCover;
-  }
-
   /// Load pages
   void loadBookPages();
 

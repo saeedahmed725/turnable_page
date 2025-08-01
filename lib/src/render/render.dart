@@ -12,44 +12,7 @@ import '../page/book_page.dart';
 
 /// Abstract class responsible for rendering the book
 abstract class Render {
-  late PageFlip app; // PageFlip - will be defined later
 
-  /// Left static book page
-  BookPage? leftPage;
-
-  /// Right static book page
-  BookPage? rightPage;
-
-  /// Page currently flipping
-  BookPage? flippingPage;
-
-  /// Next page at the time of flipping
-  BookPage? bottomPage;
-
-  /// Current flipping direction
-  FlipDirection? direction;
-
-  /// Current book orientation
-  BookOrientation? orientation;
-
-  /// Current state of the shadows
-  Shadow? shadow;
-
-  /// Current animation process
-  AnimationProcess? animation;
-
-  /// Page borders while flipping
-  RectPoints? pageRect;
-
-  /// Current book area
-  PageRect? boundsRect;
-
-  /// Timer started from start of rendering
-  double timer = 0;
-
-  /// Safari browser definitions for resolving a bug with a css property clip-area
-
-  Render(this.app);
 
   /// Rendering action on each frame
   void drawFrame();
@@ -94,7 +57,7 @@ abstract class Render {
   PageRect getRect();
 
   /// Get configuration object
-  FlipSetting getSettings();
+  FlipSettings getSettings();
 
   /// Get current book orientation
   BookOrientation? getOrientation();

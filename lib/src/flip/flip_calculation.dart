@@ -11,7 +11,7 @@ import '../model/segment.dart';
 class FlipCalculation {
   /// Calculated rotation angle to flipping page
   late double angle;
-  
+
   /// Calculated position to flipping page
   late Point position;
 
@@ -34,13 +34,7 @@ class FlipCalculation {
   /// @param corner - Flipping corner
   /// @param pageWidth - Current page width
   /// @param pageHeight - Current page height
-  FlipCalculation(
-    this.direction,
-    this.corner,
-    String pageWidthStr,
-    String pageHeightStr,
-  ) : pageWidth = double.parse(pageWidthStr),
-      pageHeight = double.parse(pageHeightStr);
+  FlipCalculation(this.direction, this.corner, this.pageWidth, this.pageHeight);
 
   /// The main calculation method
   ///
@@ -114,7 +108,8 @@ class FlipCalculation {
       if (Helper.getDistanceBetweenTwoPoint(
             sideIntersectPoint!,
             topIntersectPoint!,
-          ) >= 10) {
+          ) >=
+          10) {
         result.add(sideIntersectPoint!);
       }
     } else {
@@ -368,7 +363,11 @@ class FlipCalculation {
     }
 
     if (checkPointOne.x <= 0) {
-      final bottomPoint = Helper.limitPointToCircle(centerTwo, rad, checkPointTwo);
+      final bottomPoint = Helper.limitPointToCircle(
+        centerTwo,
+        rad,
+        checkPointTwo,
+      );
 
       if (bottomPoint != result) {
         result = bottomPoint;
