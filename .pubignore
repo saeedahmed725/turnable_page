@@ -1,6 +1,3 @@
-# Exclude large demo videos from published package
-videos/
-
 # Exclude heavy platform folders from the example app to keep package small
 example/android/
 example/ios/
