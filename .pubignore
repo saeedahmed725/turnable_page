@@ -1,0 +1,17 @@
+# Exclude large demo videos from published package
+videos/
+
+# Exclude heavy platform folders from the example app to keep package small
+example/android/
+example/ios/
+example/macos/
+example/windows/
+example/linux/
+example/build/
+
+# General build outputs and IDE files
+**/build/
+.dart_tool/
+.idea/
+.vscode/
+*.iml
