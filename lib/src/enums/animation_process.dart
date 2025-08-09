@@ -6,12 +6,16 @@ typedef AnimationSuccessAction = void Function();
 class AnimationProcess {
   /// List of frames in playback order. Each frame is a function.
   final List<FrameAction> frames;
+
   /// Total animation duration
   final double duration;
+
   /// Animation duration of one frame
   final double durationFrame;
+
   /// Callback at the end of the animation
   final AnimationSuccessAction onAnimateEnd;
+
   /// Animation start time (Global Timer)
   final double startedAt;
 

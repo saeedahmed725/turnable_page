@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 /// Model class to control the colors and shadows of the Paper widget
@@ -118,5 +117,3 @@ class PaperBoundaryDecoration {
     innerAlpha: 0.3,
   );
 }
-
-

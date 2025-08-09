@@ -52,8 +52,6 @@ class PageFlip extends EventObject {
     pages = PageCollectionImpl(this, render, images);
     pages!.loadBookPages();
 
-
-
     // Show initial page
     pages!.show(setting.startPageIndex);
 
@@ -64,7 +62,6 @@ class PageFlip extends EventObject {
       });
     });
   }
-
 
   /// Clear all pages
   void clear() {
@@ -165,7 +162,6 @@ class PageFlip extends EventObject {
   void updatePageIndex(int newPage) {
     trigger('flip', this, newPage);
   }
-
 
   /// Get total page count
   int getPageCount() {

@@ -7,7 +7,11 @@ import 'page_flip_controller.dart';
 import 'turnable_page_view.dart';
 
 typedef TurnableBuilder =
-    Widget Function(BuildContext context,int pageIndex, BoxConstraints constraints);
+    Widget Function(
+      BuildContext context,
+      int pageIndex,
+      BoxConstraints constraints,
+    );
 typedef TurnablePageCallback =
     void Function(int leftPageIndex, int rightPageIndex);
 
@@ -63,12 +67,12 @@ class TurnablePage extends StatelessWidget {
 
   double _getAspectRatio(bool isMobile) {
     if (!autoResponseSize && pageViewMode == PageViewMode.single) {
-      return aspectRatio?? 2 / 3;
+      return aspectRatio ?? 2 / 3;
     }
     if (pageViewMode == PageViewMode.single) {
-      return aspectRatio??2 / 3 * (isMobile ? 1 : 2);
+      return aspectRatio ?? 2 / 3 * (isMobile ? 1 : 2);
     }
-    return aspectRatio??(2 / 3) * 2;
+    return aspectRatio ?? (2 / 3) * 2;
   }
 
   FlipSettings _getAdjustedSetting(bool isMobile) {

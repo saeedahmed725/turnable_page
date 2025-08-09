@@ -12,3 +12,6 @@ example/build/
 .idea/
 .vscode/
 *.iml
+
+# Exclude large demo media from the published package (images are linked via GitHub raw URLs in README)
+videos/

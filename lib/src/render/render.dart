@@ -11,8 +11,6 @@ import '../page/book_page.dart';
 
 /// Abstract class responsible for rendering the book
 abstract class Render {
-
-
   /// Rendering action on each frame
   void drawFrame();
 

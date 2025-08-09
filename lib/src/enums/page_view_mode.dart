@@ -1,4 +1,1 @@
-enum PageViewMode {
-  single,
-  double,
-}
+enum PageViewMode { single, double }

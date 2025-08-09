@@ -30,6 +30,3 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 build/
 test/
-
-# Demo media (do not commit large binaries)
-*.mkv

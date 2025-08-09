@@ -15,7 +15,9 @@ class Helper {
       return double.infinity;
     }
 
-    return math.sqrt(math.pow(point2.x - point1.x, 2) + math.pow(point2.y - point1.y, 2));
+    return math.sqrt(
+      math.pow(point2.x - point1.x, 2) + math.pow(point2.y - point1.y, 2),
+    );
   }
 
   /// Returns the length of the given line segment.
@@ -36,8 +38,10 @@ class Helper {
     final b1 = line1.end.x - line1.start.x;
     final b2 = line2.end.x - line2.start.x;
 
-    return math.acos((a1 * a2 + b1 * b2) /
-        (math.sqrt(a1 * a1 + b1 * b1) * math.sqrt(a2 * a2 + b2 * b2)));
+    return math.acos(
+      (a1 * a2 + b1 * b2) /
+          (math.sqrt(a1 * a1 + b1 * b1) * math.sqrt(a2 * a2 + b2 * b2)),
+    );
   }
 
   /// Checks if a point is inside a rectangle.
@@ -67,17 +71,29 @@ class Helper {
   /// [angle] The rotation angle in radians.
   ///
   /// Returns the new coordinates after rotation.
-  static Point getRotatedPoint(Point transformedPoint, Point startPoint, double angle) {
+  static Point getRotatedPoint(
+    Point transformedPoint,
+    Point startPoint,
+    double angle,
+  ) {
     return Point(
-      transformedPoint.x * math.cos(angle) + transformedPoint.y * math.sin(angle) + startPoint.x,
-      transformedPoint.y * math.cos(angle) - transformedPoint.x * math.sin(angle) + startPoint.y,
+      transformedPoint.x * math.cos(angle) +
+          transformedPoint.y * math.sin(angle) +
+          startPoint.x,
+      transformedPoint.y * math.cos(angle) -
+          transformedPoint.x * math.sin(angle) +
+          startPoint.y,
     );
   }
 
   /// Limits a point to a given circle centered at [startPoint] with the given [radius].
   ///
   /// If [limitedPoint] is inside the circle, returns it. Otherwise, returns the intersection point between the line ([startPoint], [limitedPoint]) and the circle.
-  static Point limitPointToCircle(Point startPoint, double radius, Point limitedPoint) {
+  static Point limitPointToCircle(
+    Point startPoint,
+    double radius,
+    Point limitedPoint,
+  ) {
     // If "linePoint" enters the circle, do nothing
     if (getDistanceBetweenTwoPoint(startPoint, limitedPoint) <= radius) {
       return limitedPoint;
@@ -89,7 +105,12 @@ class Helper {
     final m = limitedPoint.y;
 
     // Find the intersection between the line at two points: (startPoint and limitedPoint) and the circle.
-    double x = math.sqrt((math.pow(radius, 2) * math.pow(a - n, 2)) / (math.pow(a - n, 2) + math.pow(b - m, 2))) + a;
+    double x =
+        math.sqrt(
+          (math.pow(radius, 2) * math.pow(a - n, 2)) /
+              (math.pow(a - n, 2) + math.pow(b - m, 2)),
+        ) +
+        a;
     if (limitedPoint.x < 0) {
       x *= -1;
     }
@@ -105,7 +126,11 @@ class Helper {
   /// Finds the intersection of two line segments, bounded by a rectangle [rectBorder].
   ///
   /// Returns the intersection point, or null if it does not exist or lies outside the rectangle.
-  static Point? getIntersectBetweenTwoSegment(Rect rectBorder, Segment one, Segment two) {
+  static Point? getIntersectBetweenTwoSegment(
+    Rect rectBorder,
+    Segment one,
+    Segment two,
+  ) {
     return pointInRect(rectBorder, getIntersectBetweenTwoLine(one, two));
   }
 
@@ -152,7 +177,13 @@ class Helper {
 
     final result = <Point>[pointOne];
 
-    double getCord(double c1, double c2, double size, double length, int index) {
+    double getCord(
+      double c1,
+      double c2,
+      double size,
+      double length,
+      int index,
+    ) {
       if (c2 > c1) {
         return c1 + index * (size / length);
       } else if (c2 < c1) {
@@ -163,13 +194,14 @@ class Helper {
     }
 
     for (int i = 1; i <= lengthLine; i += 1) {
-      result.add(Point(
-        getCord(pointOne.x, pointTwo.x, sizeX, lengthLine, i),
-        getCord(pointOne.y, pointTwo.y, sizeY, lengthLine, i),
-      ));
+      result.add(
+        Point(
+          getCord(pointOne.x, pointTwo.x, sizeX, lengthLine, i),
+          getCord(pointOne.y, pointTwo.y, sizeY, lengthLine, i),
+        ),
+      );
     }
 
     return result;
   }
-
 }

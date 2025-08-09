@@ -18,19 +18,19 @@ A Flutter package that provides a realistic page-flipping effect for digital boo
 
 ## Demo (GIF)
 
-Animated GIF previews below. On pub.dev, demo assets under `videos/` are excluded to reduce package size; view them on GitHub.
+Animated GIF previews below. To keep the published package small, demo GIFs are hosted on GitHub.
 
 ### Desktop flipping
 
-![Desktop flipping](videos/desktop-fliping.gif)
+![Desktop flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/desktop-fliping.gif)
 
 ### Mobile flipping
 
-![Mobile flipping](videos/mobile-fliping.gif)
+![Mobile flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/mobile-fliping.gif)
 
 ### Responsiveness
 
-![Responsiveness](videos/responsiveness.gif)
+![Responsiveness](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/responsiveness.gif)
 
 ## Installation
 

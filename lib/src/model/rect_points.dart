@@ -4,10 +4,13 @@ import 'point.dart';
 class RectPoints {
   /// Coordinates of the top left corner
   final Point topLeft;
+
   /// Coordinates of the top right corner
   final Point topRight;
+
   /// Coordinates of the bottom left corner
   final Point bottomLeft;
+
   /// Coordinates of the bottom right corner
   final Point bottomRight;
 

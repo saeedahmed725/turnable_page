@@ -1,5 +1,2 @@
 /// Flipping direction
-enum FlipDirection {
-  forward,
-  back,
-}
+enum FlipDirection { forward, back }
