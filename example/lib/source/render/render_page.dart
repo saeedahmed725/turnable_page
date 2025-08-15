@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
 import '../model/point.dart';
@@ -11,6 +10,8 @@ import '../page/book_page.dart';
 
 /// Abstract class responsible for rendering the book
 abstract class Render {
+  // NOTE: This interface will also be implemented by a new RenderTurnableBook
+  // to support live widget pages without rasterizing to images.
   /// Rendering action on each frame
   void drawFrame();
 
@@ -88,21 +89,6 @@ abstract class Render {
 
   /// Casting rectangle corners to window coordinates
   RectPoints convertRectToGlobal(RectPoints rect, [FlipDirection? direction]);
-
-  /// Get the canvas for rendering
-  Canvas getCanvas();
-
-  /// Set the canvas and size for rendering
-  void setCanvas(Canvas canvas, Size size);
-
-  /// Draw book shadow (spine shadow)
-  void drawBookShadow();
-
-  /// Draw outer shadow
-  void drawOuterShadow();
-
-  /// Draw inner shadow
-  void drawInnerShadow();
 
   /// Update the app instance
   void updateApp(PageFlip app);
