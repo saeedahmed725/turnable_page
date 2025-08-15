@@ -53,6 +53,25 @@ class FlipSettings {
   /// Size of the corner trigger areas as a fraction of the page diagonal (0.1 = 10% of diagonal)
   final double cornerTriggerAreaSize;
 
+  // --- Realism / physics additions ---
+  /// Enable easing (cubic) for programmatic flip animations
+  final bool enableEasing;
+
+  /// Enable inertia so a fast swipe finishes even before crossing center
+  final bool enableInertia;
+
+  /// Velocity threshold (logical px/second) to treat release as a swipe
+  final double inertiaVelocityThreshold;
+
+  /// Extra normalized progress allowance for inertia completion (0-1)
+  final double inertiaProgressBoost;
+
+  /// Vertical sag amplitude as fraction of page height (0 = straight line)
+  final double sagAmplitude;
+
+  /// Bend strength multiplier (0-1) influencing hardAngle easing
+  final double bendStrength;
+
   FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
     this.startPageIndex = 0,
@@ -90,7 +109,7 @@ class FlipSettings {
     /// Enable mouse hover effects. Default: true
     // this.useMouseEvents = false,
 
-    /// Swipe distance threshold in pixels. Default: 30px
+    /// Swipe distance threshold in pixels. Default: 100px
     this.swipeDistance = 100.0,
 
     /// Show corner highlights on hover. Default: true
@@ -99,11 +118,18 @@ class FlipSettings {
     /// Disable click-to-flip (drag only). Default: false
     this.disableFlipByClick = false,
 
-    /// Enable smart gesture detection. Default: true
+    /// Enable smart gesture detection. Default: true (automatic behavior)
     this.enableSmartGestures = true,
 
     /// Corner trigger area size as fraction of diagonal. Default: 0.2 (20%)
     this.cornerTriggerAreaSize = 0.2,
+
+    this.enableEasing = true,
+    this.enableInertia = true,
+    this.inertiaVelocityThreshold = 900.0,
+    this.inertiaProgressBoost = 0.15,
+    this.sagAmplitude = 0.08,
+    this.bendStrength = 0.6,
   });
 
   FlipSettings copyWith({
@@ -125,6 +151,12 @@ class FlipSettings {
     bool? disableFlipByClick,
     bool? enableSmartGestures,
     double? cornerTriggerAreaSize,
+    bool? enableEasing,
+    bool? enableInertia,
+    double? inertiaVelocityThreshold,
+    double? inertiaProgressBoost,
+    double? sagAmplitude,
+    double? bendStrength,
   }) {
     return FlipSettings(
       startPageIndex: startPage ?? startPageIndex,
@@ -144,6 +176,13 @@ class FlipSettings {
       disableFlipByClick: disableFlipByClick ?? this.disableFlipByClick,
       enableSmartGestures: enableSmartGestures ?? this.enableSmartGestures,
       cornerTriggerAreaSize: cornerTriggerAreaSize ?? this.cornerTriggerAreaSize,
+      enableEasing: enableEasing ?? this.enableEasing,
+      enableInertia: enableInertia ?? this.enableInertia,
+      inertiaVelocityThreshold:
+          inertiaVelocityThreshold ?? this.inertiaVelocityThreshold,
+      inertiaProgressBoost: inertiaProgressBoost ?? this.inertiaProgressBoost,
+      sagAmplitude: sagAmplitude ?? this.sagAmplitude,
+      bendStrength: bendStrength ?? this.bendStrength,
     );
   }
 }

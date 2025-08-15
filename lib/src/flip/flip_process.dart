@@ -10,12 +10,12 @@ import '../model/page_rect.dart';
 import '../model/point.dart';
 import '../page/book_page.dart';
 import '../page/page_flip.dart';
-import '../render/render.dart';
+import '../render/render_page.dart';
 import 'flip_calculation.dart';
 
 /// Class representing the flipping process
 class FlipProcess {
-  late Render render;
+  late RenderPage render;
   late PageFlip app;
 
   BookPage? flippingPage;
@@ -29,7 +29,7 @@ class FlipProcess {
     reset();
   }
 
-  void updateApp(PageFlip app, Render render) {
+  void updateApp(PageFlip app, RenderPage render) {
     this.render = render;
     this.app = app;
   }
@@ -85,38 +85,27 @@ class FlipProcess {
   }
 
   /// Start the flipping process. Find direction and corner of flipping. Creating an object for calculation.
-  ///
-  /// @param {Point} globalPos - Touch Point Coordinates (relative window)
-  ///
-  /// @returns {bool} True if flipping is possible, false otherwise
   bool start(Point globalPos) {
     reset();
 
-    // Convert the global position to book coordinates
     final bookPos = render.convertToBook(globalPos);
     final rect = getBoundsRect();
 
-    // Determine the flipping direction based on the touch position
     final direction = getDirectionByPoint(bookPos);
 
-    // Determine the active corner (top or bottom)
     final flipCorner = bookPos.y >= rect.height / 2
         ? FlipCorner.bottom
         : FlipCorner.top;
 
-    // Check if flipping in this direction is allowed
     if (!checkDirection(direction)) return false;
 
     try {
-      // Get the flipping and bottom pages from the page collection
       final pageCollection = app.getPageCollection();
       flippingPage = pageCollection?.getFlippingPage(direction);
       bottomPage = pageCollection?.getBottomPage(direction);
 
-      // Handle page density for landscape and portrait modes
       if (render.getOrientation() == BookOrientation.landscape) {
         if (direction == FlipDirection.back) {
-          // In landscape, for back direction, check the next page's density
           final nextPage = pageCollection?.nextBy(flippingPage!);
           if (nextPage != null && flippingPage != null) {
             if (flippingPage!.getDensity() != nextPage.getDensity()) {
@@ -125,7 +114,6 @@ class FlipProcess {
             }
           }
         } else {
-          // In landscape, for forward direction, check the previous page's density
           final prevPage = pageCollection?.prevBy(flippingPage!);
           if (prevPage != null && flippingPage != null) {
             if (flippingPage!.getDensity() != prevPage.getDensity()) {
@@ -136,10 +124,8 @@ class FlipProcess {
         }
       }
 
-      // Set the flipping direction in the render
       render.setDirection(direction);
 
-      // Create the calculation object for flipping
       calc = FlipCalculation(
         direction,
         flipCorner,
@@ -149,20 +135,17 @@ class FlipProcess {
 
       return true;
     } catch (e) {
-      // If any error occurs, flipping is not possible
       return false;
     }
   }
 
   /// Perform calculations for the current page position. Pass data to render object
-  ///
-  /// @param {Point} pagePos - Touch Point Coordinates (relative active page)
   void doCalculation(Point pagePos) {
-    if (calc == null) return; // Flipping process not started
+    if (calc == null) return;
 
     if (calc!.calc(pagePos)) {
-      // Perform calculations for a specific position
       final progress = calc!.getFlippingProgress();
+      final settings = app.getSettings;
 
       bottomPage?.setArea(calc!.getBottomClipArea());
       bottomPage?.setPosition(calc!.getBottomPagePosition());
@@ -173,10 +156,22 @@ class FlipProcess {
       flippingPage?.setPosition(calc!.getActiveCorner());
       flippingPage?.setAngle(calc!.getAngle());
 
-      if (calc!.getDirection() == FlipDirection.forward) {
-        flippingPage?.setHardAngle((90 * (200 - progress * 2)) / 100);
-      } else {
-        flippingPage?.setHardAngle((-90 * (200 - progress * 2)) / 100);
+      if (state == FlippingState.userFold || state == FlippingState.foldCorner) {
+        final normalizedProgress = progress / 100.0;
+        final bendMultiplier = settings.bendStrength;
+
+        final easedProgress = settings.enableEasing
+            ? _easeOutCubic(normalizedProgress)
+            : normalizedProgress;
+
+        final maxAngle = 90.0;
+        final bendAngle = maxAngle * (1 - easedProgress * bendMultiplier);
+
+        if (calc!.getDirection() == FlipDirection.forward) {
+          flippingPage?.setHardAngle(bendAngle);
+        } else {
+          flippingPage?.setHardAngle(-bendAngle);
+        }
       }
 
       render.setPageRect(calc!.getRect());
@@ -192,9 +187,6 @@ class FlipProcess {
   }
 
   /// Flip to specific page with animation
-  ///
-  /// @param {int} page - Page number
-  /// @param {FlipCorner} corner - Active corner when turning
   void flipToPage(int page, FlipCorner corner) {
     final current = app.getPageCollection()?.getCurrentSpreadIndex() ?? 0;
     final next = app.getPageCollection()?.getSpreadIndexByPage(page) ?? 0;
@@ -214,8 +206,6 @@ class FlipProcess {
   }
 
   /// Turn to the next page (with animation)
-  ///
-  /// @param {FlipCorner} corner - Active page corner when turning
   void flipNext(FlipCorner corner) {
     final rect = getBoundsRect();
     flip(
@@ -227,8 +217,6 @@ class FlipProcess {
   }
 
   /// Turn to the previous page (with animation)
-  ///
-  /// @param {FlipCorner} corner - Active page corner when turning
   void flipPrev(FlipCorner corner) {
     final rect = getBoundsRect();
     flip(Point(10, corner == FlipCorner.top ? 1 : rect.height - 2));
@@ -243,18 +231,53 @@ class FlipProcess {
 
     final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
 
-    // React logic: check if position is beyond the center threshold
-    // If pos.x <= 0 (dragged past center), complete the flip
-    // If pos.x > 0 (still near the edge), snap back
-    if (pos.x <= 0) {
-      // Complete the flip - animate to the opposite side
+    final progress = calc!.getFlippingProgress() / 100.0;
+
+    if (progress > 0.5) {
       animateFlippingTo(
         pos,
         Point(-rect.pageWidth.toDouble(), y.toDouble()),
         true,
       );
     } else {
-      // Snap back - animate back to original position
+      animateFlippingTo(
+        pos,
+        Point(rect.pageWidth.toDouble(), y.toDouble()),
+        false,
+      );
+    }
+  }
+
+  /// Stop move with inertia consideration
+  void stopMoveWithInertia(bool fastSwipe, double velocity) {
+    if (calc == null) return;
+
+    final pos = calc!.getPosition();
+    final rect = getBoundsRect();
+    final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
+    final settings = app.getSettings;
+
+    double progress = calc!.getFlippingProgress() / 100.0;
+    bool complete;
+
+    if (fastSwipe) {
+      final dirForward = calc!.getDirection() == FlipDirection.forward;
+      final swipeTowardsCenter = dirForward ? velocity < 0 : velocity > 0;
+      if (swipeTowardsCenter) {
+        progress += settings.inertiaProgressBoost;
+      }
+      complete = progress >= 0.5;
+    } else {
+      complete = progress > 0.5;
+    }
+
+    if (complete) {
+      animateFlippingTo(
+        pos,
+        Point(-rect.pageWidth.toDouble(), y.toDouble()),
+        true,
+      );
+    } else {
       animateFlippingTo(
         pos,
         Point(rect.pageWidth.toDouble(), y.toDouble()),
@@ -265,8 +288,6 @@ class FlipProcess {
 
   /// Fold the corners of the book when the mouse pointer is over them.
   /// Called when the mouse pointer is over the book without clicking
-  ///
-  /// @param globalPos - Touch Point Coordinates (relative window)
   void showCorner(Point globalPos) {
     if (!checkState([FlippingState.read, FlippingState.foldCorner])) return;
 
@@ -306,23 +327,52 @@ class FlipProcess {
     }
   }
 
-  /// Animation function. Animates flipping process
+  /// Animation function. Animates flipping process with improved physics and easing
   void animateFlippingTo(
     Point start,
     Point dest,
     bool isTurned, [
     bool needReset = true,
   ]) {
-    final points = Helper.getCordsFromTwoPoint(start, dest);
+    final settings = app.getSettings;
 
+    final distance = Helper.getDistanceBetweenTwoPoint(start, dest);
+
+    final estFrames = distance.clamp(120, 900).toInt();
     final frames = <void Function()>[];
-    for (final point in points) {
+
+    final sagAmp = settings.sagAmplitude * getBoundsRect().height;
+
+    for (int i = 0; i <= estFrames; i++) {
+      final tRaw = i / estFrames; // 0..1
+
+      final t = settings.enableEasing ? _easeOutCubic(tRaw) : tRaw;
+
+      final x = start.x + (dest.x - start.x) * t;
+
+      final baseY = start.y + (dest.y - start.y) * t;
+      final sag = math.sin(math.pi * t) * sagAmp;
+
+      final corner = calc?.getCorner() ?? FlipCorner.top;
+      final y = corner == FlipCorner.top ? baseY + sag : baseY - sag;
+
       frames.add(() {
-        doCalculation(point);
+        doCalculation(Point(x, y));
+
+        if (flippingPage != null && calc != null) {
+          final prog = calc!.getFlippingProgress();
+          final bend = settings.bendStrength;
+          final eased = settings.enableEasing ? _easeOutCubic(prog / 100) : prog / 100;
+          final targetHard = 90 * (1 - eased * bend);
+
+          flippingPage!.setHardAngle(
+            calc!.getDirection() == FlipDirection.forward ? targetHard : -targetHard,
+          );
+        }
       });
     }
 
-    final duration = _getAnimationDuration(points.length);
+    final duration = _getAnimationDuration(frames.length);
 
     render.startAnimation(frames, duration, () {
       if (calc == null) return;
@@ -346,9 +396,12 @@ class FlipProcess {
     });
   }
 
+  /// Cubic easing function for smooth animations
+  double _easeOutCubic(double t) => 1 - math.pow(1 - t, 3).toDouble();
+
   /// Get animation duration for the given number of frames
   double _getAnimationDuration(int frameCount) {
-    final defaultTime = app.getSettings.flippingTime.toDouble(); // milliseconds
+    final defaultTime = app.getSettings.flippingTime.toDouble();
 
     if (frameCount >= 1000) {
       return defaultTime;
@@ -419,9 +472,11 @@ class FlipProcess {
   bool isPointOnCorners(Point globalPos) {
     final rect = getBoundsRect();
     final pageWidth = rect.pageWidth;
+    final settings = app.getSettings;
 
-    final operatingDistance =
-        math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) / 5;
+    final operatingDistance = settings.cornerTriggerAreaSize > 0
+        ? math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) * settings.cornerTriggerAreaSize
+        : math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) / 5;
 
     final bookPos = render.convertToBook(globalPos);
 

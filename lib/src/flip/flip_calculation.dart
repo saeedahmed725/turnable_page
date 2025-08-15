@@ -7,7 +7,6 @@ import '../model/rect.dart';
 import '../model/rect_points.dart';
 import '../model/segment.dart';
 
-/// Class representing mathematical methods for calculating page position (rotation angle, clip area ...)
 class FlipCalculation {
   /// Calculated rotation angle to flipping page
   late double angle;
@@ -29,23 +28,12 @@ class FlipCalculation {
   final FlipCorner corner;
 
   /// Constructor
-  ///
-  /// @param direction - Flipping direction
-  /// @param corner - Flipping corner
-  /// @param pageWidth - Current page width
-  /// @param pageHeight - Current page height
   FlipCalculation(this.direction, this.corner, this.pageWidth, this.pageHeight);
 
   /// The main calculation method
-  ///
-  /// @param localPos - Touch Point Coordinates (relative active page!)
-  ///
-  /// @returns True - if the calculations were successful, false if errors occurred
   bool calc(Point localPos) {
     try {
-      // Find: page rotation angle and active corner position
       position = calcAngleAndPosition(localPos);
-      // Find the intersection points of the scrolling page and the book
       calculateIntersectPoint(position);
 
       return true;
@@ -55,8 +43,6 @@ class FlipCalculation {
   }
 
   /// Get the crop area for the flipping page
-  ///
-  /// @returns Polygon page
   List<Point> getFlippingClipArea() {
     final result = <Point>[];
     bool clipBottom = false;
@@ -86,8 +72,6 @@ class FlipCalculation {
   }
 
   /// Get the crop area for the page that is below the page to be flipped
-  ///
-  /// @returns Polygon page
   List<Point> getBottomClipArea() {
     final result = <Point>[];
 
@@ -106,9 +90,9 @@ class FlipCalculation {
 
     if (sideIntersectPoint != null && topIntersectPoint != null) {
       if (Helper.getDistanceBetweenTwoPoint(
-            sideIntersectPoint!,
-            topIntersectPoint!,
-          ) >=
+        sideIntersectPoint!,
+        topIntersectPoint!,
+      ) >=
           10) {
         result.add(sideIntersectPoint!);
       }
@@ -340,10 +324,10 @@ class FlipCalculation {
   }
 
   Point checkPositionAtCenterLine(
-    Point checkedPos,
-    Point centerOne,
-    Point centerTwo,
-  ) {
+      Point checkedPos,
+      Point centerOne,
+      Point centerTwo,
+      ) {
     Point result = checkedPos;
 
     final tmp = Helper.limitPointToCircle(centerOne, pageWidth, result);

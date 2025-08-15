@@ -1,23 +1,8 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
-import 'source/enums/page_view_mode.dart';
-import 'source/flip/flip_settings.dart';
-import 'source/model/paper_boundary_decoration.dart';
-import 'source/widgets/page_flip_controller.dart';
-import 'source/widgets/turnable_page.dart';
+import 'package:turnable_page/turnable_page.dart';
 
-void main() {
-  runApp(AnimationTestApp());
-}
-
-class AnimationTestApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Animation Test - اختبار الأنيميشن',
-      home: AnimationTestPage(),
-    );
-  }
-}
 
 class AnimationTestPage extends StatefulWidget {
   @override
@@ -106,16 +91,26 @@ class _AnimationTestPageState extends State<AnimationTestPage> {
           Positioned(
             top: 20,
             left: 20,
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'اختبار الأنيميشن\nعدد التقليبات: ${_flipCountNotifier.value}',
-                style: TextStyle(color: Colors.white, fontSize: 14),
-              ),
+            child: ValueListenableBuilder<int>(
+              valueListenable: _flipCountNotifier,
+              builder: (context, flipCount, child) {
+                return ValueListenableBuilder<int>(
+                  valueListenable: _currentPageNotifier,
+                  builder: (context, currentPage, child) {
+                    return Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'اختبار الأنيميشن\nالصفحة الحالية: ${currentPage + 1}\nعدد التقليبات: $flipCount',
+                        style: TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
@@ -142,7 +137,7 @@ class _AnimationTestPageState extends State<AnimationTestPage> {
             usePortrait: false,
           ),
           onPageChanged: (leftPageIndex, rightPageIndex) {
-            // تحديث القيم بدون setState لتجنب مقاطعة الأنيميشن
+            log('Page: $leftPageIndex, $rightPageIndex');
             _currentPageNotifier.value = rightPageIndex;
             _flipCountNotifier.value = _flipCountNotifier.value + 1;
           },

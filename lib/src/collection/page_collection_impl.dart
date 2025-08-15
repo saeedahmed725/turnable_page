@@ -1,74 +1,54 @@
-import 'dart:ui' as ui;
-
 import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
 import '../enums/page_density.dart';
 import '../page/book_page.dart';
 import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
-import '../render/render.dart';
+import '../render/render_page.dart';
 import 'page_collection.dart';
 
-/// Class representing a collection of pages as widgets that get converted to images
 class PageCollectionImpl extends PageCollection {
-  final List<ui.Image> images;
+  final int pageCount;
   late final PageFlip app;
-  late final Render render;
+  late final RenderPage render;
   late final bool isShowCover;
 
-  /// Pages List
-  final List<BookPage> pages = <BookPage>[];
-
-  /// Index of the current page in list
+  final List<BookPage> pages = [];
   int currentPageIndex = 0;
-
-  /// Number of the current spread in book
   int currentSpreadIndex = 0;
+  final List<NumberArray> landscapeSpread = [];
+  final List<NumberArray> portraitSpread = [];
 
-  /// Two-page spread in landscape mode
-  final List<NumberArray> landscapeSpread = <NumberArray>[];
-
-  /// One-page spread in portrait mode
-  final List<NumberArray> portraitSpread = <NumberArray>[];
-
-  PageCollectionImpl(this.app, this.render, this.images) {
-    currentPageIndex = 0;
+  PageCollectionImpl(this.app, this.render, this.pageCount) {
     isShowCover = app.getSettings.showCover;
   }
 
   @override
   void loadBookPages() {
-    for (int i = 0; i < images.length; i++) {
-      final page = BookPageImp(render, images[i], i, PageDensity.hard);
-      pages.add(page);
+    for (int i = 0; i < pageCount; i++) {
+      pages.add(BookPageImpl(index: i, createdDensity: PageDensity.hard));
     }
-
     createSpread();
   }
 
-  /// Clear pages list
   @override
   void destroy() {
     pages.clear();
   }
 
-  /// Split the book on the two-page spread in landscape mode and one-page spread in portrait mode
   @override
   void createSpread() {
     landscapeSpread.clear();
     portraitSpread.clear();
-
     for (int i = 0; i < pages.length; i++) {
       portraitSpread.add([i]);
     }
-
     int start = 0;
     if (isShowCover) {
       pages[0].setDensity(PageDensity.hard);
       landscapeSpread.add([start]);
       start++;
     }
-
     for (int i = start; i < pages.length; i += 2) {
       if (i < pages.length - 1) {
         landscapeSpread.add([i, i + 1]);
@@ -79,86 +59,51 @@ class PageCollectionImpl extends PageCollection {
     }
   }
 
-  /// Get spread by mode (portrait or landscape)
   @override
-  List<NumberArray> getSpread() {
-    return render.getOrientation() == BookOrientation.landscape
-        ? landscapeSpread
-        : portraitSpread;
-  }
+  List<NumberArray> getSpread() =>
+      render.getOrientation() == BookOrientation.landscape
+      ? landscapeSpread
+      : portraitSpread;
 
-  /// Get spread index by page number
-  ///
-  /// @param {int} pageNum - page index
   @override
   int? getSpreadIndexByPage(int pageNum) {
     final spread = getSpread();
-
     for (int i = 0; i < spread.length; i++) {
-      if (pageNum == spread[i][0] ||
-          (spread[i].length > 1 && pageNum == spread[i][1])) {
-        return i;
-      }
+      final s = spread[i];
+      if (pageNum == s[0] || (s.length > 1 && pageNum == s[1])) return i;
     }
-
     return null;
   }
 
-  /// Get the total number of pages
   @override
-  int getPageCount() {
-    return pages.length;
-  }
+  int getPageCount() => pages.length;
 
-  /// Get the pages list
   @override
-  List<BookPage> getPages() {
-    return pages;
-  }
+  List<BookPage> getPages() => pages;
 
-  /// Get page by index
-  ///
-  /// @param {int} pageIndex
   @override
   BookPage getPage(int pageIndex) {
-    if (pageIndex >= 0 && pageIndex < pages.length) {
-      return pages[pageIndex];
-    }
-
+    if (pageIndex >= 0 && pageIndex < pages.length) return pages[pageIndex];
     throw Exception('Invalid page number');
   }
 
-  /// Get the next page from the specified
-  ///
-  /// @param {BookPage} current
   @override
   BookPage? nextBy(BookPage current) {
     final idx = pages.indexOf(current);
-
     if (idx < pages.length - 1) return pages[idx + 1];
-
     return null;
   }
 
-  /// Get previous page from specified
-  ///
-  /// @param {BookPage} current
   @override
   BookPage? prevBy(BookPage current) {
     final idx = pages.indexOf(current);
-
     if (idx > 0) return pages[idx - 1];
-
     return null;
   }
 
-  /// Get flipping page depending on the direction
-  ///
-  /// @param {FlipDirection} direction
   @override
   BookPage? getFlippingPage(FlipDirection direction) {
     final current = currentSpreadIndex;
-
     if (render.getOrientation() == BookOrientation.portrait) {
       return direction == FlipDirection.forward
           ? pages[current].getTemporaryCopy()
@@ -167,22 +112,16 @@ class PageCollectionImpl extends PageCollection {
       final spread = direction == FlipDirection.forward
           ? getSpread()[current + 1]
           : getSpread()[current - 1];
-
       if (spread.length == 1) return pages[spread[0]];
-
       return direction == FlipDirection.forward
           ? pages[spread[0]]
           : pages[spread[1]];
     }
   }
 
-  /// Get Next page at the time of flipping
-  ///
-  /// @param {FlipDirection} direction
   @override
   BookPage? getBottomPage(FlipDirection direction) {
     final current = currentSpreadIndex;
-
     if (render.getOrientation() == BookOrientation.portrait) {
       return direction == FlipDirection.forward
           ? pages[current + 1]
@@ -191,16 +130,13 @@ class PageCollectionImpl extends PageCollection {
       final spread = direction == FlipDirection.forward
           ? getSpread()[current + 1]
           : getSpread()[current - 1];
-
       if (spread.length == 1) return pages[spread[0]];
-
       return direction == FlipDirection.forward
           ? pages[spread[1]]
           : pages[spread[0]];
     }
   }
 
-  /// Show next spread
   @override
   void showNext() {
     if (currentSpreadIndex < getSpread().length - 1) {
@@ -209,7 +145,6 @@ class PageCollectionImpl extends PageCollection {
     }
   }
 
-  /// Show prev spread
   @override
   void showPrev() {
     if (currentSpreadIndex > 0) {
@@ -218,20 +153,13 @@ class PageCollectionImpl extends PageCollection {
     }
   }
 
-  /// Get the number of the current spread in book
   @override
-  int getCurrentPageIndex() {
-    return currentPageIndex;
-  }
+  int getCurrentPageIndex() => currentPageIndex;
 
-  /// Show specified page
-  /// @param {int} pageNum - Page index (from 0)
   @override
   void show([int? pageNum]) {
     pageNum ??= currentPageIndex;
-
     if (pageNum < 0 || pageNum >= pages.length) return;
-
     final spreadIndex = getSpreadIndexByPage(pageNum);
     if (spreadIndex != null) {
       currentSpreadIndex = spreadIndex;
@@ -239,15 +167,9 @@ class PageCollectionImpl extends PageCollection {
     }
   }
 
-  /// Index of the current page in list
   @override
-  int getCurrentSpreadIndex() {
-    return currentSpreadIndex;
-  }
+  int getCurrentSpreadIndex() => currentSpreadIndex;
 
-  /// Set new spread index as current
-  ///
-  /// @param {int} newIndex - new spread index
   @override
   void setCurrentSpreadIndex(int newIndex) {
     if (newIndex >= 0 && newIndex < getSpread().length) {
@@ -257,11 +179,9 @@ class PageCollectionImpl extends PageCollection {
     }
   }
 
-  /// Show current spread
   @override
   void showSpread() {
     final spread = getSpread()[currentSpreadIndex];
-
     if (spread.length == 2) {
       render.setLeftPage(pages[spread[0]]);
       render.setRightPage(pages[spread[1]]);
@@ -279,7 +199,6 @@ class PageCollectionImpl extends PageCollection {
         render.setRightPage(pages[spread[0]]);
       }
     }
-
     currentPageIndex = spread[0];
     app.updatePageIndex(currentPageIndex);
   }

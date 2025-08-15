@@ -1,12 +1,8 @@
 import 'dart:developer';
 
 import 'package:example/animation_test.dart';
-import 'package:example/source/enums/page_view_mode.dart';
-import 'package:example/source/flip/flip_settings.dart';
-import 'package:example/source/model/paper_boundary_decoration.dart';
-import 'package:example/source/widgets/page_flip_controller.dart';
-import 'package:example/source/widgets/turnable_page.dart';
 import 'package:flutter/material.dart';
+import 'package:turnable_page/turnable_page.dart';
 
 void main() {
   runApp(MyApp());

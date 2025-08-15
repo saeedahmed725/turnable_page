@@ -1,6 +1,6 @@
-import 'package:example/source/widgets/turnable_page.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../turnable_page.dart';
 import '../flip/flip_settings.dart';
 import '../page/page_flip.dart';
 import '../page/page_host.dart';
