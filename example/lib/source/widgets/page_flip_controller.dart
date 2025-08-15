@@ -1,5 +1,5 @@
 import '../enums/flip_corner.dart';
-import '../event/event_object.dart';
+import '../event/page_flip_notifier.dart';
 import '../page/page_flip.dart';
 
 /// Controller for managing PageFlip widget state and operations.
@@ -27,18 +27,18 @@ class PageFlipController {
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
 
   /// Get the current page index (0-based)
-  int get currentPageIndex => _pageFlip.getCurrentPageIndex();
+  int get currentPage => _pageFlip.getCurrentPageIndex();
 
   /// Get the total number of pages
   int get pageCount => _pageFlip.getPageCount();
 
   /// Check if there is a next page available
   bool get hasNextPage =>
-      currentPageIndex + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
+      currentPage + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
       (pageCount - 1);
 
   /// Check if there is a previous page available
-  bool get hasPreviousPage => currentPageIndex > 0;
+  bool get hasPreviousPage => currentPage > 0;
 
   /// Flip to the next page
   ///
@@ -79,20 +79,32 @@ class PageFlipController {
   /// Go to the last page
   bool goToLastPage() => goToPage(pageCount - 1);
 
-  /// Register an event listener
+  /// Get the ChangeNotifier for listening to page flip events
   ///
-  /// [event] - The event name ('flip', 'changeOrientation', etc.)
-  /// [callback] - The callback function to execute
-  void addEventListener(String event, EventCallback callback) {
-    _pageFlip.on(event, callback);
-  }
+  /// Use this with Flutter widgets like AnimatedBuilder, ValueListenableBuilder, etc.
+  /// Example:
+  /// ```dart
+  /// AnimatedBuilder(
+  ///   animation: controller.notifier,
+  ///   builder: (context, child) {
+  ///     // React to page flip events
+  ///     final flipEvent = controller.notifier.currentFlipEvent;
+  ///     return Text('Current page: ${flipEvent?.page ?? 0}');
+  ///   },
+  /// )
+  /// ```
+  PageFlipNotifier get notifier => _pageFlip.notifier;
 
-  /// Remove an event listener
+  /// Get the Stream-based notifier for advanced async event handling
   ///
-  /// [event] - The event name
-  void removeEventListener(String event) {
-    _pageFlip.off(event);
-  }
+  /// Use this for reactive programming with streams
+  /// Example:
+  /// ```dart
+  /// controller.streamNotifier.onFlip.listen((event) {
+  ///   print('Page flipped to: ${event.page}');
+  /// });
+  /// ```
+  PageFlipStreamNotifier get streamNotifier => _pageFlip.streamNotifier;
 
   /// Get the underlying PageFlip instance for advanced operations
   ///

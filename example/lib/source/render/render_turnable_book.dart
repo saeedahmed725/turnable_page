@@ -33,6 +33,18 @@ class RenderTurnableBook extends RenderBox
   static const int _swipeTimeout = 250;
   static const double _minMoveThreshold = 10.0;
 
+  // === White Page Management (cached to prevent flickering) ===
+  bool _cachedNeedsWhitePage = false;
+  int _cachedChildCount = 0;
+  bool get _needsWhitePage {
+    // Cache the white page state to prevent flickering when childCount changes
+    if (_cachedChildCount != childCount) {
+      _cachedChildCount = childCount;
+      _cachedNeedsWhitePage = childCount % 2 == 1;
+    }
+    return _cachedNeedsWhitePage;
+  }
+
   // === Core Configuration ===
   FlipSettings settings;
   final PageFlip pageFlip;
@@ -57,6 +69,9 @@ class RenderTurnableBook extends RenderBox
   bool _frameScheduled = false;
   double _timeMs = 0;
   double? _lastRawTickerMs;
+
+  // === Paint Optimization ===
+  bool _paintScheduled = false;
 
   // === Child Management (Performance Optimized) ===
   List<RenderBox?> _indexedChildren = <RenderBox?>[];
@@ -85,6 +100,16 @@ class RenderTurnableBook extends RenderBox
     SchedulerBinding.instance.scheduleFrameCallback(_onFrame);
   }
 
+  /// Optimized paint scheduling to prevent excessive repaints
+  void _schedulePaint() {
+    if (_paintScheduled) return;
+    _paintScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _paintScheduled = false;
+      markNeedsPaint();
+    });
+  }
+
   /// Consolidated frame callback for better performance
   void _onFrame(Duration timestamp) {
     _frameScheduled = false;
@@ -96,23 +121,12 @@ class RenderTurnableBook extends RenderBox
     // Process animation if active
     if (animation != null) {
       render(_timeMs);
-    } else if (_hasActiveVisualElements) {
-      markNeedsPaint();
-    }
-
-    // Continue frame scheduling if needed
-    if (_shouldContinueAnimating) {
-      _scheduleFrame();
+      // Continue frame scheduling only if animation is still active
+      if (animation != null) {
+        _scheduleFrame();
+      }
     }
   }
-
-  /// Performance: Check if we have active visual elements
-  bool get _hasActiveVisualElements =>
-      flippingPage != null || shadow != null || bottomPage != null;
-
-  /// Performance: Check if we should continue animating
-  bool get _shouldContinueAnimating =>
-      animation != null || _hasActiveVisualElements;
 
   /// Optimized timestamp handling
   void _updateTimestamp(double rawMs) {
@@ -151,7 +165,8 @@ class RenderTurnableBook extends RenderBox
       _assignPageIndices();
     }
     if (!_initialized) {
-      collection = PageCollectionLive(pageFlip, this, childCount);
+      final totalPages = _needsWhitePage ? _cachedChildCount + 1 : _cachedChildCount;
+      collection = PageCollectionLive(pageFlip, this, totalPages);
       collection.loadBookPages();
       collection.show(settings.startPageIndex);
       _initialized = true;
@@ -170,10 +185,15 @@ class RenderTurnableBook extends RenderBox
   void _assignPageIndices() {
     _needsIndexRebuild = false;
     final count = childCount;
+    final totalSlots = _needsWhitePage ? count + 1 : count;
 
     // Resize array only if necessary (performance optimization)
-    if (_indexedChildren.length != count) {
-      _indexedChildren = List<RenderBox?>.filled(count, null, growable: false);
+    if (_indexedChildren.length != totalSlots) {
+      _indexedChildren = List<RenderBox?>.filled(
+        totalSlots,
+        null,
+        growable: false,
+      );
     }
 
     // Batch process all children
@@ -186,10 +206,20 @@ class RenderTurnableBook extends RenderBox
       index++;
       child = pd.nextSibling;
     }
+
+    // Add virtual white page slot if needed
+    if (_needsWhitePage) {
+      _indexedChildren[count] = null; // null indicates virtual white page
+    }
   }
 
   /// High-performance child lookup with fallback
   RenderBox? _childByIndex(int index) {
+    // Check if this is the virtual white page index
+    if (_needsWhitePage && index == _cachedChildCount) {
+      return null; // Virtual white page - will be handled specially in paint
+    }
+
     // Fast path: use indexed array
     if (!_needsIndexRebuild && index >= 0 && index < _indexedChildren.length) {
       final child = _indexedChildren[index];
@@ -244,16 +274,24 @@ class RenderTurnableBook extends RenderBox
       if (elapsed < 0) elapsed = 0;
       final frameIndex = (elapsed / animation!.durationFrame).floor();
 
+      bool needsRepaint = false;
       if (frameIndex < animation!.frames.length) {
         // Execute the frame action (closure)
         animation!.frames[frameIndex]();
+        needsRepaint = true;
       } else {
         // Animation completed - call the completion callback
         animation!.onAnimateEnd();
-        pageFlip.trigger('animationComplete', pageFlip, null);
+        pageFlip.notifier.notifyAnimationComplete();
+        pageFlip.streamNotifier.notifyAnimationComplete();
         animation = null;
+        needsRepaint = true;
       }
-      markNeedsPaint();
+      
+      // Only repaint when actually needed
+      if (needsRepaint) {
+        markNeedsPaint();
+      }
     }
   }
 
@@ -283,7 +321,8 @@ class RenderTurnableBook extends RenderBox
         animation!.frames.last();
       }
       animation!.onAnimateEnd();
-      pageFlip.trigger('animationComplete', pageFlip, null);
+      pageFlip.notifier.notifyAnimationComplete();
+      pageFlip.streamNotifier.notifyAnimationComplete();
       animation = null;
     }
   }
@@ -341,8 +380,7 @@ class RenderTurnableBook extends RenderBox
   ) {
     if (!settings.drawShadow) return;
     final maxShadowOpacity = 100 * settings.maxShadowOpacity;
-    
-    // Use the exact same shadow width calculation as the original canvas_render.dart
+
     shadow = Shadow(
       pos: pos,
       angle: angle,
@@ -351,7 +389,7 @@ class RenderTurnableBook extends RenderBox
       direction: direction,
       progress: progress * 2,
     );
-    markNeedsPaint();
+    _schedulePaint();
   }
 
   @override
@@ -396,14 +434,14 @@ class RenderTurnableBook extends RenderBox
   void setRightPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.right);
     rightPage = page;
-    markNeedsPaint();
+    _schedulePaint();
   }
 
   @override
   void setLeftPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.left);
     leftPage = page;
-    markNeedsPaint();
+    _schedulePaint();
   }
 
   @override
@@ -416,7 +454,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     bottomPage = page;
-    markNeedsPaint();
+    _schedulePaint();
   }
 
   @override
@@ -430,7 +468,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     flippingPage = page;
-    markNeedsPaint();
+    _schedulePaint();
   }
 
   @override
@@ -479,14 +517,18 @@ class RenderTurnableBook extends RenderBox
     final rect = getRect();
     final canvas = context.canvas;
 
-    // Performance: Single save/restore for entire paint operation
     canvas.save();
 
-    // Paint static pages with inline helper for better performance
     void paintStatic(BookPage? page, bool isLeft) {
       if (page == null) return;
       final lp = page as LiveBookPage;
       final child = _childByIndex(lp.index);
+
+      if (_isWhitePageIndex(lp.index)) {
+        _drawWhitePageStatic(canvas, rect, offset, isLeft);
+        return;
+      }
+
       if (child == null) return;
 
       final pageOffset = Offset(
@@ -496,11 +538,9 @@ class RenderTurnableBook extends RenderBox
       context.paintChild(child, pageOffset);
     }
 
-    // Paint in optimal order for performance
     if (_orientation != BookOrientation.portrait) paintStatic(leftPage, true);
     paintStatic(rightPage, false);
 
-    // Paint dynamic content only if needed
     if (bottomPage is LiveBookPage) {
       _paintDynamicPage(
         context,
@@ -511,7 +551,6 @@ class RenderTurnableBook extends RenderBox
       );
     }
 
-    // Draw shadows only if enabled
     if (settings.drawShadow) {
       _drawBookShadow(canvas, rect, offset);
     }
@@ -520,7 +559,6 @@ class RenderTurnableBook extends RenderBox
       _paintDynamicPage(context, canvas, offset, flippingPage as LiveBookPage);
     }
 
-    // Performance: Only draw shadows if they exist and are enabled
     if (shadow != null && settings.drawShadow) {
       _drawOuterShadow(canvas, rect, offset);
       if (pageRect != null) {
@@ -528,7 +566,6 @@ class RenderTurnableBook extends RenderBox
       }
     }
 
-    // Apply clipping only for portrait mode
     if (_orientation == BookOrientation.portrait) {
       canvas.clipRect(
         Rect.fromLTWH(
@@ -543,7 +580,6 @@ class RenderTurnableBook extends RenderBox
     canvas.restore();
   }
 
-  /// Optimized dynamic page painting with reduced object allocations
   void _paintDynamicPage(
     PaintingContext context,
     Canvas canvas,
@@ -551,17 +587,20 @@ class RenderTurnableBook extends RenderBox
     LiveBookPage page, {
     bool isBottom = false,
   }) {
+    if (_isWhitePageIndex(page.index)) {
+      _paintDynamicWhitePage(canvas, rootOffset, page);
+      return;
+    }
+
     final child = _childByIndex(page.index);
     if (child == null) return;
 
-    // Performance: Get position once and reuse
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
 
     canvas.save();
     canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
 
-    // Performance: Only build clip path if needed
     final origin = convertToGlobal(position);
     final path = page.buildOrGetClipPath(
       origin,
@@ -569,13 +608,55 @@ class RenderTurnableBook extends RenderBox
     );
     if (path != null) canvas.clipPath(path);
 
-    // Performance: Only apply rotation if significant
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
       canvas.rotate(angle);
     }
 
     context.paintChild(child, Offset.zero);
+    canvas.restore();
+  }
+
+  void _paintDynamicWhitePage(
+    Canvas canvas,
+    Offset rootOffset,
+    LiveBookPage page,
+  ) {
+    final position = page.state.position;
+    final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
+    final rect = getRect();
+
+    canvas.save();
+    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+
+    final origin = convertToGlobal(position);
+    final path = page.buildOrGetClipPath(
+      origin,
+      (model.Point p) => convertToGlobal(p)!,
+    );
+    if (path != null) canvas.clipPath(path);
+
+    final angle = page.state.angle;
+    if (angle.abs() > 0.001) {
+      canvas.rotate(angle);
+    }
+
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..style = PaintingStyle.fill;
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height), paint);
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFFE0E0E0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
+      borderPaint,
+    );
+
     canvas.restore();
   }
 
@@ -617,22 +698,25 @@ class RenderTurnableBook extends RenderBox
     final s = shadow!;
     final shadowPos = convertToGlobal(s.pos);
     if (shadowPos == null) return;
-    
+
     canvas.save();
-    
-    // Use exact same clipping as original - but account for paint context
+
     canvas.clipRect(
-      Rect.fromLTWH(rect.left + root.dx, rect.top + root.dy, rect.width, rect.height),
+      Rect.fromLTWH(
+        rect.left + root.dx,
+        rect.top + root.dy,
+        rect.width,
+        rect.height,
+      ),
     );
-    
-    // Apply root offset to shadow position to account for paint context
+
     canvas.translate(shadowPos.x + root.dx, shadowPos.y + root.dy);
     canvas.rotate(math.pi + s.angle + math.pi / 2);
-    
+
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
-    
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(0, -100);
       colors = [
@@ -648,14 +732,14 @@ class RenderTurnableBook extends RenderBox
       ];
       stops = [0.0, 1.0];
     }
-    
+
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(s.width, 0),
       colors,
       stops,
     );
-    
+
     paint.shader = gradient;
     canvas.drawRect(Rect.fromLTWH(0, 0, s.width, rect.height * 2), paint);
     canvas.restore();
@@ -667,10 +751,9 @@ class RenderTurnableBook extends RenderBox
     final shadowPos = convertToGlobal(s.pos);
     if (shadowPos == null) return;
     final pr = convertRectToGlobal(pageRect!);
-    
+
     canvas.save();
-    
-    // Build path and account for paint context offset
+
     final path = Path()
       ..moveTo(pr.topLeft.x + root.dx, pr.topLeft.y + root.dy)
       ..lineTo(pr.topRight.x + root.dx, pr.topRight.y + root.dy)
@@ -678,16 +761,15 @@ class RenderTurnableBook extends RenderBox
       ..lineTo(pr.bottomLeft.x + root.dx, pr.bottomLeft.y + root.dy)
       ..close();
     canvas.clipPath(path);
-    
-    // Apply root offset to shadow position to account for paint context
+
     canvas.translate(shadowPos.x + root.dx, shadowPos.y + root.dy);
     canvas.rotate(math.pi + s.angle + math.pi / 2);
-    
+
     final isw = (s.width * 3) / 4;
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
-    
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(-isw, -100);
       colors = [
@@ -707,14 +789,14 @@ class RenderTurnableBook extends RenderBox
       ];
       stops = [0.0, 0.1, 0.3, 1.0];
     }
-    
+
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(isw, 0),
       colors,
       stops,
     );
-    
+
     paint.shader = gradient;
     canvas.drawRect(Rect.fromLTWH(0, 0, isw, rect.height * 2), paint);
     canvas.restore();
@@ -747,7 +829,6 @@ class RenderTurnableBook extends RenderBox
     }
   }
 
-  /// Handle pan start with touch point tracking
   void _handlePanStart(Offset position) {
     final point = model.Point(position.dx, position.dy);
 
@@ -760,12 +841,10 @@ class RenderTurnableBook extends RenderBox
     ensureAnimating();
   }
 
-  /// Handle pan update with mobile scroll support and performance optimization
   void _handlePanUpdate(Offset position) {
     final point = model.Point(position.dx, position.dy);
 
     if (settings.mobileScrollSupport && _touchPoint != null) {
-      // Performance: Calculate distance only once
       final deltaX = (_touchPoint!.point.x - point.x).abs();
 
       if (deltaX > _minMoveThreshold ||
@@ -777,7 +856,6 @@ class RenderTurnableBook extends RenderBox
     }
   }
 
-  /// Handle pan end with optimized swipe detection
   void _handlePanEnd(Offset position) {
     final point = model.Point(position.dx, position.dy);
 
@@ -785,13 +863,11 @@ class RenderTurnableBook extends RenderBox
       _processSwipeGesture(point);
       _touchPoint = null;
     } else {
-      // Regular drag completion with threshold-based animation
       _touchPoint = null;
       pageFlip.userStop(point, false);
     }
   }
 
-  /// Performance: Extracted swipe validation logic
   bool _isValidSwipe(model.Point point) {
     if (_touchPoint == null) return false;
 
@@ -804,12 +880,11 @@ class RenderTurnableBook extends RenderBox
         timeDelta < _swipeTimeout;
   }
 
-  /// Performance: Extracted swipe processing logic
   void _processSwipeGesture(model.Point point) {
     final dx = point.x - _touchPoint!.point.x;
     final rect = getRect();
     final halfHeight =
-        rect.height * 0.5; // Use multiplication instead of division
+        rect.height * 0.5;
     final corner = _touchPoint!.point.y < halfHeight
         ? FlipCorner.top
         : FlipCorner.bottom;
@@ -822,4 +897,38 @@ class RenderTurnableBook extends RenderBox
   }
 
   void ensureAnimating() => _scheduleFrame();
+
+  bool _isWhitePageIndex(int index) {
+    return _needsWhitePage && index == _cachedChildCount;
+  }
+
+  void _drawWhitePageStatic(
+    Canvas canvas,
+    PageRect rect,
+    Offset offset,
+    bool isLeft,
+  ) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..style = PaintingStyle.fill;
+
+    final pageX = (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx;
+    final pageY = rect.top + offset.dy;
+
+    final whitePageRect = Rect.fromLTWH(
+      pageX,
+      pageY,
+      rect.pageWidth,
+      rect.height,
+    );
+
+    canvas.drawRect(whitePageRect, paint);
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFFE0E0E0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawRect(whitePageRect, borderPaint);
+  }
 }

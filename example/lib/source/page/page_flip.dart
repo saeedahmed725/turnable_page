@@ -4,7 +4,7 @@ import '../collection/page_collection.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
-import '../event/event_object.dart';
+import '../event/page_flip_notifier.dart';
 import '../flip/flip_process.dart';
 import '../flip/flip_settings.dart';
 import '../model/page_rect.dart';
@@ -13,7 +13,7 @@ import '../render/render_page.dart';
 import 'book_page.dart';
 
 /// Class representing a main PageFlip object
-class PageFlip extends EventObject {
+class PageFlip {
   Point? mousePosition;
   bool isUserTouch = false;
   bool isUserMove = false;
@@ -26,15 +26,26 @@ class PageFlip extends EventObject {
   RenderPage? _render; // lazily injected by RenderTurnableBook
   // Interaction now handled directly by RenderTurnableBook via pointer events
 
+  // Flutter-native event notifiers
+  final PageFlipNotifier _changeNotifier = PageFlipNotifier();
+  final PageFlipStreamNotifier _streamNotifier = PageFlipStreamNotifier();
+
   PageCollection? pages;
 
   /// Create a new PageFlip instance with FlipSetting object
   ///  FlipSetting [setting] - Configuration object
-  PageFlip(this.setting, {RenderPage? customRender}) : super() {
+  PageFlip(this.setting, {RenderPage? customRender}) {
     if (customRender != null) {
       render = customRender; // triggers flipProcess creation
     }
   }
+
+  // Public getters for notifiers
+  /// Get the ChangeNotifier for listening to events in widgets
+  PageFlipNotifier get notifier => _changeNotifier;
+  
+  /// Get the Stream-based notifier for advanced async event handling
+  PageFlipStreamNotifier get streamNotifier => _streamNotifier;
 
   bool _flipProcessInitialized = false;
 
@@ -58,10 +69,15 @@ class PageFlip extends EventObject {
     if (_flipProcessInitialized) {
       flipProcess.updateApp(this, render);
     }
-    trigger('updateSettings', this, {
-      'settings': setting,
-      'mode': _render?.getOrientation(),
-    });
+    
+    _changeNotifier.notifySettingsUpdate(
+      settings: setting,
+      mode: _render?.getOrientation(),
+    );
+    _streamNotifier.notifySettingsUpdate(
+      settings: setting,
+      mode: _render?.getOrientation(),
+    );
   }
 
   
@@ -69,7 +85,8 @@ class PageFlip extends EventObject {
   /// Clear all pages
   void clear() {
     pages?.destroy();
-    trigger('clear', this, {});
+    _changeNotifier.notifyClear();
+    _streamNotifier.notifyClear();
   }
 
   /// Turn to previous page without animation
@@ -97,7 +114,14 @@ class PageFlip extends EventObject {
     if (pages != null) {
       pages!.show(pageNum);
 
-      trigger('flip', this, {'page': pageNum, 'mode': render.getOrientation()});
+      _changeNotifier.notifyFlip(
+        page: pageNum,
+        mode: render.getOrientation(),
+      );
+      _streamNotifier.notifyFlip(
+        page: pageNum,
+        mode: render.getOrientation(),
+      );
     }
   }
 
@@ -112,7 +136,14 @@ class PageFlip extends EventObject {
 
     if (currentIndex < totalPages - 1) {
       flipProcess.flipNext(corner);
-      trigger('flip', this, {'page': currentIndex + 1, 'direction': 'next'});
+      _changeNotifier.notifyFlip(
+        page: currentIndex + 1,
+        direction: 'next',
+      );
+      _streamNotifier.notifyFlip(
+        page: currentIndex + 1,
+        direction: 'next',
+      );
     }
   }
 
@@ -127,7 +158,14 @@ class PageFlip extends EventObject {
     if (currentIndex > 0) {
       // Use flip controller for animation if available
       flipProcess.flipPrev(corner);
-      trigger('flip', this, {'page': currentIndex - 1, 'direction': 'prev'});
+      _changeNotifier.notifyFlip(
+        page: currentIndex - 1,
+        direction: 'prev',
+      );
+      _streamNotifier.notifyFlip(
+        page: currentIndex - 1,
+        direction: 'prev',
+      );
     }
   }
 
@@ -145,10 +183,14 @@ class PageFlip extends EventObject {
 
       flipProcess.flipToPage(page, corner);
 
-      trigger('flip', this, {
-        'page': page,
-        'direction': page > currentIndex ? 'next' : 'prev',
-      });
+      _changeNotifier.notifyFlip(
+        page: page,
+        direction: page > currentIndex ? 'next' : 'prev',
+      );
+      _streamNotifier.notifyFlip(
+        page: page,
+        direction: page > currentIndex ? 'next' : 'prev',
+      );
     }
   }
 
@@ -156,14 +198,16 @@ class PageFlip extends EventObject {
   ///
   /// @param {FlippingState} newState - New flipping state
   void updateState(FlippingState newState) {
-    trigger('changeState', this, newState);
+    _changeNotifier.notifyStateChange(newState: newState);
+    _streamNotifier.notifyStateChange(newState: newState);
   }
 
   /// Update current page index
   ///
   /// @param {int} newPage - New page index
   void updatePageIndex(int newPage) {
-    trigger('flip', this, newPage);
+    _changeNotifier.notifyFlip(page: newPage);
+    _streamNotifier.notifyFlip(page: newPage);
   }
 
   /// Get total page count
@@ -295,6 +339,13 @@ class PageFlip extends EventObject {
     final dx = b.p.x - a.p.x;
     // Horizontal velocity only (logical px/s)
     return dx / dt;
+  }
+
+  /// Dispose resources and clean up notifiers
+  void dispose() {
+    _streamNotifier.dispose();
+    // Note: ChangeNotifier doesn't need explicit disposal unless it has listeners
+    // that need to be removed. The garbage collector will handle it.
   }
 }
 

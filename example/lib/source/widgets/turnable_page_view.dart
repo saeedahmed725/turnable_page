@@ -79,20 +79,24 @@ class _TurnablePageViewState extends State<TurnablePageView> {
 
   Future<void> _setupPageFlipEventsAndController() async {
     widget.controller?.initializeController(pageFlip: _pageFlip);
-    // Set up event listeners
-    _pageFlip.on('flip', (_) {
-      final newIndex = _pageFlip.getCurrentPageIndex();
-      final left = newIndex.clamp(0, widget.pageCount - 1);
-      final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
-      widget.settings.startPageIndex = left;
-      _pageFlip.updateSetting(_settings);
-      widget.onPageChanged?.call(left, right);
+    // Set up event listeners using Flutter-native notifiers
+    _pageFlip.notifier.addListener(() {
+      final flipEvent = _pageFlip.notifier.currentFlipEvent;
+      if (flipEvent != null) {
+        final newIndex = _pageFlip.getCurrentPageIndex();
+        final left = newIndex.clamp(0, widget.pageCount - 1);
+        final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
+        // Don't call updateSetting here as it creates infinite loop
+        // Just update the widget settings directly if needed
+        widget.onPageChanged?.call(left, right);
+      }
     });
   }
 
   @override
   void dispose() {
     _resizeTimer?.cancel();
+    _pageFlip.dispose(); // Clean up the notifier streams
     super.dispose();
   }
 
@@ -104,11 +108,13 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       size: widget.bookSize,
       isSinglePage: isSinglePage,
       paperBoundaryDecoration: widget.paperBoundaryDecoration,
-      child: TurnableBookRenderObjectWidget(
-        pageCount: widget.pageCount,
-        builder: (ctx, index) => widget.builder(ctx, index),
-        settings: _settings,
-        pageFlip: _pageFlip,
+      child: RepaintBoundary(
+        child: TurnableBookRenderObjectWidget(
+          pageCount: widget.pageCount,
+          builder: (ctx, index) => widget.builder(ctx, index),
+          settings: _settings,
+          pageFlip: _pageFlip,
+        ),
       ),
     );
   }
