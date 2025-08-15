@@ -64,8 +64,6 @@ class _TurnablePageViewState extends State<TurnablePageView> {
         final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
         widget.settings.startPageIndex = left;
         _pageFlip.updateSetting(_settings);
-
-        // تأجيل استدعاء onPageChanged لبعد انتهاء الفريم الحالي لتجنب خطأ "Build scheduled during frame"
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             widget.onPageChanged?.call(left, right);

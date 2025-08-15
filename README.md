@@ -5,16 +5,18 @@ A Flutter package that provides a realistic page-flipping effect for digital boo
 ## Features
 
 ✅ **Realistic Physics**: Advanced flip animations with proper physics and shadows  
+✅ **Interactive Content**: Full support for interactive widgets (buttons, inputs, etc.) within pages  
+✅ **Smart Gestures**: Automatic differentiation between drag (page flip) and tap (widget interaction)  
 ✅ **Touch Support**: Full touch and gesture support for mobile devices  
 ✅ **Multiple Orientations**: Automatic portrait/landscape orientation handling  
-✅ **Widget Support**: Use any Flutter widget as page content  
-✅ **Customizable**: Extensive configuration options  
-✅ **Performance**: Hardware-accelerated rendering for smooth 60fps animations  
+✅ **Widget Support**: Use any Flutter widget as page content with full interactivity  
+✅ **Customizable**: Extensive configuration options for gestures and animations  
+✅ **Performance**: Hardware-accelerated rendering using Flutter's native RenderBox system  
 ✅ **Events**: Rich event system for interaction handling  
 ✅ **Responsive**: Auto-sizing and responsive layout support  
 ✅ **Cross-Platform**: Supports Mobile, Web, and Windows  
 
-> Note: Widgets inside book pages are currently non-interactive (taps/gestures inside a page are not forwarded to child widgets).
+> **NEW**: Widgets inside book pages are now fully interactive! The smart gesture system automatically detects when you're interacting with buttons or other widgets vs. when you want to flip pages.
 
 ## Demo (GIF)
 
@@ -38,7 +40,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  turnable_page: ^0.0.1
+  turnable_page: ^1.0.0
 ```
 
 Then run:
@@ -204,6 +206,76 @@ TurnablePage(
   ),
 )
 ```
+
+## Smart Gesture System
+
+The package now features an intelligent gesture detection system that automatically differentiates between user intentions:
+
+### 🎯 Automatic Behavior
+- **Drag gestures** = Page flipping
+- **Tap gestures** = Widget interaction (buttons, inputs, etc.)
+
+### 🧠 How It Works
+The system uses advanced hit testing to detect when you're interacting with interactive widgets:
+
+```dart
+TurnablePage(
+  pageCount: 5,
+  builder: (context, index, constraints) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Text('Page ${index + 1}'),
+          
+          // This button will work normally - taps won't flip pages
+          ElevatedButton(
+            onPressed: () {
+              print('Button pressed on page $index');
+            },
+            child: Text('Interactive Button'),
+          ),
+          
+          // This text is non-interactive - taps will flip pages
+          Text('Tap here to flip pages'),
+        ],
+      ),
+    );
+  },
+  
+  // Smart gestures enabled by default
+  settings: FlipSettings(
+    enableSmartGestures: true, // Default: true
+    cornerTriggerAreaSize: 0.15, // Corner sensitivity (15% of diagonal)
+    swipeDistance: 80.0, // Minimum drag distance for page flip
+  ),
+)
+```
+
+### ⚙️ Configuration Options
+
+```dart
+FlipSettings(
+  // Enable/disable smart gesture detection
+  enableSmartGestures: true,
+  
+  // Size of corner areas that trigger page flips on tap
+  // 0.1 = 10% of page diagonal, 0.2 = 20%, etc.
+  cornerTriggerAreaSize: 0.15,
+  
+  // Minimum distance to drag before triggering page flip
+  swipeDistance: 80.0,
+  
+  // Disable tap-to-flip entirely (drag only)
+  disableFlipByClick: false,
+)
+```
+
+### 📱 Usage Tips
+1. **For maximum interactivity**: Use `enableSmartGestures: true` (default)
+2. **For page-flipping only**: Use `disableFlipByClick: true` to require dragging
+3. **Adjust sensitivity**: Modify `cornerTriggerAreaSize` to change corner tap areas
+4. **Fine-tune dragging**: Adjust `swipeDistance` for drag sensitivity
 
 ## API Reference
 
@@ -537,15 +609,33 @@ Widget buildCustomPage(int index, BoxConstraints constraints) {
 - [x] Core page flipping logic
 - [x] Widget-based pages  
 - [x] Touch/gesture handling
+- [x] Interactive content support
+- [x] Smart gesture detection
 - [x] Event system and callbacks
-- [x] Hardware-accelerated rendering
+- [x] Hardware-accelerated rendering with RenderBox
 - [x] Responsive design support
 - [x] Portrait/landscape orientation
-- [x] Customizable animations and effects
+- [x] Customizable animations and physics
 - [ ] PDF document support
 - [ ] Enhanced accessibility features
-- [ ] Advanced gesture recognition
+- [ ] Advanced animation customization
 - [ ] Bookmark and navigation features
+
+## Migration Guide (v0.x → v1.0.0)
+
+### 🎉 Good News
+If you were using the basic `TurnablePage` widget, **no code changes are required**! The API remains the same.
+
+### ✨ What's New
+- **Interactive content now works** - buttons, inputs, and other widgets inside pages are fully functional
+- **Smart gesture detection** - automatic differentiation between widget interaction and page flipping
+- **Better performance** - migrated from CustomPainter to Flutter's native RenderBox system
+
+### 🔧 Advanced Users
+If you were using internal APIs or had custom implementations:
+- The underlying rendering system has completely changed
+- Custom painter-based extensions will need to be rewritten
+- Animation system now uses SchedulerBinding instead of manual frame scheduling
 
 ## Contributing
 
