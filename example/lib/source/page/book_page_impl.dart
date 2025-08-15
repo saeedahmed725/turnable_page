@@ -5,8 +5,6 @@ import '../model/point.dart';
 import '../model/page_state.dart';
 import 'book_page.dart';
 
-/// Live (widget-backed) book page implementation.
-/// Holds state & density but delegates actual painting to the RenderTurnableBook.
 class LiveBookPage extends BookPage {
   final int index;
   final PageState state = PageState();
@@ -14,7 +12,6 @@ class LiveBookPage extends BookPage {
   PageDensity drawingDensity;
   PageOrientation orientation = PageOrientation.right;
 
-  // Cached clip path for current state.area in local coordinates to reduce per-frame rebuild noise
   Path? cachedClipPath;
   List<Point>? _lastAreaSnapshot;
 
@@ -36,10 +33,8 @@ class LiveBookPage extends BookPage {
   @override
   void setArea(List<Point> area) => state.area = area;
 
-  // Helper used by render to build (or reuse) a Path; not part of abstract interface
   Path? buildOrGetClipPath(Point? globalOrigin, Point Function(Point) toGlobal) {
     if (state.area.isEmpty || globalOrigin == null) { cachedClipPath = null; _lastAreaSnapshot = null; return null; }
-    // Simple change detection (same length and coordinates within epsilon)
     bool unchanged = _lastAreaSnapshot != null && _lastAreaSnapshot!.length == state.area.length;
     if (unchanged) {
       for (int i=0;i<state.area.length;i++) {
