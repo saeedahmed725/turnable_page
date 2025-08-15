@@ -4,15 +4,7 @@ import '../model/point.dart';
 
 /// Class representing a book page
 abstract class BookPage {
-  /// Render static page
-  ///
-  /// @param {PageOrientation} orient - Static page orientation
-  void simpleDraw(PageOrientation orient);
-
-  /// Render dynamic page, using state
-  ///
-  /// @param {PageDensity} tempDensity - Density at the time of rendering
-  void draw();
+  // (Removed legacy drawing hooks: simpleDraw, draw) Rendering handled centrally by RenderTurnableBook.
 
   /// Set a constant page density
   ///

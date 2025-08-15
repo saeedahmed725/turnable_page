@@ -48,9 +48,9 @@ class CanvasInteractionHandler extends CanvasInteraction {
 
   /// Handle touch events
   @override
-  void handleOnPanStart(Offset position, void Function() onAction) {
+  void handleOnPanStart(Offset position) {
     if (_checkTarget) return;
-    onAction.call();
+
     touchPoint = SwipeData(
       point: getPos(position),
       time: DateTime.now().millisecondsSinceEpoch,
@@ -88,16 +88,16 @@ class CanvasInteractionHandler extends CanvasInteraction {
           DateTime.now().millisecondsSinceEpoch - touchPoint!.time <
               swipeTimeout) {
         if (dx > 0) {
+          final render = app.getRender();
+          final halfHeight = render?.getRect().height != null ? render!.getRect().height / 2 : touchPoint!.point.y; // if render not ready, neutral comparison
           app.flipPrev(
-            touchPoint!.point.y < app.getRender()!.getRect().height / 2
-                ? FlipCorner.top
-                : FlipCorner.bottom,
+            touchPoint!.point.y < halfHeight ? FlipCorner.top : FlipCorner.bottom,
           );
         } else {
+          final render = app.getRender();
+          final halfHeight = render?.getRect().height != null ? render!.getRect().height / 2 : touchPoint!.point.y;
           app.flipNext(
-            touchPoint!.point.y < app.getRender()!.getRect().height / 2
-                ? FlipCorner.top
-                : FlipCorner.bottom,
+            touchPoint!.point.y < halfHeight ? FlipCorner.top : FlipCorner.bottom,
           );
         }
         isSwipe = true;

@@ -19,19 +19,9 @@ import '../page/page_flip.dart';
 class PageFlipController {
   late PageFlip _pageFlip;
 
-  initializeController({
-    required PageFlip pageFlip,
-    void Function()? startAnimation,
-    void Function()? stopAnimation,
-  }) {
+  initializeController({required PageFlip pageFlip}) {
     _pageFlip = pageFlip;
-    _startAnimation = startAnimation;
-    _stopAnimation = stopAnimation;
   }
-
-  // Callbacks to widget methods for animation control
-  void Function()? _startAnimation;
-  void Function()? _stopAnimation;
 
   /// Internal setter for the PageFlip instance
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
@@ -56,11 +46,8 @@ class PageFlipController {
   /// Returns true if the flip was successful, false if already at the last page
   bool nextPage([FlipCorner corner = FlipCorner.top]) {
     if (!hasNextPage) return false;
-    _startAnimation?.call();
     _pageFlip.flipNext(corner);
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      _stopAnimation?.call();
-    });
+
     return true;
   }
 
@@ -70,11 +57,8 @@ class PageFlipController {
   /// Returns true if the flip was successful, false if already at the first page
   bool previousPage([FlipCorner corner = FlipCorner.top]) {
     if (!hasPreviousPage) return false;
-    _startAnimation?.call();
     _pageFlip.flipPrev(corner);
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      _stopAnimation?.call();
-    });
+
     return true;
   }
 
@@ -84,11 +68,8 @@ class PageFlipController {
   /// Returns true if the navigation was successful, false if the page index is invalid
   bool goToPage(int pageIndex) {
     if (pageIndex < 0 || pageIndex >= pageCount) return false;
-    _startAnimation?.call();
     _pageFlip.flip(pageIndex, FlipCorner.top);
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      _stopAnimation?.call();
-    });
+
     return true;
   }
 

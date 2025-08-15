@@ -21,7 +21,7 @@ abstract class CanvasInteraction {
   void onMouseMove(Offset position);
 
   /// Handle mouse/touch down event from Flutter gesture
-  void handleOnPanStart(Offset position, void Function() onAction);
+  void handleOnPanStart(Offset position);
 
   /// Handle mouse/touch move event from Flutter gesture
   void handleOnPanUpdate(Offset position);

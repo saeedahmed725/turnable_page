@@ -1,12 +1,11 @@
 import 'dart:developer';
 
-// import 'package:examples/src/widgets/turnable_page.dart';
+import 'package:example/source/enums/page_view_mode.dart';
+import 'package:example/source/model/paper_boundary_decoration.dart';
+import 'package:example/source/widgets/page_flip_controller.dart';
+import 'package:example/source/widgets/turnable_page.dart';
 import 'package:flutter/material.dart';
-import 'package:turnable_page/turnable_page.dart';
 
-// import 'src/enums/page_view_mode.dart';
-// import 'src/model/paper_boundary_decoration.dart';
-// import 'src/widgets/page_flip_controller.dart';
 
 void main() {
   runApp(MyApp());
@@ -63,12 +62,20 @@ class _HomePageState extends State<HomePage> {
                 color: Colors.white.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                'Page ${index + 1}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+              child: TextButton(
+                onPressed: () {
+                  // show snack bar or perform action
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Page ${index + 1} clicked!')),
+                  );
+                },
+                child: Text(
+                  'Page ${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ),
@@ -80,13 +87,18 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Icon(_getPageIcon(index), size: 80, color: Colors.white),
                 const SizedBox(height: 20),
-                Text(
+                TextButton(onPressed: (){
+                  // show snack bar or perform action
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Button on Page ${index + 1} clicked!')),
+                  );
+                }, child: Text(
                   'Content ${index + 1}',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
+                  )),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -131,13 +143,12 @@ class _HomePageState extends State<HomePage> {
         child: TurnablePage(
           controller: _controller,
           pageCount: _totalPages,
-          // aspectRatio: 5/10,
           pageViewMode: PageViewMode.single,
           paperBoundaryDecoration: PaperBoundaryDecoration.vintage,
           onPageChanged: (leftPageIndex, rightPageIndex) {
             log('Page changed: $leftPageIndex, $rightPageIndex');
           },
-          pageBuilder: (context, pageIndex, constraints) {
+          builder: (context, pageIndex, constraints) {
             return _buildPage(pageIndex, constraints);
           },
         ),

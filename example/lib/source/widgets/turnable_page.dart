@@ -6,18 +6,9 @@ import '../model/paper_boundary_decoration.dart';
 import 'page_flip_controller.dart';
 import 'turnable_page_view.dart';
 
-typedef TurnableBuilder =
-    Widget Function(
-      BuildContext context,
-      int pageIndex,
-      BoxConstraints constraints,
-    );
-typedef TurnablePageCallback =
-    void Function(int leftPageIndex, int rightPageIndex);
-
 class TurnablePage extends StatelessWidget {
   final PageFlipController? controller;
-  final TurnableBuilder pageBuilder;
+  final TurnableBuilder builder;
   final int pageCount;
   final TurnablePageCallback? onPageChanged;
   final FlipSettings settings;
@@ -31,7 +22,7 @@ class TurnablePage extends StatelessWidget {
     super.key,
     this.controller,
     this.aspectRatio,
-    required this.pageBuilder,
+    required this.builder,
     required this.pageCount,
     this.onPageChanged,
     this.pageViewMode = PageViewMode.single,
@@ -101,7 +92,7 @@ class TurnablePage extends StatelessWidget {
           height: bookSize.height,
         );
         return TurnablePageView(
-          pageBuilder: pageBuilder,
+          builder: (context, index) => builder(context, index, constraints),
           bookSize: bookSize,
           settings: adjustedSettings,
           pageCount: pageCount,
@@ -115,3 +106,13 @@ class TurnablePage extends StatelessWidget {
     );
   }
 }
+
+typedef TurnableBuilder =
+    Widget Function(
+      BuildContext context,
+      int pageIndex,
+      BoxConstraints constraints,
+    );
+typedef TurnablePageCallback =
+    void Function(int leftPageIndex, int rightPageIndex);
+typedef PageWidgetBuilder = Widget Function(BuildContext context, int index);

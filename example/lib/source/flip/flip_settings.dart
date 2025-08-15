@@ -47,6 +47,25 @@ class FlipSettings {
   /// Disable page flipping when clicking on the page (only allow drag gestures)
   final bool disableFlipByClick;
 
+  // --- Realism / physics additions ---
+  /// Enable easing (cubic) for programmatic flip animations
+  final bool enableEasing;
+
+  /// Enable inertia so a fast swipe finishes even before crossing center
+  final bool enableInertia;
+
+  /// Velocity threshold (logical px/second) to treat release as a swipe
+  final double inertiaVelocityThreshold;
+
+  /// Extra normalized progress allowance for inertia completion (0-1)
+  final double inertiaProgressBoost;
+
+  /// Vertical sag amplitude as fraction of page height (0 = straight line)
+  final double sagAmplitude;
+
+  /// Bend strength multiplier (0-1) influencing hardAngle easing
+  final double bendStrength;
+
   FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
     this.startPageIndex = 0,
@@ -92,6 +111,12 @@ class FlipSettings {
 
     /// Disable click-to-flip (drag only). Default: false
     this.disableFlipByClick = false,
+    this.enableEasing = true,
+    this.enableInertia = true,
+    this.inertiaVelocityThreshold = 900.0,
+    this.inertiaProgressBoost = 0.15,
+    this.sagAmplitude = 0.08,
+    this.bendStrength = 0.6,
   });
 
   FlipSettings copyWith({
@@ -111,6 +136,12 @@ class FlipSettings {
     double? swipeDistance,
     bool? showPageCorners,
     bool? disableFlipByClick,
+    bool? enableEasing,
+    bool? enableInertia,
+    double? inertiaVelocityThreshold,
+    double? inertiaProgressBoost,
+    double? sagAmplitude,
+    double? bendStrength,
   }) {
     return FlipSettings(
       startPageIndex: startPage ?? startPageIndex,
@@ -128,6 +159,13 @@ class FlipSettings {
       swipeDistance: swipeDistance ?? this.swipeDistance,
       showPageCorners: showPageCorners ?? this.showPageCorners,
       disableFlipByClick: disableFlipByClick ?? this.disableFlipByClick,
+      enableEasing: enableEasing ?? this.enableEasing,
+      enableInertia: enableInertia ?? this.enableInertia,
+      inertiaVelocityThreshold:
+          inertiaVelocityThreshold ?? this.inertiaVelocityThreshold,
+      inertiaProgressBoost: inertiaProgressBoost ?? this.inertiaProgressBoost,
+      sagAmplitude: sagAmplitude ?? this.sagAmplitude,
+      bendStrength: bendStrength ?? this.bendStrength,
     );
   }
 }

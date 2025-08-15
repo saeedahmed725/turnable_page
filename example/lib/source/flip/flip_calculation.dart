@@ -106,9 +106,9 @@ class FlipCalculation {
 
     if (sideIntersectPoint != null && topIntersectPoint != null) {
       if (Helper.getDistanceBetweenTwoPoint(
-            sideIntersectPoint!,
-            topIntersectPoint!,
-          ) >=
+        sideIntersectPoint!,
+        topIntersectPoint!,
+      ) >=
           10) {
         result.add(sideIntersectPoint!);
       }
@@ -340,10 +340,10 @@ class FlipCalculation {
   }
 
   Point checkPositionAtCenterLine(
-    Point checkedPos,
-    Point centerOne,
-    Point centerTwo,
-  ) {
+      Point checkedPos,
+      Point centerOne,
+      Point centerTwo,
+      ) {
     Point result = checkedPos;
 
     final tmp = Helper.limitPointToCircle(centerOne, pageWidth, result);

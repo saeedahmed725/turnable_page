@@ -10,12 +10,12 @@ import '../model/page_rect.dart';
 import '../model/point.dart';
 import '../page/book_page.dart';
 import '../page/page_flip.dart';
-import '../render/render.dart';
+import '../render/render_page.dart';
 import 'flip_calculation.dart';
 
 /// Class representing the flipping process
 class FlipProcess {
-  late Render render;
+  late RenderPage render;
   late PageFlip app;
 
   BookPage? flippingPage;
@@ -29,7 +29,7 @@ class FlipProcess {
     reset();
   }
 
-  void updateApp(PageFlip app, Render render) {
+  void updateApp(PageFlip app, RenderPage render) {
     this.render = render;
     this.app = app;
   }
@@ -163,6 +163,7 @@ class FlipProcess {
     if (calc!.calc(pagePos)) {
       // Perform calculations for a specific position
       final progress = calc!.getFlippingProgress();
+      final settings = app.getSettings;
 
       bottomPage?.setArea(calc!.getBottomClipArea());
       bottomPage?.setPosition(calc!.getBottomPagePosition());
@@ -173,11 +174,28 @@ class FlipProcess {
       flippingPage?.setPosition(calc!.getActiveCorner());
       flippingPage?.setAngle(calc!.getAngle());
 
-      if (calc!.getDirection() == FlipDirection.forward) {
-        flippingPage?.setHardAngle((90 * (200 - progress * 2)) / 100);
-      } else {
-        flippingPage?.setHardAngle((-90 * (200 - progress * 2)) / 100);
+      // Enhanced hard angle calculation with bend strength and smoother progression
+      if (state == FlippingState.userFold || state == FlippingState.foldCorner) {
+        // During user interaction, apply realistic bending based on progress and settings
+        final normalizedProgress = progress / 100.0; // 0-1 range
+        final bendMultiplier = settings.bendStrength;
+        
+        // Create smoother bend progression with easing
+        final easedProgress = settings.enableEasing 
+            ? _easeOutCubic(normalizedProgress) 
+            : normalizedProgress;
+        
+        // Calculate hard angle with improved physics
+        final maxAngle = 90.0;
+        final bendAngle = maxAngle * (1 - easedProgress * bendMultiplier);
+        
+        if (calc!.getDirection() == FlipDirection.forward) {
+          flippingPage?.setHardAngle(bendAngle);
+        } else {
+          flippingPage?.setHardAngle(-bendAngle);
+        }
       }
+      // Note: During animation, hard angle is set in animateFlippingTo for frame-by-frame control
 
       render.setPageRect(calc!.getRect());
       render.setBottomPage(bottomPage);
@@ -243,10 +261,13 @@ class FlipProcess {
 
     final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
 
-    // React logic: check if position is beyond the center threshold
-    // If pos.x <= 0 (dragged past center), complete the flip
-    // If pos.x > 0 (still near the edge), snap back
-    if (pos.x <= 0) {
+    // Use proper progress-based threshold for smooth page turning
+    final progress = calc!.getFlippingProgress() / 100.0; // Convert to 0-1 range
+    
+    // Apply threshold-based flipping:
+    // If progress > 50%, complete the flip animation smoothly
+    // If progress <= 50%, animate back to original position smoothly
+    if (progress > 0.5) {
       // Complete the flip - animate to the opposite side
       animateFlippingTo(
         pos,
@@ -255,6 +276,46 @@ class FlipProcess {
       );
     } else {
       // Snap back - animate back to original position
+      animateFlippingTo(
+        pos,
+        Point(rect.pageWidth.toDouble(), y.toDouble()),
+        false,
+      );
+    }
+  }
+
+  /// Stop move with inertia consideration
+  void stopMoveWithInertia(bool fastSwipe, double velocity) {
+    if (calc == null) return;
+    
+    final pos = calc!.getPosition();
+    final rect = getBoundsRect();
+    final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
+    final settings = app.getSettings;
+    
+    double progress = calc!.getFlippingProgress() / 100.0; // 0-1
+    bool complete;
+    
+    if (fastSwipe) {
+      // For fast swipes, project additional progress based on velocity direction
+      final dirForward = calc!.getDirection() == FlipDirection.forward;
+      final swipeTowardsCenter = dirForward ? velocity < 0 : velocity > 0;
+      if (swipeTowardsCenter) {
+        progress += settings.inertiaProgressBoost;
+      }
+      complete = progress >= 0.5;
+    } else {
+      // Use same progress-based threshold for consistency with stopMove
+      complete = progress > 0.5;
+    }
+    
+    if (complete) {
+      animateFlippingTo(
+        pos,
+        Point(-rect.pageWidth.toDouble(), y.toDouble()),
+        true,
+      );
+    } else {
       animateFlippingTo(
         pos,
         Point(rect.pageWidth.toDouble(), y.toDouble()),
@@ -306,24 +367,61 @@ class FlipProcess {
     }
   }
 
-  /// Animation function. Animates flipping process
+  /// Animation function. Animates flipping process with improved physics and easing
   void animateFlippingTo(
     Point start,
     Point dest,
     bool isTurned, [
     bool needReset = true,
   ]) {
-    final points = Helper.getCordsFromTwoPoint(start, dest);
-
+    final settings = app.getSettings;
+    
+    // Build parametric path with physics-based animation instead of linear pixel steps
+    final distance = Helper.getDistanceBetweenTwoPoint(start, dest);
+    
+    // Calculate optimal frame count based on distance and settings
+    final estFrames = distance.clamp(120, 900).toInt();
     final frames = <void Function()>[];
-    for (final point in points) {
+    
+    // Get visual enhancement settings
+    final sagAmp = settings.sagAmplitude * getBoundsRect().height;
+    
+    for (int i = 0; i <= estFrames; i++) {
+      final tRaw = i / estFrames; // 0..1
+      
+      // Apply easing curve for smooth animation
+      final t = settings.enableEasing ? _easeOutCubic(tRaw) : tRaw;
+      
+      // Interpolate x position linearly
+      final x = start.x + (dest.x - start.x) * t;
+      
+      // Add realistic page sag effect for y position
+      final baseY = start.y + (dest.y - start.y) * t;
+      final sag = math.sin(math.pi * t) * sagAmp;
+      
+      // Direction of sag depends on corner (top => positive downward)
+      final corner = calc?.getCorner() ?? FlipCorner.top;
+      final y = corner == FlipCorner.top ? baseY + sag : baseY - sag;
+      
       frames.add(() {
-        doCalculation(point);
+        doCalculation(Point(x, y));
+        
+        // Adjust hard angle bending progressively to simulate paper stiffness
+        if (flippingPage != null && calc != null) {
+          final prog = calc!.getFlippingProgress(); // 0-100
+          final bend = settings.bendStrength;
+          final eased = settings.enableEasing ? _easeOutCubic(prog / 100) : prog / 100;
+          final targetHard = 90 * (1 - eased * bend);
+          
+          flippingPage!.setHardAngle(
+            calc!.getDirection() == FlipDirection.forward ? targetHard : -targetHard,
+          );
+        }
       });
     }
-
-    final duration = _getAnimationDuration(points.length);
-
+    
+    final duration = _getAnimationDuration(frames.length);
+    
     render.startAnimation(frames, duration, () {
       if (calc == null) return;
 
@@ -345,6 +443,9 @@ class FlipProcess {
       }
     });
   }
+
+  /// Cubic easing function for smooth animations
+  double _easeOutCubic(double t) => 1 - math.pow(1 - t, 3).toDouble();
 
   /// Get animation duration for the given number of frames
   double _getAnimationDuration(int frameCount) {

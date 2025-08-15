@@ -1,19 +1,20 @@
 import 'dart:math' hide Point;
 import 'dart:ui' as dart;
+
 import '../collection/page_collection.dart';
 import '../collection/page_collection_impl.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
 import '../event/event_object.dart';
+import '../flip/flip_process.dart';
+import '../flip/flip_settings.dart';
+import '../interaction/canvas_interaction_handler.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart';
 import '../render/canvas_render.dart';
 import '../render/render.dart';
-import '../interaction/canvas_interaction_handler.dart';
 import 'book_page.dart';
-import '../flip/flip_settings.dart';
-import '../flip/flip_process.dart';
 
 /// Class representing a main PageFlip object
 class PageFlip extends EventObject {

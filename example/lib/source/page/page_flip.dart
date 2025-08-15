@@ -1,19 +1,15 @@
 import 'dart:math' hide Point;
-import 'dart:ui' as dart;
 
 import '../collection/page_collection.dart';
-import '../collection/page_collection_impl.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
 import '../event/event_object.dart';
 import '../flip/flip_process.dart';
 import '../flip/flip_settings.dart';
-import '../interaction/canvas_interaction_handler.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart';
-import '../render/canvas_render.dart';
-import '../render/render.dart';
+import '../render/render_page.dart';
 import 'book_page.dart';
 
 /// Class representing a main PageFlip object
@@ -21,48 +17,54 @@ class PageFlip extends EventObject {
   Point? mousePosition;
   bool isUserTouch = false;
   bool isUserMove = false;
+  // Simple velocity tracking
+  final List<_MotionSample> _samples = [];
+  static const int _maxSamples = 5; // keep last few samples
 
   late FlipSettings setting;
-  late FlipProcess flipProcess;
-  late Render render;
-  late CanvasInteractionHandler canvasInteractionHandler;
+  late FlipProcess flipProcess; // created once a Render is injected
+  RenderPage? _render; // lazily injected by RenderTurnableBook
+  // Interaction now handled directly by RenderTurnableBook via pointer events
 
   PageCollection? pages;
 
   /// Create a new PageFlip instance with FlipSetting object
   ///  FlipSetting [setting] - Configuration object
-  PageFlip(this.setting) : super() {
-    render = CanvasRender(this);
-    canvasInteractionHandler = CanvasInteractionHandler(this);
-    flipProcess = FlipProcess(this, render);
+  PageFlip(this.setting, {RenderPage? customRender}) : super() {
+    if (customRender != null) {
+      render = customRender; // triggers flipProcess creation
+    }
+  }
+
+  bool _flipProcessInitialized = false;
+
+  // Render getter/setter with lazy FlipProcess initialization
+  RenderPage get render => _render!; // safe after injection by TurnableBook
+  set render(RenderPage r) {
+    _render = r;
+    if (!_flipProcessInitialized) {
+      flipProcess = FlipProcess(this, r);
+      _flipProcessInitialized = true;
+    } else {
+      flipProcess.updateApp(this, r);
+    }
   }
 
   void updateSetting(FlipSettings setting) {
     this.setting = setting;
-    render.updateApp(this);
-    canvasInteractionHandler.updateApp(this);
-    flipProcess.updateApp(this, render);
+    if (_render != null) {
+      render.updateApp(this);
+    }
+    if (_flipProcessInitialized) {
+      flipProcess.updateApp(this, render);
+    }
     trigger('updateSettings', this, {
       'settings': setting,
-      'mode': render.getOrientation(),
+      'mode': _render?.getOrientation(),
     });
   }
 
-  void loadFromWidgets(List<dart.Image> images) {
-    // Create simple widget page collection
-    pages = PageCollectionImpl(this, render, images);
-    pages!.loadBookPages();
-
-    // Show initial page
-    pages!.show(setting.startPageIndex);
-
-    Future.delayed(const Duration(milliseconds: 1), () {
-      trigger('init', this, {
-        'page': setting.startPageIndex,
-        'mode': render.getOrientation(),
-      });
-    });
-  }
+  
 
   /// Clear all pages
   void clear() {
@@ -182,9 +184,7 @@ class PageFlip extends EventObject {
   }
 
   /// Get render object
-  Render? getRender() {
-    return render;
-  }
+  RenderPage? getRender() => _render;
 
   /// Get flip controller
   dynamic getFlipController() {
@@ -192,12 +192,11 @@ class PageFlip extends EventObject {
   }
 
   /// Get current orientation
-  BookOrientation? getOrientation() {
-    return render.getOrientation();
-  }
+  BookOrientation? getOrientation() => _render?.getOrientation();
 
   /// Get bounds rectangle
   PageRect? getBoundsRect() {
+    if (_render == null) return null;
     return render.getRect();
   }
 
@@ -234,6 +233,8 @@ class PageFlip extends EventObject {
     isUserTouch = true;
     isUserMove = false;
     mousePosition = pos;
+  _samples.clear();
+  _recordSample(pos);
     flipProcess.fold(pos);
   }
 
@@ -248,6 +249,7 @@ class PageFlip extends EventObject {
         isUserMove = true;
         // Continue flip interaction
         flipProcess.fold(pos);
+  _recordSample(pos);
       }
     }
   }
@@ -261,14 +263,43 @@ class PageFlip extends EventObject {
       isUserTouch = false;
 
       if (!isSwipe) {
+        final velocity = _computeVelocity();
+        final settings = getSettings;
+        final fastSwipe = settings.enableInertia &&
+            velocity.abs() > settings.inertiaVelocityThreshold;
         if (!isUserMove) {
           // Single click/tap - trigger flip
           flipProcess.flip(pos);
         } else {
-          // End drag movement
-          flipProcess.stopMove();
+          // End drag movement: inertia if fast
+          flipProcess.stopMoveWithInertia(fastSwipe, velocity);
         }
       }
     }
   }
+
+  void _recordSample(Point p) {
+    final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+    _samples.add(_MotionSample(now, p));
+    if (_samples.length > _maxSamples) {
+      _samples.removeAt(0);
+    }
+  }
+
+  double _computeVelocity() {
+    if (_samples.length < 2) return 0;
+    final a = _samples.first;
+    final b = _samples.last;
+    final dt = (b.t - a.t) / 1000.0; // seconds
+    if (dt <= 0) return 0;
+    final dx = b.p.x - a.p.x;
+    // Horizontal velocity only (logical px/s)
+    return dx / dt;
+  }
+}
+
+class _MotionSample {
+  final double t; // ms timestamp
+  final Point p;
+  _MotionSample(this.t, this.p);
 }

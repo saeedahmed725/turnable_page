@@ -1,20 +1,15 @@
+import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
-import '../model/point.dart';
-import '../enums/animation_process.dart';
-import '../model/page_rect.dart';
-import '../model/rect_points.dart';
-import '../page/page_flip.dart';
 import '../flip/flip_settings.dart';
+import '../model/page_rect.dart';
+import '../model/point.dart';
+import '../model/rect_points.dart';
 import '../page/book_page.dart';
+import '../page/page_flip.dart';
 
 /// Abstract class responsible for rendering the book
-abstract class Render {
-  // NOTE: This interface will also be implemented by a new RenderTurnableBook
-  // to support live widget pages without rasterizing to images.
-  /// Rendering action on each frame
-  void drawFrame();
-
+abstract class RenderPage {
   /// Executed when animation frame is called
   void render(double timer);
 

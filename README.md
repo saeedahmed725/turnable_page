@@ -22,15 +22,15 @@ Animated GIF previews below. To keep the published package small, demo GIFs are 
 
 ### Desktop flipping
 
-![Desktop flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/desktop-fliping.gif)
+![Desktop flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/desktop-fliping.gif)
 
 ### Mobile flipping
 
-![Mobile flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/mobile-fliping.gif)
+![Mobile flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/mobile-fliping.gif)
 
 ### Responsiveness
 
-![Responsiveness](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/videos/responsiveness.gif)
+![Responsiveness](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/responsiveness.gif)
 
 ## Installation
 
