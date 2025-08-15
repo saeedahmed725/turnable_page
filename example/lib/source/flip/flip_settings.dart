@@ -47,6 +47,12 @@ class FlipSettings {
   /// Disable page flipping when clicking on the page (only allow drag gestures)
   final bool disableFlipByClick;
 
+  /// Enable smart gesture detection - prevents page flips when children consume gestures
+  final bool enableSmartGestures;
+
+  /// Size of the corner trigger areas as a fraction of the page diagonal (0.1 = 10% of diagonal)
+  final double cornerTriggerAreaSize;
+
   // --- Realism / physics additions ---
   /// Enable easing (cubic) for programmatic flip animations
   final bool enableEasing;
@@ -103,7 +109,7 @@ class FlipSettings {
     /// Enable mouse hover effects. Default: true
     // this.useMouseEvents = false,
 
-    /// Swipe distance threshold in pixels. Default: 30px
+    /// Swipe distance threshold in pixels. Default: 100px
     this.swipeDistance = 100.0,
 
     /// Show corner highlights on hover. Default: true
@@ -111,6 +117,13 @@ class FlipSettings {
 
     /// Disable click-to-flip (drag only). Default: false
     this.disableFlipByClick = false,
+
+    /// Enable smart gesture detection. Default: true (automatic behavior)
+    this.enableSmartGestures = true,
+
+    /// Corner trigger area size as fraction of diagonal. Default: 0.2 (20%)
+    this.cornerTriggerAreaSize = 0.2,
+
     this.enableEasing = true,
     this.enableInertia = true,
     this.inertiaVelocityThreshold = 900.0,
@@ -136,6 +149,8 @@ class FlipSettings {
     double? swipeDistance,
     bool? showPageCorners,
     bool? disableFlipByClick,
+    bool? enableSmartGestures,
+    double? cornerTriggerAreaSize,
     bool? enableEasing,
     bool? enableInertia,
     double? inertiaVelocityThreshold,
@@ -159,6 +174,8 @@ class FlipSettings {
       swipeDistance: swipeDistance ?? this.swipeDistance,
       showPageCorners: showPageCorners ?? this.showPageCorners,
       disableFlipByClick: disableFlipByClick ?? this.disableFlipByClick,
+      enableSmartGestures: enableSmartGestures ?? this.enableSmartGestures,
+      cornerTriggerAreaSize: cornerTriggerAreaSize ?? this.cornerTriggerAreaSize,
       enableEasing: enableEasing ?? this.enableEasing,
       enableInertia: enableInertia ?? this.enableInertia,
       inertiaVelocityThreshold:

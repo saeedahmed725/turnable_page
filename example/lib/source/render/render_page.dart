@@ -8,7 +8,6 @@ import '../model/rect_points.dart';
 import '../page/book_page.dart';
 import '../page/page_flip.dart';
 
-/// Abstract class responsible for rendering the book
 abstract class RenderPage {
   /// Executed when animation frame is called
   void render(double timer);

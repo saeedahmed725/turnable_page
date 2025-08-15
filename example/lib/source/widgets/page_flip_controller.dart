@@ -1,21 +1,7 @@
 import '../enums/flip_corner.dart';
-import '../event/page_flip_notifier.dart';
+import '../event/event_object.dart';
 import '../page/page_flip.dart';
 
-/// Controller for managing PageFlip widget state and operations.
-///
-/// This controller provides a clean API for controlling page flip operations
-/// without directly exposing the underlying PageFlip instance.
-///
-/// Example usage:
-/// ```dart
-/// final controller = PageFlipController();
-///
-/// // Control the widget
-/// controller.nextPage();
-/// controller.previousPage();
-/// controller.goToPage(5);
-/// ```
 class PageFlipController {
   late PageFlip _pageFlip;
 
@@ -27,18 +13,18 @@ class PageFlipController {
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
 
   /// Get the current page index (0-based)
-  int get currentPage => _pageFlip.getCurrentPageIndex();
+  int get currentPageIndex => _pageFlip.getCurrentPageIndex();
 
   /// Get the total number of pages
   int get pageCount => _pageFlip.getPageCount();
 
   /// Check if there is a next page available
   bool get hasNextPage =>
-      currentPage + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
+      currentPageIndex + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
       (pageCount - 1);
 
   /// Check if there is a previous page available
-  bool get hasPreviousPage => currentPage > 0;
+  bool get hasPreviousPage => currentPageIndex > 0;
 
   /// Flip to the next page
   ///
@@ -52,7 +38,6 @@ class PageFlipController {
   }
 
   /// Flip to the previous page
-  ///
   /// [corner] - The corner to flip from (default: top)
   /// Returns true if the flip was successful, false if already at the first page
   bool previousPage([FlipCorner corner = FlipCorner.top]) {
@@ -63,7 +48,6 @@ class PageFlipController {
   }
 
   /// Go to a specific page
-  ///
   /// [pageIndex] - The page index to navigate to (0-based)
   /// Returns true if the navigation was successful, false if the page index is invalid
   bool goToPage(int pageIndex) {
@@ -79,35 +63,20 @@ class PageFlipController {
   /// Go to the last page
   bool goToLastPage() => goToPage(pageCount - 1);
 
-  /// Get the ChangeNotifier for listening to page flip events
-  ///
-  /// Use this with Flutter widgets like AnimatedBuilder, ValueListenableBuilder, etc.
-  /// Example:
-  /// ```dart
-  /// AnimatedBuilder(
-  ///   animation: controller.notifier,
-  ///   builder: (context, child) {
-  ///     // React to page flip events
-  ///     final flipEvent = controller.notifier.currentFlipEvent;
-  ///     return Text('Current page: ${flipEvent?.page ?? 0}');
-  ///   },
-  /// )
-  /// ```
-  PageFlipNotifier get notifier => _pageFlip.notifier;
+  /// Register an event listener
+  /// [event] - The event name ('flip', 'changeOrientation', etc.)
+  /// [callback] - The callback function to execute
+  void addEventListener(String event, EventCallback callback) {
+    _pageFlip.on(event, callback);
+  }
 
-  /// Get the Stream-based notifier for advanced async event handling
-  ///
-  /// Use this for reactive programming with streams
-  /// Example:
-  /// ```dart
-  /// controller.streamNotifier.onFlip.listen((event) {
-  ///   print('Page flipped to: ${event.page}');
-  /// });
-  /// ```
-  PageFlipStreamNotifier get streamNotifier => _pageFlip.streamNotifier;
+  /// Remove an event listener
+  /// [event] - The event name
+  void removeEventListener(String event) {
+    _pageFlip.off(event);
+  }
 
   /// Get the underlying PageFlip instance for advanced operations
-  ///
   /// Use this only when you need direct access to PageFlip methods
   /// not exposed through this controller
   PageFlip? get pageFlipInstance => _pageFlip;

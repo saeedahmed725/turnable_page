@@ -1,17 +1,15 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
-
-import '../collection/page_collection_live.dart';
+import '../collection/page_collection_impl.dart';
 import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
+import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
+import '../enums/flipping_state.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
-import '../enums/flipping_state.dart';
-import '../enums/flip_corner.dart';
 import '../flip/flip_settings.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart' as model;
@@ -19,7 +17,7 @@ import '../model/rect_points.dart';
 import '../model/shadow.dart';
 import '../model/swipe_data.dart';
 import '../page/book_page.dart';
-import '../page/live_book_page.dart';
+import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
 import '../render/render_page.dart';
 import '../render/turnable_parent_data.dart';
@@ -29,63 +27,41 @@ class RenderTurnableBook extends RenderBox
         ContainerRenderObjectMixin<RenderBox, TurnableParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, TurnableParentData>
     implements RenderPage {
-  // === Constants ===
   static const int _swipeTimeout = 250;
   static const double _minMoveThreshold = 10.0;
-
-  // === White Page Management (cached to prevent flickering) ===
-  bool _cachedNeedsWhitePage = false;
-  int _cachedChildCount = 0;
   bool get _needsWhitePage {
-    // Cache the white page state to prevent flickering when childCount changes
-    if (_cachedChildCount != childCount) {
-      _cachedChildCount = childCount;
-      _cachedNeedsWhitePage = childCount % 2 == 1;
-    }
-    return _cachedNeedsWhitePage;
+    return settings.showCover ? false : childCount % 2 == 1;
   }
 
-  // === Core Configuration ===
   FlipSettings settings;
   final PageFlip pageFlip;
-  late PageCollectionLive collection;
+  late PageCollectionImpl collection;
   bool _initialized = false;
-
-  // === Layout & Positioning ===
   BookOrientation? _orientation;
   PageRect? _boundsRect;
   FlipDirection? direction;
   RectPoints? pageRect;
-
-  // === Page Management ===
   BookPage? leftPage;
   BookPage? rightPage;
   BookPage? flippingPage;
   BookPage? bottomPage;
-
-  // === Animation System ===
   AnimationProcess? animation;
   Shadow? shadow;
   bool _frameScheduled = false;
   double _timeMs = 0;
   double? _lastRawTickerMs;
-
-  // === Paint Optimization ===
-  bool _paintScheduled = false;
-
-  // === Child Management (Performance Optimized) ===
   List<RenderBox?> _indexedChildren = <RenderBox?>[];
   bool _needsIndexRebuild = true;
-
-  // === Gesture Handling ===
   SwipeData? _touchPoint;
-
-  // === Computed Properties ===
   double get _swipeDistance => settings.swipeDistance;
+  
+  // Auto gesture detection properties
+  bool _isDragging = false;
+  model.Point? _initialTouchPoint;
 
   RenderTurnableBook(this.settings, this.pageFlip) {
     pageFlip.render = this;
-    collection = PageCollectionLive(pageFlip, this, 0);
+    collection = PageCollectionImpl(pageFlip, this, 0);
   }
 
   void updateSettings(FlipSettings s) {
@@ -93,42 +69,31 @@ class RenderTurnableBook extends RenderBox
     markNeedsLayout();
   }
 
-  /// Optimized frame scheduling - only schedule when needed
   void _scheduleFrame() {
     if (_frameScheduled) return;
     _frameScheduled = true;
     SchedulerBinding.instance.scheduleFrameCallback(_onFrame);
   }
 
-  /// Optimized paint scheduling to prevent excessive repaints
-  void _schedulePaint() {
-    if (_paintScheduled) return;
-    _paintScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _paintScheduled = false;
-      markNeedsPaint();
-    });
-  }
-
-  /// Consolidated frame callback for better performance
   void _onFrame(Duration timestamp) {
     _frameScheduled = false;
     final rawMs = timestamp.inMilliseconds.toDouble();
-
-    // Handle time progression
     _updateTimestamp(rawMs);
-
-    // Process animation if active
     if (animation != null) {
       render(_timeMs);
-      // Continue frame scheduling only if animation is still active
-      if (animation != null) {
-        _scheduleFrame();
-      }
+    } else if (_hasActiveVisualElements) {
+      markNeedsPaint();
+    }
+    if (_shouldContinueAnimating) {
+      _scheduleFrame();
     }
   }
 
-  /// Optimized timestamp handling
+  bool get _hasActiveVisualElements =>
+      flippingPage != null || shadow != null || bottomPage != null;
+  bool get _shouldContinueAnimating =>
+      animation != null || _hasActiveVisualElements;
+
   void _updateTimestamp(double rawMs) {
     if (_lastRawTickerMs == null || rawMs < _lastRawTickerMs!) {
       _lastRawTickerMs = rawMs;
@@ -165,8 +130,8 @@ class RenderTurnableBook extends RenderBox
       _assignPageIndices();
     }
     if (!_initialized) {
-      final totalPages = _needsWhitePage ? _cachedChildCount + 1 : _cachedChildCount;
-      collection = PageCollectionLive(pageFlip, this, totalPages);
+      final totalPages = _needsWhitePage ? childCount + 1 : childCount;
+      collection = PageCollectionImpl(pageFlip, this, totalPages);
       collection.loadBookPages();
       collection.show(settings.startPageIndex);
       _initialized = true;
@@ -181,13 +146,10 @@ class RenderTurnableBook extends RenderBox
     }
   }
 
-  /// Optimized child index assignment with batch processing
   void _assignPageIndices() {
     _needsIndexRebuild = false;
     final count = childCount;
     final totalSlots = _needsWhitePage ? count + 1 : count;
-
-    // Resize array only if necessary (performance optimization)
     if (_indexedChildren.length != totalSlots) {
       _indexedChildren = List<RenderBox?>.filled(
         totalSlots,
@@ -195,8 +157,6 @@ class RenderTurnableBook extends RenderBox
         growable: false,
       );
     }
-
-    // Batch process all children
     int index = 0;
     RenderBox? child = firstChild;
     while (child != null && index < count) {
@@ -206,39 +166,28 @@ class RenderTurnableBook extends RenderBox
       index++;
       child = pd.nextSibling;
     }
-
-    // Add virtual white page slot if needed
     if (_needsWhitePage) {
-      _indexedChildren[count] = null; // null indicates virtual white page
+      _indexedChildren[count] = null;
     }
   }
 
-  /// High-performance child lookup with fallback
   RenderBox? _childByIndex(int index) {
-    // Check if this is the virtual white page index
-    if (_needsWhitePage && index == _cachedChildCount) {
-      return null; // Virtual white page - will be handled specially in paint
+    if (_needsWhitePage && index == childCount) {
+      return null;
     }
-
-    // Fast path: use indexed array
     if (!_needsIndexRebuild && index >= 0 && index < _indexedChildren.length) {
       final child = _indexedChildren[index];
       if (child != null) return child;
     }
-
-    // Rebuild index if needed
     if (_needsIndexRebuild) {
       _assignPageIndices();
       if (index >= 0 && index < _indexedChildren.length) {
         return _indexedChildren[index];
       }
     }
-
-    // Fallback: linear search (should be rare)
     return _findChildByIndexLinear(index);
   }
 
-  /// Fallback linear search for edge cases
   RenderBox? _findChildByIndexLinear(int index) {
     RenderBox? child = firstChild;
     while (child != null) {
@@ -273,25 +222,14 @@ class RenderTurnableBook extends RenderBox
       double elapsed = _timeMs - animation!.startedAt;
       if (elapsed < 0) elapsed = 0;
       final frameIndex = (elapsed / animation!.durationFrame).floor();
-
-      bool needsRepaint = false;
       if (frameIndex < animation!.frames.length) {
-        // Execute the frame action (closure)
         animation!.frames[frameIndex]();
-        needsRepaint = true;
       } else {
-        // Animation completed - call the completion callback
         animation!.onAnimateEnd();
-        pageFlip.notifier.notifyAnimationComplete();
-        pageFlip.streamNotifier.notifyAnimationComplete();
+        pageFlip.trigger('animationComplete', pageFlip, null);
         animation = null;
-        needsRepaint = true;
       }
-      
-      // Only repaint when actually needed
-      if (needsRepaint) {
-        markNeedsPaint();
-      }
+      markNeedsPaint();
     }
   }
 
@@ -302,7 +240,6 @@ class RenderTurnableBook extends RenderBox
     AnimationSuccessAction onAnimateEnd,
   ) {
     finishAnimation();
-
     animation = AnimationProcess(
       frames: frames,
       duration: duration,
@@ -310,7 +247,6 @@ class RenderTurnableBook extends RenderBox
       onAnimateEnd: onAnimateEnd,
       startedAt: _timeMs,
     );
-
     _scheduleFrame();
   }
 
@@ -321,8 +257,7 @@ class RenderTurnableBook extends RenderBox
         animation!.frames.last();
       }
       animation!.onAnimateEnd();
-      pageFlip.notifier.notifyAnimationComplete();
-      pageFlip.streamNotifier.notifyAnimationComplete();
+      pageFlip.trigger('animationComplete', pageFlip, null);
       animation = null;
     }
   }
@@ -380,7 +315,6 @@ class RenderTurnableBook extends RenderBox
   ) {
     if (!settings.drawShadow) return;
     final maxShadowOpacity = 100 * settings.maxShadowOpacity;
-
     shadow = Shadow(
       pos: pos,
       angle: angle,
@@ -389,7 +323,7 @@ class RenderTurnableBook extends RenderBox
       direction: direction,
       progress: progress * 2,
     );
-    _schedulePaint();
+    markNeedsPaint();
   }
 
   @override
@@ -434,14 +368,14 @@ class RenderTurnableBook extends RenderBox
   void setRightPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.right);
     rightPage = page;
-    _schedulePaint();
+    markNeedsPaint();
   }
 
   @override
   void setLeftPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.left);
     leftPage = page;
-    _schedulePaint();
+    markNeedsPaint();
   }
 
   @override
@@ -454,7 +388,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     bottomPage = page;
-    _schedulePaint();
+    markNeedsPaint();
   }
 
   @override
@@ -468,7 +402,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     flippingPage = page;
-    _schedulePaint();
+    markNeedsPaint();
   }
 
   @override
@@ -516,21 +450,16 @@ class RenderTurnableBook extends RenderBox
   void paint(PaintingContext context, Offset offset) {
     final rect = getRect();
     final canvas = context.canvas;
-
     canvas.save();
-
     void paintStatic(BookPage? page, bool isLeft) {
       if (page == null) return;
-      final lp = page as LiveBookPage;
+      final lp = page as BookPageImpl;
       final child = _childByIndex(lp.index);
-
       if (_isWhitePageIndex(lp.index)) {
         _drawWhitePageStatic(canvas, rect, offset, isLeft);
         return;
       }
-
       if (child == null) return;
-
       final pageOffset = Offset(
         (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx,
         rect.top + offset.dy,
@@ -540,32 +469,27 @@ class RenderTurnableBook extends RenderBox
 
     if (_orientation != BookOrientation.portrait) paintStatic(leftPage, true);
     paintStatic(rightPage, false);
-
-    if (bottomPage is LiveBookPage) {
+    if (bottomPage is BookPageImpl) {
       _paintDynamicPage(
         context,
         canvas,
         offset,
-        bottomPage as LiveBookPage,
+        bottomPage as BookPageImpl,
         isBottom: true,
       );
     }
-
     if (settings.drawShadow) {
       _drawBookShadow(canvas, rect, offset);
     }
-
-    if (flippingPage is LiveBookPage) {
-      _paintDynamicPage(context, canvas, offset, flippingPage as LiveBookPage);
+    if (flippingPage is BookPageImpl) {
+      _paintDynamicPage(context, canvas, offset, flippingPage as BookPageImpl);
     }
-
     if (shadow != null && settings.drawShadow) {
       _drawOuterShadow(canvas, rect, offset);
       if (pageRect != null) {
         _drawInnerShadow(canvas, rect, offset);
       }
     }
-
     if (_orientation == BookOrientation.portrait) {
       canvas.clipRect(
         Rect.fromLTWH(
@@ -576,7 +500,6 @@ class RenderTurnableBook extends RenderBox
         ),
       );
     }
-
     canvas.restore();
   }
 
@@ -584,35 +507,29 @@ class RenderTurnableBook extends RenderBox
     PaintingContext context,
     Canvas canvas,
     Offset rootOffset,
-    LiveBookPage page, {
+    BookPageImpl page, {
     bool isBottom = false,
   }) {
     if (_isWhitePageIndex(page.index)) {
       _paintDynamicWhitePage(canvas, rootOffset, page);
       return;
     }
-
     final child = _childByIndex(page.index);
     if (child == null) return;
-
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
-
     canvas.save();
     canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
-
     final origin = convertToGlobal(position);
     final path = page.buildOrGetClipPath(
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
     if (path != null) canvas.clipPath(path);
-
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
       canvas.rotate(angle);
     }
-
     context.paintChild(child, Offset.zero);
     canvas.restore();
   }
@@ -620,43 +537,35 @@ class RenderTurnableBook extends RenderBox
   void _paintDynamicWhitePage(
     Canvas canvas,
     Offset rootOffset,
-    LiveBookPage page,
+    BookPageImpl page,
   ) {
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
     final rect = getRect();
-
     canvas.save();
     canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
-
     final origin = convertToGlobal(position);
     final path = page.buildOrGetClipPath(
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
     if (path != null) canvas.clipPath(path);
-
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
       canvas.rotate(angle);
     }
-
     final paint = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.fill;
-
     canvas.drawRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height), paint);
-
     final borderPaint = Paint()
       ..color = const Color(0xFFE0E0E0)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-
     canvas.drawRect(
       Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
       borderPaint,
     );
-
     canvas.restore();
   }
 
@@ -698,9 +607,7 @@ class RenderTurnableBook extends RenderBox
     final s = shadow!;
     final shadowPos = convertToGlobal(s.pos);
     if (shadowPos == null) return;
-
     canvas.save();
-
     canvas.clipRect(
       Rect.fromLTWH(
         rect.left + root.dx,
@@ -709,14 +616,11 @@ class RenderTurnableBook extends RenderBox
         rect.height,
       ),
     );
-
     canvas.translate(shadowPos.x + root.dx, shadowPos.y + root.dy);
     canvas.rotate(math.pi + s.angle + math.pi / 2);
-
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
-
     if (s.direction == FlipDirection.forward) {
       canvas.translate(0, -100);
       colors = [
@@ -732,14 +636,12 @@ class RenderTurnableBook extends RenderBox
       ];
       stops = [0.0, 1.0];
     }
-
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(s.width, 0),
       colors,
       stops,
     );
-
     paint.shader = gradient;
     canvas.drawRect(Rect.fromLTWH(0, 0, s.width, rect.height * 2), paint);
     canvas.restore();
@@ -751,9 +653,7 @@ class RenderTurnableBook extends RenderBox
     final shadowPos = convertToGlobal(s.pos);
     if (shadowPos == null) return;
     final pr = convertRectToGlobal(pageRect!);
-
     canvas.save();
-
     final path = Path()
       ..moveTo(pr.topLeft.x + root.dx, pr.topLeft.y + root.dy)
       ..lineTo(pr.topRight.x + root.dx, pr.topRight.y + root.dy)
@@ -761,15 +661,12 @@ class RenderTurnableBook extends RenderBox
       ..lineTo(pr.bottomLeft.x + root.dx, pr.bottomLeft.y + root.dy)
       ..close();
     canvas.clipPath(path);
-
     canvas.translate(shadowPos.x + root.dx, shadowPos.y + root.dy);
     canvas.rotate(math.pi + s.angle + math.pi / 2);
-
     final isw = (s.width * 3) / 4;
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
-
     if (s.direction == FlipDirection.forward) {
       canvas.translate(-isw, -100);
       colors = [
@@ -789,92 +686,180 @@ class RenderTurnableBook extends RenderBox
       ];
       stops = [0.0, 0.1, 0.3, 1.0];
     }
-
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(isw, 0),
       colors,
       stops,
     );
-
     paint.shader = gradient;
     canvas.drawRect(Rect.fromLTWH(0, 0, isw, rect.height * 2), paint);
     canvas.restore();
   }
 
+  bool _childConsumedHit = false;
+
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    RenderBox? child = lastChild;
-    while (child != null) {
-      final pd = child.parentData as TurnableParentData;
-      if (child.hitTest(result, position: position - pd.offset)) return true;
-      child = pd.previousSibling;
+    // Reset child consumed hit state for each new hit test
+    _childConsumedHit = false;
+    
+    final rect = getRect();
+    
+    // Test visible static pages for interactive widgets
+    if (_orientation != BookOrientation.portrait && leftPage != null) {
+      final leftChild = _childByIndex((leftPage as BookPageImpl).index);
+      if (leftChild != null && !_isWhitePageIndex((leftPage as BookPageImpl).index)) {
+        final leftOffset = Offset(rect.left, rect.top);
+        final adjustedPosition = position - leftOffset;
+        if (_isPositionInChildBounds(adjustedPosition, rect.pageWidth, rect.height) &&
+            leftChild.hitTest(result, position: adjustedPosition)) {
+          _childConsumedHit = true;
+          return true;
+        }
+      }
     }
+    
+    if (rightPage != null) {
+      final rightChild = _childByIndex((rightPage as BookPageImpl).index);
+      if (rightChild != null && !_isWhitePageIndex((rightPage as BookPageImpl).index)) {
+        final rightOffset = Offset(rect.left + rect.pageWidth, rect.top);
+        final adjustedPosition = position - rightOffset;
+        if (_isPositionInChildBounds(adjustedPosition, rect.pageWidth, rect.height) &&
+            rightChild.hitTest(result, position: adjustedPosition)) {
+          _childConsumedHit = true;
+          return true;
+        }
+      }
+    }
+    
     return false;
   }
 
+  bool _isPositionInChildBounds(Offset position, double width, double height) {
+    return position.dx >= 0 && 
+           position.dx < width && 
+           position.dy >= 0 && 
+           position.dy < height;
+  }
+
   @override
-  bool hitTestSelf(Offset position) => true;
+  bool hitTestSelf(Offset position) {
+    // Always participate in hit testing to detect gestures
+    return true;
+  }
 
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {
     if (settings.clickEventForward) return;
-
+    
     if (event is PointerDownEvent) {
-      _handlePanStart(event.localPosition);
+      _handlePointerDown(event.localPosition);
     } else if (event is PointerMoveEvent) {
-      _handlePanUpdate(event.localPosition);
+      _handlePointerMove(event.localPosition);
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
-      _handlePanEnd(event.localPosition);
+      _handlePointerUp(event.localPosition);
     }
   }
 
-  void _handlePanStart(Offset position) {
+  void _handlePointerDown(Offset position) {
     final point = model.Point(position.dx, position.dy);
-
+    
+    // Reset only dragging state, keep _childConsumedHit as set by hitTestChildren
+    _isDragging = false;
+    _initialTouchPoint = point;
+    
     _touchPoint = SwipeData(
       point: point,
       time: DateTime.now().millisecondsSinceEpoch,
     );
-
-    pageFlip.startUserTouch(point);
-    ensureAnimating();
-  }
-
-  void _handlePanUpdate(Offset position) {
-    final point = model.Point(position.dx, position.dy);
-
-    if (settings.mobileScrollSupport && _touchPoint != null) {
-      final deltaX = (_touchPoint!.point.x - point.x).abs();
-
-      if (deltaX > _minMoveThreshold ||
-          pageFlip.getState() != FlippingState.read) {
-        pageFlip.userMove(point, true);
-      }
-    } else {
-      pageFlip.userMove(point, true);
+    
+    // If a child widget consumed the hit and this is just a tap, don't start page flip immediately
+    // We'll check again during movement or up event
+    if (!_childConsumedHit) {
+      // Start page flip interaction for dragging
+      pageFlip.startUserTouch(point);
+      ensureAnimating();
     }
   }
 
-  void _handlePanEnd(Offset position) {
+  void _handlePointerMove(Offset position) {
     final point = model.Point(position.dx, position.dy);
+    
+    if (_initialTouchPoint != null) {
+      final deltaX = (point.x - _initialTouchPoint!.x).abs();
+      final deltaY = (point.y - _initialTouchPoint!.y).abs();
+      
+      // Check if user is dragging (moved more than threshold)
+      if (deltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+        if (!_isDragging) {
+          _isDragging = true;
+          
+          // If we didn't start pageFlip before because of child hit, start it now for dragging
+          if (_childConsumedHit) {
+            pageFlip.startUserTouch(_initialTouchPoint!);
+          }
+        }
+        
+        // Ensure animation continues during dragging
+        ensureAnimating();
+      }
+    }
+    
+    // Process move if we're dragging or no child consumed the initial hit
+    if (_isDragging || !_childConsumedHit) {
+      if (settings.mobileScrollSupport && _touchPoint != null) {
+        final deltaX = (_touchPoint!.point.x - point.x).abs();
+        if (deltaX > _minMoveThreshold ||
+            pageFlip.getState() != FlippingState.read) {
+          pageFlip.userMove(point, true);
+        }
+      } else {
+        pageFlip.userMove(point, true);
+      }
+      
+      // Mark for repaint during interaction
+      markNeedsPaint();
+    }
+  }
 
+  void _handlePointerUp(Offset position) {
+    final point = model.Point(position.dx, position.dy);
+    
+    // If child consumed the hit and user didn't drag, let the child handle it
+    if (_childConsumedHit && !_isDragging) {
+      _resetGestureState();
+      return;
+    }
+    
+    // Process page flip gesture
     if (_touchPoint != null && _isValidSwipe(point)) {
       _processSwipeGesture(point);
       _touchPoint = null;
     } else {
       _touchPoint = null;
-      pageFlip.userStop(point, false);
+      // Only trigger flip on tap if user didn't interact with a child widget
+      if (!_childConsumedHit || _isDragging) {
+        pageFlip.userStop(point, false);
+        // Ensure animation continues for completion
+        ensureAnimating();
+      }
     }
+    
+    _resetGestureState();
+  }
+
+  void _resetGestureState() {
+    _isDragging = false;
+    _initialTouchPoint = null;
+    // Note: _childConsumedHit is reset in hitTestChildren for each new gesture
   }
 
   bool _isValidSwipe(model.Point point) {
     if (_touchPoint == null) return false;
-
     final dx = point.x - _touchPoint!.point.x;
     final distY = (point.y - _touchPoint!.point.y).abs();
     final timeDelta = DateTime.now().millisecondsSinceEpoch - _touchPoint!.time;
-
     return dx.abs() > _swipeDistance &&
         distY < _swipeDistance * 2 &&
         timeDelta < _swipeTimeout;
@@ -883,23 +868,23 @@ class RenderTurnableBook extends RenderBox
   void _processSwipeGesture(model.Point point) {
     final dx = point.x - _touchPoint!.point.x;
     final rect = getRect();
-    final halfHeight =
-        rect.height * 0.5;
+    final halfHeight = rect.height * 0.5;
     final corner = _touchPoint!.point.y < halfHeight
         ? FlipCorner.top
         : FlipCorner.bottom;
-
     if (dx > 0) {
       pageFlip.flipPrev(corner);
     } else {
       pageFlip.flipNext(corner);
     }
+    // Ensure animation continues for swipe gesture
+    ensureAnimating();
   }
 
   void ensureAnimating() => _scheduleFrame();
 
   bool _isWhitePageIndex(int index) {
-    return _needsWhitePage && index == _cachedChildCount;
+    return _needsWhitePage && index == childCount;
   }
 
   void _drawWhitePageStatic(
@@ -911,24 +896,19 @@ class RenderTurnableBook extends RenderBox
     final paint = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.fill;
-
     final pageX = (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx;
     final pageY = rect.top + offset.dy;
-
     final whitePageRect = Rect.fromLTWH(
       pageX,
       pageY,
       rect.pageWidth,
       rect.height,
     );
-
     canvas.drawRect(whitePageRect, paint);
-
     final borderPaint = Paint()
       ..color = const Color(0xFFE0E0E0)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-
     canvas.drawRect(whitePageRect, borderPaint);
   }
 }

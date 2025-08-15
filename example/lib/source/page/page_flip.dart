@@ -4,7 +4,7 @@ import '../collection/page_collection.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
-import '../event/page_flip_notifier.dart';
+import '../event/event_object.dart';
 import '../flip/flip_process.dart';
 import '../flip/flip_settings.dart';
 import '../model/page_rect.dart';
@@ -13,7 +13,7 @@ import '../render/render_page.dart';
 import 'book_page.dart';
 
 /// Class representing a main PageFlip object
-class PageFlip {
+class PageFlip extends EventObject {
   Point? mousePosition;
   bool isUserTouch = false;
   bool isUserMove = false;
@@ -26,26 +26,15 @@ class PageFlip {
   RenderPage? _render; // lazily injected by RenderTurnableBook
   // Interaction now handled directly by RenderTurnableBook via pointer events
 
-  // Flutter-native event notifiers
-  final PageFlipNotifier _changeNotifier = PageFlipNotifier();
-  final PageFlipStreamNotifier _streamNotifier = PageFlipStreamNotifier();
-
   PageCollection? pages;
 
   /// Create a new PageFlip instance with FlipSetting object
   ///  FlipSetting [setting] - Configuration object
-  PageFlip(this.setting, {RenderPage? customRender}) {
+  PageFlip(this.setting, {RenderPage? customRender}) : super() {
     if (customRender != null) {
       render = customRender; // triggers flipProcess creation
     }
   }
-
-  // Public getters for notifiers
-  /// Get the ChangeNotifier for listening to events in widgets
-  PageFlipNotifier get notifier => _changeNotifier;
-  
-  /// Get the Stream-based notifier for advanced async event handling
-  PageFlipStreamNotifier get streamNotifier => _streamNotifier;
 
   bool _flipProcessInitialized = false;
 
@@ -69,24 +58,18 @@ class PageFlip {
     if (_flipProcessInitialized) {
       flipProcess.updateApp(this, render);
     }
-    
-    _changeNotifier.notifySettingsUpdate(
-      settings: setting,
-      mode: _render?.getOrientation(),
-    );
-    _streamNotifier.notifySettingsUpdate(
-      settings: setting,
-      mode: _render?.getOrientation(),
-    );
+    trigger('updateSettings', this, {
+      'settings': setting,
+      'mode': _render?.getOrientation(),
+    });
   }
 
-  
+
 
   /// Clear all pages
   void clear() {
     pages?.destroy();
-    _changeNotifier.notifyClear();
-    _streamNotifier.notifyClear();
+    trigger('clear', this, {});
   }
 
   /// Turn to previous page without animation
@@ -114,14 +97,7 @@ class PageFlip {
     if (pages != null) {
       pages!.show(pageNum);
 
-      _changeNotifier.notifyFlip(
-        page: pageNum,
-        mode: render.getOrientation(),
-      );
-      _streamNotifier.notifyFlip(
-        page: pageNum,
-        mode: render.getOrientation(),
-      );
+      trigger('flip', this, {'page': pageNum, 'mode': render.getOrientation()});
     }
   }
 
@@ -136,43 +112,23 @@ class PageFlip {
 
     if (currentIndex < totalPages - 1) {
       flipProcess.flipNext(corner);
-      _changeNotifier.notifyFlip(
-        page: currentIndex + 1,
-        direction: 'next',
-      );
-      _streamNotifier.notifyFlip(
-        page: currentIndex + 1,
-        direction: 'next',
-      );
+      trigger('flip', this, {'page': currentIndex + 1, 'direction': 'next'});
     }
   }
 
   /// Flip previous page with animation
-  ///
-  /// @param {FlipCorner} corner - Corner to flip from
   void flipPrev([FlipCorner corner = FlipCorner.top]) {
     if (pages == null) return;
 
     final currentIndex = getCurrentPageIndex();
 
     if (currentIndex > 0) {
-      // Use flip controller for animation if available
       flipProcess.flipPrev(corner);
-      _changeNotifier.notifyFlip(
-        page: currentIndex - 1,
-        direction: 'prev',
-      );
-      _streamNotifier.notifyFlip(
-        page: currentIndex - 1,
-        direction: 'prev',
-      );
+      trigger('flip', this, {'page': currentIndex - 1, 'direction': 'prev'});
     }
   }
 
   /// Flip to specific page with animation
-  ///
-  /// @param {int} page - Page index
-  /// @param {FlipCorner} corner - Corner to flip from
   void flip(int page, [FlipCorner corner = FlipCorner.top]) {
     if (pages == null) return;
 
@@ -183,31 +139,21 @@ class PageFlip {
 
       flipProcess.flipToPage(page, corner);
 
-      _changeNotifier.notifyFlip(
-        page: page,
-        direction: page > currentIndex ? 'next' : 'prev',
-      );
-      _streamNotifier.notifyFlip(
-        page: page,
-        direction: page > currentIndex ? 'next' : 'prev',
-      );
+      trigger('flip', this, {
+        'page': page,
+        'direction': page > currentIndex ? 'next' : 'prev',
+      });
     }
   }
 
   /// Update flipping state
-  ///
-  /// @param {FlippingState} newState - New flipping state
   void updateState(FlippingState newState) {
-    _changeNotifier.notifyStateChange(newState: newState);
-    _streamNotifier.notifyStateChange(newState: newState);
+    trigger('changeState', this, newState);
   }
 
   /// Update current page index
-  ///
-  /// @param {int} newPage - New page index
   void updatePageIndex(int newPage) {
-    _changeNotifier.notifyFlip(page: newPage);
-    _streamNotifier.notifyFlip(page: newPage);
+    trigger('flip', this, newPage);
   }
 
   /// Get total page count
@@ -221,8 +167,6 @@ class PageFlip {
   }
 
   /// Get page by index
-  ///
-  /// @param {int} pageIndex - Page index
   BookPage? getPage(int pageIndex) {
     return pages?.getPage(pageIndex);
   }
@@ -260,10 +204,6 @@ class PageFlip {
   }
 
   /// Calculate distance between two points
-  ///
-  /// @param {Point} point1 - First point
-  /// @param {Point} point2 - Second point
-  /// @returns {double} Distance between points
   double _getDistanceBetweenPoints(Point point1, Point point2) {
     final dx = point1.x - point2.x;
     final dy = point1.y - point2.y;
@@ -271,8 +211,6 @@ class PageFlip {
   }
 
   /// Start user touch interaction
-  ///
-  /// @param {Point} pos - Touch position
   void startUserTouch(Point pos) {
     isUserTouch = true;
     isUserMove = false;
@@ -283,15 +221,11 @@ class PageFlip {
   }
 
   /// Handle user move
-  ///
-  /// @param {Point} pos - Current position
-  /// @param {bool} isTouch - Whether this is a touch event
   void userMove(Point pos, bool isTouch) {
     if (isUserTouch) {
       if (mousePosition != null &&
           _getDistanceBetweenPoints(mousePosition!, pos) > 5) {
         isUserMove = true;
-        // Continue flip interaction
         flipProcess.fold(pos);
   _recordSample(pos);
       }
@@ -299,9 +233,6 @@ class PageFlip {
   }
 
   /// Handle user stop interaction
-  ///
-  /// @param {Point} pos - End position
-  /// @param {bool} isSwipe - Whether this was a swipe gesture
   void userStop(Point pos, [bool isSwipe = false]) {
     if (isUserTouch) {
       isUserTouch = false;
@@ -312,10 +243,8 @@ class PageFlip {
         final fastSwipe = settings.enableInertia &&
             velocity.abs() > settings.inertiaVelocityThreshold;
         if (!isUserMove) {
-          // Single click/tap - trigger flip
           flipProcess.flip(pos);
         } else {
-          // End drag movement: inertia if fast
           flipProcess.stopMoveWithInertia(fastSwipe, velocity);
         }
       }
@@ -334,23 +263,15 @@ class PageFlip {
     if (_samples.length < 2) return 0;
     final a = _samples.first;
     final b = _samples.last;
-    final dt = (b.t - a.t) / 1000.0; // seconds
+    final dt = (b.t - a.t) / 1000.0;
     if (dt <= 0) return 0;
     final dx = b.p.x - a.p.x;
-    // Horizontal velocity only (logical px/s)
     return dx / dt;
-  }
-
-  /// Dispose resources and clean up notifiers
-  void dispose() {
-    _streamNotifier.dispose();
-    // Note: ChangeNotifier doesn't need explicit disposal unless it has listeners
-    // that need to be removed. The garbage collector will handle it.
   }
 }
 
 class _MotionSample {
-  final double t; // ms timestamp
+  final double t;
   final Point p;
   _MotionSample(this.t, this.p);
 }

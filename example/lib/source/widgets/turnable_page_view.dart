@@ -42,7 +42,6 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   /// PageFlip core logic
   late PageFlip _pageFlip;
 
-
   /// Get the adjusted settings for the PageFlip instance
   FlipSettings get _settings => widget.settings.copyWith(
     width: widget.bookSize.width,
@@ -57,64 +56,30 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     super.initState();
   }
 
-  void _updateSize() {
-    _pageFlip.updateSetting(_settings);
-  }
-
-  Timer? _resizeTimer;
-
-  @override
-  void didUpdateWidget(covariant TurnablePageView oldWidget) {
-    final hasWidthChanged = widget.bookSize.width != oldWidget.bookSize.width;
-    final hasHeightChanged =
-        widget.bookSize.height != oldWidget.bookSize.height;
-    if (hasWidthChanged || hasHeightChanged) {
-      _resizeTimer?.cancel();
-      _resizeTimer = Timer(const Duration(milliseconds: 100), () {
-        _updateSize();
-      });
-    }
-    super.didUpdateWidget(oldWidget);
-  }
-
   Future<void> _setupPageFlipEventsAndController() async {
     widget.controller?.initializeController(pageFlip: _pageFlip);
-    // Set up event listeners using Flutter-native notifiers
-    _pageFlip.notifier.addListener(() {
-      final flipEvent = _pageFlip.notifier.currentFlipEvent;
-      if (flipEvent != null) {
-        final newIndex = _pageFlip.getCurrentPageIndex();
-        final left = newIndex.clamp(0, widget.pageCount - 1);
-        final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
-        // Don't call updateSetting here as it creates infinite loop
-        // Just update the widget settings directly if needed
-        widget.onPageChanged?.call(left, right);
-      }
+    // Set up event listeners
+    _pageFlip.on('flip', (_) {
+      final newIndex = _pageFlip.getCurrentPageIndex();
+      final left = newIndex.clamp(0, widget.pageCount - 1);
+      final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
+      widget.settings.startPageIndex = left;
+      _pageFlip.updateSetting(_settings);
+      widget.onPageChanged?.call(left, right);
     });
   }
 
   @override
-  void dispose() {
-    _resizeTimer?.cancel();
-    _pageFlip.dispose(); // Clean up the notifier streams
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isSinglePage = widget.settings.usePortrait;
-
     return PaperWidget(
       size: widget.bookSize,
-      isSinglePage: isSinglePage,
+      isSinglePage: widget.settings.usePortrait,
       paperBoundaryDecoration: widget.paperBoundaryDecoration,
-      child: RepaintBoundary(
-        child: TurnableBookRenderObjectWidget(
-          pageCount: widget.pageCount,
-          builder: (ctx, index) => widget.builder(ctx, index),
-          settings: _settings,
-          pageFlip: _pageFlip,
-        ),
+      child: TurnableBookRenderObjectWidget(
+        pageCount: widget.pageCount,
+        builder: (ctx, index) => widget.builder(ctx, index),
+        settings: _settings,
+        pageFlip: _pageFlip,
       ),
     );
   }
