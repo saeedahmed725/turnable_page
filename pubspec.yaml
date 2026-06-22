@@ -5,8 +5,8 @@ homepage: https://saeed-flutter.vercel.app
 repository: https://github.com/saeedahmed725/turnable_page
 
 environment:
-  sdk: ^3.8.1
-  flutter: ">=1.17.0"
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: ">=3.35.0"
 
 dependencies:
   flutter:
