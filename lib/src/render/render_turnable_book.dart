@@ -65,6 +65,13 @@ class RenderTurnableBook extends RenderBox
     collection = PageCollectionImpl(pageFlip, this, 0);
   }
 
+  // Always request compositing so Flutter allocates proper layers for children
+  // that push their own compositing layers (e.g. CachedNetworkImage, RepaintBoundary).
+  // Without this, canvas.save/restore pairs can reference a stale native canvas
+  // peer after a child switches the active PictureLayer.
+  @override
+  bool get alwaysNeedsCompositing => true;
+
   void updateSettings(FlipSettings s) {
     settings = s;
     markNeedsLayout();
@@ -78,6 +85,10 @@ class RenderTurnableBook extends RenderBox
 
   void _onFrame(Duration timestamp) {
     _frameScheduled = false;
+    // Guard: the render object may have been disposed (e.g. after hot reload or
+    // widget removal) while a frame callback was still pending. Calling
+    // markNeedsPaint() on a disposed render object triggers !_debugDisposed.
+    if (!attached) return;
     final rawMs = timestamp.inMilliseconds.toDouble();
     _updateTimestamp(rawMs);
     if (animation != null) {
@@ -334,7 +345,7 @@ class RenderTurnableBook extends RenderBox
       direction: direction,
       progress: progress * 2,
     );
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -379,14 +390,14 @@ class RenderTurnableBook extends RenderBox
   void setRightPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.right);
     rightPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
   void setLeftPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.left);
     leftPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -399,7 +410,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     bottomPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -413,7 +424,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     flippingPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -460,11 +471,9 @@ class RenderTurnableBook extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) {
     final rect = getRect();
-    final canvas = context.canvas;
-    canvas.save();
-    // Background fill to avoid transparent flashes/flicker when switching spreads
-    // Especially noticeable when returning to the first spread or showing a white trailing page.
-    canvas.drawRect(
+
+    // Background fill — safe: pure canvas draw with no compositing children around it.
+    context.canvas.drawRect(
       Rect.fromLTWH(
         rect.left + offset.dx,
         rect.top + offset.dy,
@@ -473,14 +482,20 @@ class RenderTurnableBook extends RenderBox
       ),
       Paint()..color = const ui.Color(0xFFFFFFFF),
     );
+
+    // Nested helper: paint a static (non-flipping) page child.
+    // We do NOT wrap context.paintChild() in canvas.save/restore because compositing
+    // children (e.g. CachedNetworkImage, RepaintBoundary) push their own PictureLayer,
+    // which invalidates any previously captured canvas reference and causes a native
+    // peer crash on canvas.restore(). The child is placed at its absolute screen offset.
     void paintStatic(BookPage? page, bool isLeft) {
       if (page == null) return;
       final lp = page as BookPageImpl;
-      final child = _childByIndex(lp.index);
       if (_isWhitePageIndex(lp.index)) {
-        _drawWhitePageStatic(canvas, rect, offset, isLeft);
+        _drawWhitePageStatic(context.canvas, rect, offset, isLeft);
         return;
       }
+      final child = _childByIndex(lp.index);
       if (child == null) return;
       final pageOffset = Offset(
         (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx,
@@ -492,84 +507,148 @@ class RenderTurnableBook extends RenderBox
     if (_orientation != BookOrientation.portrait) {
       paintStatic(leftPage, true);
     }
-    // Always paint static right page so front content remains visible under flipping layer.
+    // Always paint static right page so front content remains visible under the flipping layer.
     paintStatic(rightPage, false);
+
     if (bottomPage is BookPageImpl) {
       _paintDynamicPage(
         context,
-        canvas,
         offset,
         bottomPage as BookPageImpl,
         isBottom: true,
       );
     }
+
+    // Shadow drawing uses context.canvas directly (accessed AFTER all compositing children
+    // have been painted, so it is always the current active canvas).
     if (settings.drawShadow && !settings.hideLeftShadow) {
-      _drawBookShadow(canvas, rect, offset);
+      _drawBookShadow(context.canvas, rect, offset);
     }
+
     if (flippingPage is BookPageImpl) {
-      _paintDynamicPage(context, canvas, offset, flippingPage as BookPageImpl);
+      _paintDynamicPage(context, offset, flippingPage as BookPageImpl);
     }
+
     if (shadow != null && settings.drawShadow) {
-      _drawOuterShadow(canvas, rect, offset);
+      _drawOuterShadow(context.canvas, rect, offset);
       if (pageRect != null) {
-        _drawInnerShadow(canvas, rect, offset);
+        _drawInnerShadow(context.canvas, rect, offset);
       }
     }
-    if (_orientation == BookOrientation.portrait) {
-      canvas.clipRect(
-        Rect.fromLTWH(
-          rect.left + rect.pageWidth + offset.dx,
-          rect.top + offset.dy,
-          rect.pageWidth,
-          rect.height,
-        ),
-      );
-    }
-    canvas.restore();
   }
 
   void _paintDynamicPage(
     PaintingContext context,
-    Canvas canvas,
     Offset rootOffset,
     BookPageImpl page, {
     bool isBottom = false,
   }) {
     if (_isWhitePageIndex(page.index)) {
-      _paintDynamicWhitePage(canvas, rootOffset, page);
+      _paintDynamicWhitePage(context.canvas, rootOffset, page);
       return;
     }
     final child = _childByIndex(page.index);
     if (child == null) return;
+
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
-    canvas.save();
-    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+    final rect = getRect();
+    final angle = page.state.angle;
+
+    // The clip path is built relative to globalOrigin (page-anchor-local).
+    // See BookPageImpl.buildOrGetClipPath: path(0,0) = top-left of page at globalPos.
     final origin = convertToGlobal(position);
-    final path = page.buildOrGetClipPath(
+    final clipPath = page.buildOrGetClipPath(
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
-    if (path != null) canvas.clipPath(path);
-    final angle = page.state.angle;
-    if (angle.abs() > 0.001) {
-      canvas.rotate(angle);
-    }
-    // Fill background to avoid flicker caused by transparent widgets revealing previous frame
-    try {
-      final rect = getRect();
-      final bgPaint = Paint()
-        ..color = const Color(0xFFFFFFFF)
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
-        bgPaint,
+
+    // Page anchor position in world/screen space.
+    final Offset pageAnchor = Offset(
+      globalPos.x + rootOffset.dx,
+      globalPos.y + rootOffset.dy,
+    );
+
+    // -------------------------------------------------------------------------
+    // WHY THE ORDER MATTERS
+    // -------------------------------------------------------------------------
+    // Original canvas sequence:
+    //   canvas.translate(pageAnchor)  → move origin to page fold-anchor
+    //   canvas.clipPath(path)         → clip is FIXED in world space (pre-rotate)
+    //   canvas.rotate(angle)          → only the CONTENT rotates, not the clip
+    //   context.paintChild(child, 0)  → child drawn inside clip
+    //
+    // Naïve pushTransform(translate+rotate) → pushClipPath INSIDE would rotate
+    // the clip too, producing the coloured artifact line seen on the fold edge.
+    //
+    // Correct order: pushClipPath (world-space) FIRST, then pushTransform
+    // (translate+rotate) for the child content INSIDE the clip.
+    // -------------------------------------------------------------------------
+
+    // Transform for the child content: translate to page anchor + rotate.
+    // Replicates canvas.translate(pageAnchor) + canvas.rotate(angle).
+    // We use Offset.zero for the push* calls so effectiveTransform = childTransform.
+    final Matrix4 childTransform = Matrix4.translationValues(
+      pageAnchor.dx, pageAnchor.dy, 0.0,
+    )..rotateZ(angle);
+
+    // Inner painter: background fill (prevents transparent-widget flicker) + child.
+    // `off` = Offset.zero throughout; after childTransform the child lands at
+    // pageAnchor on screen, rotated by `angle`.
+    void paintPageChild(PaintingContext ctx, Offset off) {
+      ctx.canvas.drawRect(
+        Rect.fromLTWH(off.dx, off.dy, rect.pageWidth, rect.height),
+        Paint()
+          ..color = const Color(0xFFFFFFFF)
+          ..style = PaintingStyle.fill,
       );
-    } catch (_) {
-      // Safe fail: background fill is an optimization
+      ctx.paintChild(child, off);
     }
-    context.paintChild(child, Offset.zero);
-    canvas.restore();
+
+    if (clipPath != null) {
+      // Shift the page-anchor-relative clip path to world/screen coordinates so
+      // that it clips at the correct screen position WITHOUT any rotation applied.
+      // path(0,0) is at the page anchor → shift by pageAnchor.
+      final Path worldClipPath = clipPath.shift(pageAnchor);
+
+      // Step 1 ── apply clip in world space (no rotation).
+      //   pushClipPath with Offset.zero: Flutter internally does
+      //   clipPath.shift(Offset.zero) = worldClipPath unchanged. ✓
+      //
+      //   IMPORTANT: childPaintBounds must be the FULL render-box size, NOT
+      //   worldClipPath.getBounds(). The clip starts as a tiny triangle at the
+      //   beginning of a flip. If we use getBounds() here, Flutter computes a
+      //   tiny estimatedBounds for the nested TransformLayer via
+      //   inverseTransformRect(), which causes the PictureLayer inside it to
+      //   allocate an undersized canvas — the child widget (full page size)
+      //   gets cropped and the bottom page appears invisible, showing only the
+      //   static page through. Using the full render box guarantees the inner
+      //   canvas is always large enough; the ClipPathLayer still clips the
+      //   VISIBLE output to worldClipPath. ✓
+      context.pushClipPath(
+        needsCompositing,
+        Offset.zero,
+        Offset.zero & size,          // ← full render-box area, NOT clip bounds
+        worldClipPath,
+        (PaintingContext clipCtx, Offset clipOff) {
+          // Step 2 ── apply translate + rotate for the child content only.
+          clipCtx.pushTransform(
+            needsCompositing,
+            clipOff,
+            childTransform,
+            paintPageChild,
+          );
+        },
+      );
+    } else if (!isBottom) {
+      // No clip: just translate + rotate then paint (flipping page only).
+      context.pushTransform(
+        needsCompositing,
+        Offset.zero,
+        childTransform,
+        paintPageChild,
+      );
+    }
   }
 
   void _paintDynamicWhitePage(

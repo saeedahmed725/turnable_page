@@ -75,38 +75,61 @@ class FlipCalculation {
   List<Point> getBottomClipArea() {
     final result = <Point>[];
 
-    if (topIntersectPoint != null) {
-      result.add(topIntersectPoint!);
-    }
-
     if (corner == FlipCorner.top) {
-      result.add(Point(pageWidth, 0));
-    } else {
       if (topIntersectPoint != null) {
-        result.add(Point(pageWidth, 0));
+        result.add(topIntersectPoint!);
       }
-      result.add(Point(pageWidth, pageHeight));
-    }
 
-    if (sideIntersectPoint != null && topIntersectPoint != null) {
-      if (Helper.getDistanceBetweenTwoPoint(
-            sideIntersectPoint!,
-            topIntersectPoint!,
-          ) >=
-          10) {
-        result.add(sideIntersectPoint!);
-      }
-    } else {
-      if (corner == FlipCorner.top) {
+      result.add(Point(pageWidth, 0));
+
+      if (sideIntersectPoint != null && topIntersectPoint != null) {
+        if (Helper.getDistanceBetweenTwoPoint(
+              sideIntersectPoint!,
+              topIntersectPoint!,
+            ) >=
+            10) {
+          result.add(sideIntersectPoint!);
+        }
+      } else {
         result.add(Point(pageWidth, pageHeight));
       }
-    }
 
-    if (bottomIntersectPoint != null) {
-      result.add(bottomIntersectPoint!);
-    }
-    if (topIntersectPoint != null) {
-      result.add(topIntersectPoint!);
+      if (bottomIntersectPoint != null) {
+        result.add(bottomIntersectPoint!);
+      }
+      if (topIntersectPoint != null) {
+        result.add(topIntersectPoint!);
+      }
+    } else {
+      // FlipCorner.bottom
+      if (bottomIntersectPoint != null) {
+        result.add(bottomIntersectPoint!);
+      }
+
+      result.add(Point(pageWidth, pageHeight));
+
+      if (sideIntersectPoint != null && bottomIntersectPoint != null) {
+        if (Helper.getDistanceBetweenTwoPoint(
+              sideIntersectPoint!,
+              bottomIntersectPoint!,
+            ) >=
+            10) {
+          result.add(sideIntersectPoint!);
+        }
+      } else {
+        result.add(Point(pageWidth, 0));
+      }
+
+      if (topIntersectPoint != null) {
+        if (sideIntersectPoint != null &&
+            !result.contains(Point(pageWidth, 0))) {
+          result.add(Point(pageWidth, 0));
+        }
+        result.add(topIntersectPoint!);
+      }
+      if (bottomIntersectPoint != null) {
+        result.add(bottomIntersectPoint!);
+      }
     }
 
     return result;
