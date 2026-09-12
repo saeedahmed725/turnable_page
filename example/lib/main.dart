@@ -268,6 +268,8 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
     ),
   ];
 
+  TextDirection? _direction;
+
   @override
   void dispose() {
     _currentPage.dispose();
@@ -289,13 +291,34 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(
-              Icons.widgets_rounded,
-              color: const Color(0xFF00E5FF).withValues(alpha: 0.8),
+          PopupMenuButton<TextDirection?>(
+            initialValue: _direction,
+            tooltip: 'Reading Direction',
+            icon: Icon(
+              _direction == TextDirection.rtl
+                  ? Icons.format_textdirection_r_to_l_rounded
+                  : _direction == TextDirection.ltr
+                      ? Icons.format_textdirection_l_to_r_rounded
+                      : Icons.auto_mode_rounded,
+              color: const Color(0xFF00E5FF),
             ),
+            onSelected: (dir) => setState(() => _direction = dir),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: null,
+                child: Text('Auto (System / Directionality)'),
+              ),
+              PopupMenuItem(
+                value: TextDirection.ltr,
+                child: Text('LTR (English / Left-to-Right)'),
+              ),
+              PopupMenuItem(
+                value: TextDirection.rtl,
+                child: Text('RTL (العربية / Right-to-Left)'),
+              ),
+            ],
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Center(
@@ -304,6 +327,7 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
           pageCount: _pages.length,
           pageViewMode: PageViewMode.single,
           paperBoundaryDecoration: PaperBoundaryDecoration.modern,
+          textDirection: _direction,
           settings: FlipSettings(
             drawShadow: true,
             hideLeftShadow: true,
@@ -1176,6 +1200,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
   final PageFlipController _controller = PageFlipController();
   final ValueNotifier<int> _currentPage = ValueNotifier(0);
   bool _isTwoPageMode = false;
+  TextDirection? _direction;
 
   @override
   void dispose() {
@@ -1203,6 +1228,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
         pageViewMode: pageViewMode,
         paperBoundaryDecoration: PaperBoundaryDecoration.modern,
         settings: settings,
+        textDirection: _direction,
         onPageChanged: (left, right) => _currentPage.value = left,
       );
     } else {
@@ -1212,6 +1238,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
         pageViewMode: pageViewMode,
         paperBoundaryDecoration: PaperBoundaryDecoration.modern,
         settings: settings,
+        textDirection: _direction,
         onPageChanged: (left, right) => _currentPage.value = left,
       );
     }
@@ -1241,6 +1268,34 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
           ],
         ),
         actions: [
+          // Direction selector (Auto, LTR, RTL)
+          PopupMenuButton<TextDirection?>(
+            initialValue: _direction,
+            tooltip: 'Reading Direction',
+            icon: Icon(
+              _direction == TextDirection.rtl
+                  ? Icons.format_textdirection_r_to_l_rounded
+                  : _direction == TextDirection.ltr
+                      ? Icons.format_textdirection_l_to_r_rounded
+                      : Icons.auto_mode_rounded,
+              color: const Color(0xFFFFAB40),
+            ),
+            onSelected: (dir) => setState(() => _direction = dir),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: null,
+                child: Text('Auto (System / Directionality)'),
+              ),
+              PopupMenuItem(
+                value: TextDirection.ltr,
+                child: Text('LTR (English / Left-to-Right)'),
+              ),
+              PopupMenuItem(
+                value: TextDirection.rtl,
+                child: Text('RTL (العربية / Right-to-Left)'),
+              ),
+            ],
+          ),
           // Toggle single / two-page mode
           Tooltip(
             message: _isTwoPageMode ? 'Switch to single page' : 'Switch to two-page spread',
@@ -1254,6 +1309,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
               onPressed: () => setState(() => _isTwoPageMode = !_isTwoPageMode),
             ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Container(

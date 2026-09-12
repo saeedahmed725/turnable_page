@@ -63,6 +63,7 @@ class TurnablePdf extends StatefulWidget {
   final ErrorBuilder? errorBuilder;
   final double? aspectRatio;
   final bool pagesBoundaryIsEnabled;
+  final TextDirection? textDirection;
 
   /// Internal constructor for [TurnablePdf].
   ///
@@ -84,6 +85,7 @@ class TurnablePdf extends StatefulWidget {
     this.errorBuilder,
     this.aspectRatio,
     this.pagesBoundaryIsEnabled = true,
+    this.textDirection,
     super.key,
   }) : _source = source,
        _assetPath = assetPath,
@@ -103,6 +105,7 @@ class TurnablePdf extends StatefulWidget {
   /// [errorBuilder]: Custom builder for error state.
   /// [aspectRatio]: The aspect ratio for the PDF pages.
   /// [autoResponseSize]: Whether to automatically adjust the response size.
+  /// [textDirection]: Reading direction (LTR/RTL). If null, auto-detects from Directionality.
   /// [key]: Optional widget key.
   factory TurnablePdf.asset(
     String assetPath, {
@@ -118,6 +121,7 @@ class TurnablePdf extends StatefulWidget {
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
     bool pagesBoundaryIsEnabled = true,
+    TextDirection? textDirection,
     Key? key,
   }) => TurnablePdf._internal(
     source: PdfSource.asset,
@@ -133,6 +137,7 @@ class TurnablePdf extends StatefulWidget {
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
     pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
+    textDirection: textDirection,
     key: key,
   );
 
@@ -166,6 +171,7 @@ class TurnablePdf extends StatefulWidget {
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
     bool pagesBoundaryIsEnabled = true,
+    TextDirection? textDirection,
     Key? key,
   }) => TurnablePdf._internal(
     source: PdfSource.network,
@@ -182,6 +188,7 @@ class TurnablePdf extends StatefulWidget {
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
     pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
+    textDirection: textDirection,
     key: key,
   );
 
@@ -198,6 +205,7 @@ class TurnablePdf extends StatefulWidget {
   /// [errorBuilder]: Custom builder for error state.
   /// [aspectRatio]: The aspect ratio for the PDF pages.
   /// [autoResponseSize]: Whether to automatically adjust the response size.
+  /// [textDirection]: Reading direction (LTR/RTL). If null, auto-detects from Directionality.
   /// [key]: Optional widget key.
   factory TurnablePdf.file(
     String filePath, {
@@ -215,6 +223,7 @@ class TurnablePdf extends StatefulWidget {
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
     bool pagesBoundaryIsEnabled = true,
+    TextDirection? textDirection,
     Key? key,
   }) => TurnablePdf._internal(
     source: PdfSource.file,
@@ -230,6 +239,7 @@ class TurnablePdf extends StatefulWidget {
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
     pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
+    textDirection: textDirection,
     key: key,
   );
 
@@ -451,6 +461,7 @@ class _TurnablePdfState extends State<TurnablePdf> {
             aspectRatio: widget.aspectRatio,
             pagesBoundaryIsEnabled: widget.pagesBoundaryIsEnabled,
             autoResponseSize: false,
+            textDirection: widget.textDirection,
             builder: (context, index, constraints) {
               return Container(
                 margin: widget.pagePadding,

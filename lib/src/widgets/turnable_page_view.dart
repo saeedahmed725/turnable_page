@@ -18,6 +18,7 @@ class TurnablePageView extends StatefulWidget {
   final Size bookSize;
   final PaperBoundaryDecoration paperBoundaryDecoration;
   final bool pagesBoundaryIsEnabled;
+  final TextDirection? textDirection;
 
   const TurnablePageView({
     super.key,
@@ -30,6 +31,7 @@ class TurnablePageView extends StatefulWidget {
     required this.settings,
     required this.paperBoundaryDecoration,
     this.pagesBoundaryIsEnabled = true,
+    this.textDirection,
   });
 
   @override
@@ -59,6 +61,12 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     // Set up event listeners
     _pageFlip.on('flip', (_) {
       if (mounted) {
+        final effectiveDir =
+            widget.textDirection ??
+            Directionality.maybeOf(context) ??
+            TextDirection.ltr;
+        final isRtl = effectiveDir == TextDirection.rtl;
+
         final newIndex = _pageFlip.getCurrentPageIndex();
         final left = newIndex.clamp(0, widget.pageCount - 1);
         final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
@@ -66,7 +74,11 @@ class _TurnablePageViewState extends State<TurnablePageView> {
         _pageFlip.updateSetting(_settings);
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            widget.onPageChanged?.call(left, right);
+            if (isRtl && !widget.settings.usePortrait) {
+              widget.onPageChanged?.call(right, left);
+            } else {
+              widget.onPageChanged?.call(left, right);
+            }
           }
         });
       }
@@ -75,17 +87,46 @@ class _TurnablePageViewState extends State<TurnablePageView> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveDir =
+        widget.textDirection ??
+        Directionality.maybeOf(context) ??
+        TextDirection.ltr;
+    final isRtl = effectiveDir == TextDirection.rtl;
+
+    Widget bookWidget = TurnableBookRenderObjectWidget(
+      pageCount: widget.pageCount,
+      builder: (ctx, index) {
+        final child = widget.builder(ctx, index);
+        if (isRtl) {
+          return Directionality(
+            textDirection: effectiveDir,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.diagonal3Values(-1.0, 1.0, 1.0),
+              child: child,
+            ),
+          );
+        }
+        return child;
+      },
+      settings: _settings,
+      pageFlip: _pageFlip,
+    );
+
+    if (isRtl) {
+      bookWidget = Transform(
+        alignment: Alignment.center,
+        transform: Matrix4.diagonal3Values(-1.0, 1.0, 1.0),
+        child: bookWidget,
+      );
+    }
+
     return PaperWidget(
       size: widget.bookSize,
       isSinglePage: widget.settings.usePortrait,
       paperBoundaryDecoration: widget.paperBoundaryDecoration,
       isEnabled: widget.pagesBoundaryIsEnabled,
-      child: TurnableBookRenderObjectWidget(
-        pageCount: widget.pageCount,
-        builder: (ctx, index) => widget.builder(ctx, index),
-        settings: _settings,
-        pageFlip: _pageFlip,
-      ),
+      child: bookWidget,
     );
   }
 }

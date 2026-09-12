@@ -17,6 +17,7 @@ class TurnablePage extends StatelessWidget {
   final PaperBoundaryDecoration paperBoundaryDecoration;
   final double? aspectRatio;
   final bool pagesBoundaryIsEnabled;
+  final TextDirection? textDirection;
 
   TurnablePage({
     super.key,
@@ -30,6 +31,7 @@ class TurnablePage extends StatelessWidget {
     this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
     FlipSettings? settings,
     this.pagesBoundaryIsEnabled = true,
+    this.textDirection,
   }) : settings = settings ?? FlipSettings() {
     if (settings != null) {
       assert(
@@ -102,6 +104,7 @@ class TurnablePage extends StatelessWidget {
           onPageChanged: onPageChanged,
           pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
           paperBoundaryDecoration: paperBoundaryDecoration,
+          textDirection: textDirection,
         );
       },
     );
