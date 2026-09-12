@@ -5,7 +5,7 @@ import '../page/page_flip.dart';
 class PageFlipController {
   late PageFlip _pageFlip;
 
-  initializeController({required PageFlip pageFlip}) {
+  void initializeController({required PageFlip pageFlip}) {
     _pageFlip = pageFlip;
   }
 
