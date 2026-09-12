@@ -199,21 +199,24 @@ gantt
 ## ✅ Task Checklist
 
 ### Phase 1: v1.0.2 Release (Critical Stability)
-- [ ] Fix merge conflict in `example/pubspec.lock` and run `flutter pub get`.
-- [ ] Verify `pdfrx_cache` fix in `TurnablePdf.initPDFLoaders()`.
-- [ ] Refactor `RenderTurnableBook._paintDynamicPage` to use `context.pushTransform` / `context.pushClipPath` instead of raw `canvas.save()` / `canvas.restore()`.
-- [ ] Test with `CachedNetworkImage` to confirm resolution of Issue #5.
+- [x] Fix merge conflict in `example/pubspec.lock` and run `flutter pub get`.
+- [x] Verify `pdfrx_cache` fix in `TurnablePdf.initPDFLoaders()`.
+- [x] Refactor `RenderTurnableBook._paintDynamicPage` to use `context.pushTransform` / `context.pushClipPath` instead of raw `canvas.save()` / `canvas.restore()`.
+- [x] Add `alwaysNeedsCompositing => true` to `RenderTurnableBook`.
+- [x] Test with `CachedNetworkImage` / `RepaintBoundary` composited layers to confirm resolution of Issue #5.
+- [x] Test with `Stack` + `SingleChildScrollView` to confirm resolution of Issue #4.
 - [ ] Bump version in `pubspec.yaml` to `1.0.2` and update `CHANGELOG.md`.
 
 ### Phase 2: v1.1.0 Release (Visual & Layout Quality)
-- [ ] Implement bounded layout constraints for `Stack` + `SingleChildScrollView` (Issue #4).
-- [ ] Implement perimeter shadow for curling page boundary (Issue #7).
+- [x] Implement bounded layout constraints for `Stack` + `SingleChildScrollView` (Issue #4).
+- [x] Implement perimeter shadow for curling page boundary (Issue #7).
 - [ ] Optimize image raster caching during active flip (Issue #9).
 
 ### Phase 3: v1.2.0 Release (Navigation, RTL & Zoom)
 - [x] Expose `textDirection` in `TurnablePdf`, `TurnablePage`, and `TurnablePageView` with auto-detection from `Directionality` (Issue #3).
-- [ ] Add `Future<bool>` async navigation methods to `PageFlipController` (Issue #6).
-- [ ] Integrate Zoom support and `PaperBoundaryDecoration.none` from PR #8.
+- [x] Add `Future<bool>` async navigation methods and `jumpToPage` to `PageFlipController` (Issue #6).
+- [x] Integrate `PaperBoundaryDecoration.none`, configurable center shadow (`showCenterShadow`), and per-shadow custom colors (`FlipSettings`).
+- [ ] Integrate Zoom / Pinch-to-Zoom support (PR #8).
 
 ### Phase 4: v2.0.0 Release (Production-Grade Architecture)
 - [ ] Implement virtualized page windowing to support 150+ dynamic pages without memory leaks (Issue #6).

@@ -28,7 +28,7 @@ class PaperWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!isEnabled) {
+    if (!isEnabled || paperBoundaryDecoration == PaperBoundaryDecoration.none) {
       return child;
     }
 
@@ -183,68 +183,3 @@ class PaperWidget extends StatelessWidget {
   }
 }
 
-/// Extension methods for PaperModel to create variations
-extension PaperModelExtensions on PaperBoundaryDecoration {
-  /// Create a copy of this PaperModel with modified properties
-  PaperBoundaryDecoration copyWith({
-    Color? baseColor,
-    Color? shadowColor,
-    Color? borderColor,
-    Color? innerBorderColor,
-    Color? glowColor,
-    Color? gradientStartColor,
-    Color? gradientMiddleColor,
-    Color? gradientEndColor,
-    Color? finalBorderColor,
-    Color? finalShadowColor,
-    double? outerAlpha,
-    double? middleAlpha,
-    double? innerAlpha,
-    double? gradientStartAlpha,
-    double? gradientMiddleAlpha,
-    double? gradientEndAlpha,
-    double? borderRadius,
-    double? outerBorderWidth,
-    double? middleBorderWidth,
-    double? innerBorderWidth,
-    double? finalBorderWidth,
-    double? shadowBlurRadius,
-    double? glowBlurRadius,
-    double? glowSpreadRadius,
-    double? finalShadowBlurRadius,
-    double? finalShadowSpreadRadius,
-    Offset? finalShadowOffset,
-  }) {
-    return PaperBoundaryDecoration(
-      baseColor: baseColor ?? this.baseColor,
-      shadowColor: shadowColor ?? this.shadowColor,
-      borderColor: borderColor ?? this.borderColor,
-      innerBorderColor: innerBorderColor ?? this.innerBorderColor,
-      glowColor: glowColor ?? this.glowColor,
-      gradientStartColor: gradientStartColor ?? this.gradientStartColor,
-      gradientMiddleColor: gradientMiddleColor ?? this.gradientMiddleColor,
-      gradientEndColor: gradientEndColor ?? this.gradientEndColor,
-      finalBorderColor: finalBorderColor ?? this.finalBorderColor,
-      finalShadowColor: finalShadowColor ?? this.finalShadowColor,
-      outerAlpha: outerAlpha ?? this.outerAlpha,
-      middleAlpha: middleAlpha ?? this.middleAlpha,
-      innerAlpha: innerAlpha ?? this.innerAlpha,
-      gradientStartAlpha: gradientStartAlpha ?? this.gradientStartAlpha,
-      gradientMiddleAlpha: gradientMiddleAlpha ?? this.gradientMiddleAlpha,
-      gradientEndAlpha: gradientEndAlpha ?? this.gradientEndAlpha,
-      borderRadius: borderRadius ?? this.borderRadius,
-      outerBorderWidth: outerBorderWidth ?? this.outerBorderWidth,
-      middleBorderWidth: middleBorderWidth ?? this.middleBorderWidth,
-      innerBorderWidth: innerBorderWidth ?? this.innerBorderWidth,
-      finalBorderWidth: finalBorderWidth ?? this.finalBorderWidth,
-      shadowBlurRadius: shadowBlurRadius ?? this.shadowBlurRadius,
-      glowBlurRadius: glowBlurRadius ?? this.glowBlurRadius,
-      glowSpreadRadius: glowSpreadRadius ?? this.glowSpreadRadius,
-      finalShadowBlurRadius:
-          finalShadowBlurRadius ?? this.finalShadowBlurRadius,
-      finalShadowSpreadRadius:
-          finalShadowSpreadRadius ?? this.finalShadowSpreadRadius,
-      finalShadowOffset: finalShadowOffset ?? this.finalShadowOffset,
-    );
-  }
-}

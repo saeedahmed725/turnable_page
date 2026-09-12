@@ -59,7 +59,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   Future<void> _setupPageFlipEventsAndController() async {
     widget.controller?.initializeController(pageFlip: _pageFlip);
     // Set up event listeners
-    _pageFlip.on('flip', (_) {
+    _pageFlip.on(PageFlipEvent.flip, (_) {
       if (mounted) {
         final effectiveDir =
             widget.textDirection ??

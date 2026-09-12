@@ -1,7 +1,16 @@
+import 'dart:async';
+
 import '../enums/flip_corner.dart';
+import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../event/event_object.dart';
 import '../page/page_flip.dart';
 
+/// Controller to programmatically inspect and control a [TurnablePage] or [TurnablePageView].
+///
+/// Provides both animated page-turn methods (`nextPage`, `previousPage`, `animateToPage`)
+/// which return a [Future<bool>] completing when the turn finishes, and instant jump methods
+/// (`jumpToPage`) without animation.
 class PageFlipController {
   late PageFlip _pageFlip;
 
@@ -26,58 +35,135 @@ class PageFlipController {
   /// Check if there is a previous page available
   bool get hasPreviousPage => currentPageIndex > 0;
 
-  /// Flip to the next page
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ANIMATED NAVIGATION (Returns Future<bool> completing on animation finish)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Flip to the next page with a page-curl animation.
   ///
-  /// [corner] - The corner to flip from (default: top)
-  /// Returns true if the flip was successful, false if already at the last page
-  bool nextPage([FlipCorner corner = FlipCorner.top]) {
-    if (!hasNextPage) return false;
+  /// [corner] - The corner to flip from (default: [FlipCorner.top]).
+  /// Returns a [Future] that resolves to `true` when the page flip completes,
+  /// or `false` if the flip could not be started (e.g. already on the last page).
+  Future<bool> nextPage([FlipCorner corner = FlipCorner.top]) {
+    if (!hasNextPage) return Future.value(false);
+
+    final completer = Completer<bool>();
+    late void Function(WidgetEvent) listener;
+    listener = (WidgetEvent event) {
+      if (event.data == FlippingState.read) {
+        _pageFlip.off(PageFlipEvent.changeState, listener);
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      }
+    };
+
+    _pageFlip.on(PageFlipEvent.changeState, listener);
     _pageFlip.flipNext(corner);
 
-    return true;
+    return completer.future;
   }
 
-  /// Flip to the previous page
-  /// [corner] - The corner to flip from (default: top)
-  /// Returns true if the flip was successful, false if already at the first page
-  bool previousPage([FlipCorner corner = FlipCorner.top]) {
-    if (!hasPreviousPage) return false;
+  /// Flip to the previous page with a page-curl animation.
+  ///
+  /// [corner] - The corner to flip from (default: [FlipCorner.top]).
+  /// Returns a [Future] that resolves to `true` when the page flip completes,
+  /// or `false` if the flip could not be started (e.g. already on the first page).
+  Future<bool> previousPage([FlipCorner corner = FlipCorner.top]) {
+    if (!hasPreviousPage) return Future.value(false);
+
+    final completer = Completer<bool>();
+    late void Function(WidgetEvent) listener;
+    listener = (WidgetEvent event) {
+      if (event.data == FlippingState.read) {
+        _pageFlip.off(PageFlipEvent.changeState, listener);
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      }
+    };
+
+    _pageFlip.on(PageFlipEvent.changeState, listener);
     _pageFlip.flipPrev(corner);
 
-    return true;
+    return completer.future;
   }
 
-  /// Go to a specific page
-  /// [pageIndex] - The page index to navigate to (0-based)
-  /// Returns true if the navigation was successful, false if the page index is invalid
-  bool goToPage(int pageIndex) {
+  /// Animate to a specific page index with a page-turn animation.
+  ///
+  /// [pageIndex] - Target page index (0-based).
+  /// [corner] - Corner to initiate the flip from.
+  /// Returns a [Future] that resolves to `true` when navigation completes,
+  /// or `false` if [pageIndex] is invalid or already on that page.
+  Future<bool> animateToPage(
+    int pageIndex, [
+    FlipCorner corner = FlipCorner.top,
+  ]) {
+    if (pageIndex < 0 || pageIndex >= pageCount) return Future.value(false);
+    if (pageIndex == currentPageIndex) return Future.value(true);
+
+    final completer = Completer<bool>();
+    late void Function(WidgetEvent) listener;
+    listener = (WidgetEvent event) {
+      if (event.data == FlippingState.read) {
+        _pageFlip.off(PageFlipEvent.changeState, listener);
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      }
+    };
+
+    _pageFlip.on(PageFlipEvent.changeState, listener);
+    _pageFlip.flip(pageIndex, corner);
+
+    return completer.future;
+  }
+
+  /// Animate to the first page (index 0).
+  Future<bool> animateToFirstPage() => animateToPage(0);
+
+  /// Animate to the last page (index [pageCount] - 1).
+  Future<bool> animateToLastPage() => animateToPage(pageCount - 1);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INSTANT JUMP NAVIGATION (Without animation)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Jump to a specific page immediately without animation.
+  ///
+  /// [pageIndex] - Target page index (0-based).
+  /// Returns `true` if the navigation was successful, or `false` if the index is out of bounds.
+  bool jumpToPage(int pageIndex) {
     if (pageIndex < 0 || pageIndex >= pageCount) return false;
-    _pageFlip.flip(pageIndex, FlipCorner.top);
-
+    if (pageIndex == currentPageIndex) return true;
+    _pageFlip.turnToPage(pageIndex);
     return true;
   }
 
-  /// Go to the first page
-  bool goToFirstPage() => goToPage(0);
+  /// Jump to the first page immediately without animation.
+  bool jumpToFirstPage() => jumpToPage(0);
 
-  /// Go to the last page
-  bool goToLastPage() => goToPage(pageCount - 1);
+  /// Jump to the last page immediately without animation.
+  bool jumpToLastPage() => jumpToPage(pageCount - 1);
 
-  /// Register an event listener
-  /// [event] - The event name ('flip', 'changeOrientation', etc.)
-  /// [callback] - The callback function to execute
-  void addEventListener(String event, EventCallback callback) {
+  // ─────────────────────────────────────────────────────────────────────────────
+  // EVENTS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Register an event listener.
+  /// [event] - The [PageFlipEvent] to listen to.
+  /// [callback] - Callback function to execute when the event triggers.
+  void addEventListener(PageFlipEvent event, EventCallback callback) {
     _pageFlip.on(event, callback);
   }
 
-  /// Remove an event listener
-  /// [event] - The event name
-  void removeEventListener(String event) {
-    _pageFlip.off(event);
+  /// Remove an event listener.
+  /// [event] - The [PageFlipEvent] to remove handlers for.
+  /// [callback] - Optional specific callback to remove. If omitted, all callbacks for [event] are removed.
+  void removeEventListener(PageFlipEvent event, [EventCallback? callback]) {
+    _pageFlip.off(event, callback);
   }
 
-  /// Get the underlying PageFlip instance for advanced operations
-  /// Use this only when you need direct access to PageFlip methods
-  /// not exposed through this controller
+  /// Get the underlying [PageFlip] instance for advanced operations.
   PageFlip? get pageFlipInstance => _pageFlip;
 }

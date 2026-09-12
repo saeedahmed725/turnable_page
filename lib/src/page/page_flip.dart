@@ -4,6 +4,7 @@ import '../collection/page_collection.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../event/event_object.dart';
 import '../flip/flip_process.dart';
 import '../flip/flip_settings.dart';
@@ -58,7 +59,7 @@ class PageFlip extends EventObject {
     if (_flipProcessInitialized) {
       flipProcess.updateApp(this, render);
     }
-    trigger('updateSettings', this, {
+    trigger(PageFlipEvent.updateSettings, this, {
       'settings': setting,
       'mode': _render?.getOrientation(),
     });
@@ -67,7 +68,7 @@ class PageFlip extends EventObject {
   /// Clear all pages
   void clear() {
     pages?.destroy();
-    trigger('clear', this, {});
+    trigger(PageFlipEvent.clear, this, {});
   }
 
   /// Turn to previous page without animation
@@ -95,7 +96,7 @@ class PageFlip extends EventObject {
     if (pages != null) {
       pages!.show(pageNum);
 
-      trigger('flip', this, {'page': pageNum, 'mode': render.getOrientation()});
+      trigger(PageFlipEvent.flip, this, {'page': pageNum, 'mode': render.getOrientation()});
     }
   }
 
@@ -110,7 +111,7 @@ class PageFlip extends EventObject {
 
     if (currentIndex < totalPages - 1) {
       flipProcess.flipNext(corner);
-      trigger('flip', this, {'page': currentIndex + 1, 'direction': 'next'});
+      trigger(PageFlipEvent.flip, this, {'page': currentIndex + 1, 'direction': 'next'});
     }
   }
 
@@ -122,7 +123,7 @@ class PageFlip extends EventObject {
 
     if (currentIndex > 0) {
       flipProcess.flipPrev(corner);
-      trigger('flip', this, {'page': currentIndex - 1, 'direction': 'prev'});
+      trigger(PageFlipEvent.flip, this, {'page': currentIndex - 1, 'direction': 'prev'});
     }
   }
 
@@ -137,7 +138,7 @@ class PageFlip extends EventObject {
 
       flipProcess.flipToPage(page, corner);
 
-      trigger('flip', this, {
+      trigger(PageFlipEvent.flip, this, {
         'page': page,
         'direction': page > currentIndex ? 'next' : 'prev',
       });
@@ -146,12 +147,12 @@ class PageFlip extends EventObject {
 
   /// Update flipping state
   void updateState(FlippingState newState) {
-    trigger('changeState', this, newState);
+    trigger(PageFlipEvent.changeState, this, newState);
   }
 
   /// Update current page index
   void updatePageIndex(int newPage) {
-    trigger('flip', this, newPage);
+    trigger(PageFlipEvent.flip, this, newPage);
   }
 
   /// Get total page count

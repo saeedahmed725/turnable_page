@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.2 - 2026-09-13
+### ✨ New Features
+- **Configurable Center Shadow**: Added `showCenterShadow` to [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) to toggle the spine crease shadow between pages on or off.
+- **Independent Shadow Colors**: Added individual color settings in [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) for every shadow:
+  - `centerShadowColor`: Spine/crease shadow between two-page spreads.
+  - `outerShadowColor`: Shadow cast on the page beneath the turning page.
+  - `innerShadowColor`: Shadow cast on the back/inside of the curled page.
+  - `perimeterShadowColor`: Elevation shadow along the curling page perimeter.
+  - `perimeterBorderColor`: Subtle hairline border line along the curling edge.
+- **Pages-Only Minimal Mode**: Added `PaperBoundaryDecoration.none` to disable all outer paper decorations and padding for modern minimal readers.
+- **PaperBoundaryDecoration Customization**: Added native `copyWith(...)` method, `PaperBoundaryDecoration.custom(...)` factory constructor for intuitive high-level customization, and implemented value equality (`operator ==` / `hashCode`).
+
+### 🐞 Bug Fixes & Architecture Stability
+- **Compositing Layer Lifetime (Issue #5)**: Replaced raw `canvas.save()`/`restore()` with Flutter `PaintingContext` layer transforms (`pushTransform`, `pushClipPath`) and compositing checks, fixing native peer collected `nullptr` crashes when rendering `RepaintBoundary` or `CachedNetworkImage`.
+- **Layout Constraints (Issue #4)**: Fixed blank rendering and layout issues when embedding `Stack` and `SingleChildScrollView` inside pages.
+
+### 🚀 API & Developer Experience
+- **Canonical Async Navigation (Issue #6)**: Unified `PageFlipController` navigation methods (`nextPage()`, `previousPage()`, `animateToPage()`, `jumpToPage()`) to return `Future<bool>` directly without code duplication.
+- **Type-Safe Events**: Converted event handling from raw string identifiers to the `PageFlipEvent` enum.
+
 ## 1.0.1 - 2025-09-30
 ### ✨ New Features
 - **FlipSettings Controls**: Added `hideLeftShadow` to individually disable the left page shadow in single-page mode.

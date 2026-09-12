@@ -8,6 +8,7 @@ import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
 import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
 import '../flip/flip_settings.dart';
@@ -248,7 +249,7 @@ class RenderTurnableBook extends RenderBox
         animation!.frames[frameIndex]();
       } else {
         animation!.onAnimateEnd();
-        pageFlip.trigger('animationComplete', pageFlip, null);
+        pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
         animation = null;
       }
       markNeedsPaint();
@@ -279,7 +280,7 @@ class RenderTurnableBook extends RenderBox
         animation!.frames.last();
       }
       animation!.onAnimateEnd();
-      pageFlip.trigger('animationComplete', pageFlip, null);
+      pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
       animation = null;
     }
   }
@@ -521,7 +522,10 @@ class RenderTurnableBook extends RenderBox
 
     // Shadow drawing uses context.canvas directly (accessed AFTER all compositing children
     // have been painted, so it is always the current active canvas).
-    if (settings.drawShadow && !settings.hideLeftShadow) {
+    final bool shouldDrawCenterShadow = _orientation != BookOrientation.portrait
+        ? settings.showCenterShadow
+        : !settings.hideLeftShadow;
+    if (settings.drawShadow && shouldDrawCenterShadow) {
       _drawBookShadow(context.canvas, rect, offset);
     }
 
@@ -611,6 +615,30 @@ class RenderTurnableBook extends RenderBox
       // path(0,0) is at the page anchor → shift by pageAnchor.
       final Path worldClipPath = clipPath.shift(pageAnchor);
 
+      // Perimeter elevation shadow (iOS UIPageViewController style) under the curling page
+      if (!isBottom && settings.drawShadow) {
+        context.canvas.save();
+        context.canvas.clipRect(
+          Rect.fromLTWH(
+            rect.left + rootOffset.dx,
+            rect.top + rootOffset.dy,
+            rect.width,
+            rect.height,
+          ),
+        );
+        final shadowColor = settings.perimeterShadowColor.withValues(
+          alpha: (settings.perimeterShadowColor.a * settings.maxShadowOpacity)
+              .clamp(0.0, 1.0),
+        );
+        context.canvas.drawShadow(
+          worldClipPath,
+          shadowColor,
+          4.0,
+          true,
+        );
+        context.canvas.restore();
+      }
+
       // Step 1 ── apply clip in world space (no rotation).
       //   pushClipPath with Offset.zero: Flutter internally does
       //   clipPath.shift(Offset.zero) = worldClipPath unchanged. ✓
@@ -640,6 +668,21 @@ class RenderTurnableBook extends RenderBox
           );
         },
       );
+
+      // Subtle hairline boundary along curling page perimeter
+      if (!isBottom && settings.drawShadow) {
+        final borderColor = settings.perimeterBorderColor.withValues(
+          alpha: (settings.perimeterBorderColor.a * settings.maxShadowOpacity)
+              .clamp(0.0, 1.0),
+        );
+        context.canvas.drawPath(
+          worldClipPath,
+          Paint()
+            ..color = borderColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.5,
+        );
+      }
     } else if (!isBottom) {
       // No clip: just translate + rotate then paint (flipping page only).
       context.pushTransform(
@@ -688,6 +731,13 @@ class RenderTurnableBook extends RenderBox
 
   void _drawBookShadow(Canvas canvas, PageRect rect, Offset root) {
     if (!settings.drawShadow) return;
+    if (_orientation != BookOrientation.portrait && !settings.showCenterShadow) {
+      return;
+    }
+    if (_orientation == BookOrientation.portrait && settings.hideLeftShadow) {
+      return;
+    }
+
     final shadowSize = rect.width / 20;
     canvas.save();
     canvas.clipRect(
@@ -701,16 +751,19 @@ class RenderTurnableBook extends RenderBox
     final shadowPosX = rect.left + rect.width / 2 - shadowSize / 2 + root.dx;
     final shadowPosY = 0 + root.dy;
     canvas.translate(shadowPosX, shadowPosY);
+    final baseColor = settings.centerShadowColor;
+    final baseAlpha = (baseColor.a * settings.maxShadowOpacity).clamp(0.0, 1.0);
+
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(shadowSize, 0),
       [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((0.2 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.1 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.5 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.4 * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        baseColor.withValues(alpha: 0.0),
+        baseColor.withValues(alpha: (0.2 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.1 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.5 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.4 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: 0.0),
       ],
       [0.0, 0.4, 0.49, 0.5, 0.51, 1.0],
     );
@@ -738,18 +791,23 @@ class RenderTurnableBook extends RenderBox
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
+
+    final outerColor = settings.outerShadowColor;
+    final targetAlpha = (s.opacity * outerColor.a * settings.maxShadowOpacity)
+        .clamp(0.0, 1.0);
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(0, -100);
       colors = [
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        outerColor.withValues(alpha: targetAlpha),
+        outerColor.withValues(alpha: 0.0),
       ];
       stops = [0.0, 1.0];
     } else {
       canvas.translate(-s.width, -100);
       colors = [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
+        outerColor.withValues(alpha: 0.0),
+        outerColor.withValues(alpha: targetAlpha),
       ];
       stops = [0.0, 1.0];
     }
@@ -784,22 +842,27 @@ class RenderTurnableBook extends RenderBox
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
+
+    final innerColor = settings.innerShadowColor;
+    final baseAlpha = (s.opacity * innerColor.a * settings.maxShadowOpacity)
+        .clamp(0.0, 1.0);
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(-isw, -100);
       colors = [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 0.05 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
+        innerColor.withValues(alpha: 0.0),
+        innerColor.withValues(alpha: (baseAlpha * 0.05).clamp(0.0, 1.0)),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: baseAlpha),
       ];
       stops = [0.0, 0.7, 0.9, 1.0];
     } else {
       canvas.translate(0, -100);
       colors = [
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 0.05 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: (baseAlpha * 0.05).clamp(0.0, 1.0)),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: 0.0),
       ];
       stops = [0.0, 0.1, 0.3, 1.0];
     }

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../enums/size_type.dart';
 
 /// Configuration object for PageFlip widget behavior and appearance
@@ -16,6 +18,24 @@ class FlipSettings {
 
   /// Whether to draw realistic shadow effects during page flips
   final bool drawShadow;
+
+  /// Whether to show the spine/crease shadow in the center between pages in two-page spread mode
+  final bool showCenterShadow;
+
+  /// Color of the center/spine shadow between pages (defaults to Colors.black)
+  final Color centerShadowColor;
+
+  /// Color of the outer shadow cast on the page beneath the turning page (defaults to Colors.black)
+  final Color outerShadowColor;
+
+  /// Color of the inner fold shadow on the back/inside of the curling page (defaults to Colors.black)
+  final Color innerShadowColor;
+
+  /// Color of the perimeter elevation shadow around the lifting/curling page
+  final Color perimeterShadowColor;
+
+  /// Color of the subtle perimeter hairline border along the curling page edge
+  final Color perimeterBorderColor;
 
   /// Whether to hide permanent left shadow
   final bool hideLeftShadow;
@@ -87,6 +107,24 @@ class FlipSettings {
     /// Enable shadow effects. Default: true
     this.drawShadow = true,
 
+    /// Show center/spine shadow between pages in two-page spread mode. Default: true
+    this.showCenterShadow = true,
+
+    /// Center/spine shadow color. Default: Colors.black
+    this.centerShadowColor = const Color(0xFF000000),
+
+    /// Outer page flip shadow color. Default: Colors.black
+    this.outerShadowColor = const Color(0xFF000000),
+
+    /// Inner curled fold shadow color. Default: Colors.black
+    this.innerShadowColor = const Color(0xFF000000),
+
+    /// Perimeter elevation shadow color. Default: Color(0x3D000000)
+    this.perimeterShadowColor = const Color(0x3D000000),
+
+    /// Perimeter boundary stroke color. Default: Color(0x1F000000)
+    this.perimeterBorderColor = const Color(0x1F000000),
+
     /// Animation duration in milliseconds. Default: 700ms (0.7 second)
     this.flippingTime = 700,
 
@@ -130,8 +168,13 @@ class FlipSettings {
     SizeType? size,
     double? width,
     double? height,
-
     bool? drawShadow,
+    bool? showCenterShadow,
+    Color? centerShadowColor,
+    Color? outerShadowColor,
+    Color? innerShadowColor,
+    Color? perimeterShadowColor,
+    Color? perimeterBorderColor,
     int? flippingTime,
     bool? usePortrait,
     double? maxShadowOpacity,
@@ -157,6 +200,12 @@ class FlipSettings {
       width: (width ?? this.width) / (usePortrait ?? this.usePortrait ? 1 : 2),
       height: height ?? this.height,
       drawShadow: drawShadow ?? this.drawShadow,
+      showCenterShadow: showCenterShadow ?? this.showCenterShadow,
+      centerShadowColor: centerShadowColor ?? this.centerShadowColor,
+      outerShadowColor: outerShadowColor ?? this.outerShadowColor,
+      innerShadowColor: innerShadowColor ?? this.innerShadowColor,
+      perimeterShadowColor: perimeterShadowColor ?? this.perimeterShadowColor,
+      perimeterBorderColor: perimeterBorderColor ?? this.perimeterBorderColor,
       flippingTime: flippingTime ?? this.flippingTime,
       usePortrait: usePortrait ?? this.usePortrait,
       maxShadowOpacity: maxShadowOpacity ?? this.maxShadowOpacity,

@@ -251,8 +251,7 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
       label: 'Page 4',
       type: _PageType.repaintBoundary,
       color: Color(0xFFAA00FF),
-      description:
-          'RepaintBoundary child\n(Issue #5: native peer crash fix)',
+      description: 'RepaintBoundary child\n(Issue #5: native peer crash fix)',
     ),
     _PageConfig(
       label: 'Page 5',
@@ -298,8 +297,8 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
               _direction == TextDirection.rtl
                   ? Icons.format_textdirection_r_to_l_rounded
                   : _direction == TextDirection.ltr
-                      ? Icons.format_textdirection_l_to_r_rounded
-                      : Icons.auto_mode_rounded,
+                  ? Icons.format_textdirection_l_to_r_rounded
+                  : Icons.auto_mode_rounded,
               color: const Color(0xFF00E5FF),
             ),
             onSelected: (dir) => setState(() => _direction = dir),
@@ -350,7 +349,13 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
   }
 }
 
-enum _PageType { gradient, networkImage, scrollable, repaintBoundary, interactive }
+enum _PageType {
+  gradient,
+  networkImage,
+  scrollable,
+  repaintBoundary,
+  interactive,
+}
 
 class _PageConfig {
   final String label;
@@ -482,7 +487,10 @@ class _NetworkImagePage extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.8),
+                ],
               ),
             ),
             child: Column(
@@ -651,7 +659,11 @@ class _ContentRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.black87,
+                height: 1.5,
+              ),
             ),
           ),
         ],
@@ -788,7 +800,11 @@ class _InteractivePageState extends State<_InteractivePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.touch_app_rounded, size: 70, color: Colors.black26),
+            const Icon(
+              Icons.touch_app_rounded,
+              size: 70,
+              color: Colors.black26,
+            ),
             const SizedBox(height: 16),
             Text(
               widget.config.label,
@@ -869,7 +885,9 @@ class _InteractivePageState extends State<_InteractivePage> {
                 'Last event: $_lastEvent',
                 style: TextStyle(
                   fontSize: 14,
-                  color: _lastEvent == 'None' ? Colors.black38 : Colors.green[700],
+                  color: _lastEvent == 'None'
+                      ? Colors.black38
+                      : Colors.green[700],
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -900,25 +918,25 @@ class _BottomNav extends StatelessWidget {
           _NavBtn(
             icon: Icons.arrow_back_ios_new_rounded,
             label: 'Previous',
-            onTap: () => controller.previousPage(),
+            onTap: () async => await controller.previousPage(),
             color: const Color(0xFF00E5FF),
           ),
           _NavBtn(
             icon: Icons.first_page_rounded,
             label: 'First',
-            onTap: () => controller.goToPage(0),
+            onTap: () async => await controller.animateToFirstPage(),
             color: Colors.white38,
           ),
           _NavBtn(
             icon: Icons.last_page_rounded,
             label: 'Last',
-            onTap: () => controller.goToPage(pages.length - 1),
+            onTap: () async => await controller.animateToLastPage(),
             color: Colors.white38,
           ),
           _NavBtn(
             icon: Icons.arrow_forward_ios_rounded,
             label: 'Next',
-            onTap: () => controller.nextPage(),
+            onTap: () async => await controller.nextPage(),
             color: const Color(0xFF00E5FF),
           ),
         ],
@@ -1027,7 +1045,10 @@ class PdfPickerScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 32),
-          _SectionLabel(label: 'Network PDFs', icon: Icons.cloud_download_rounded),
+          _SectionLabel(
+            label: 'Network PDFs',
+            icon: Icons.cloud_download_rounded,
+          ),
           const SizedBox(height: 12),
           _PdfSourceCard(
             icon: Icons.public_rounded,
@@ -1039,7 +1060,8 @@ class PdfPickerScreen extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => const PdfBookScreen(
                   source: _PdfSource.network,
-                  url: 'https://showcase.apryse.com/gallery/WebviewerDemoDoc.pdf',
+                  url:
+                      'https://showcase.apryse.com/gallery/WebviewerDemoDoc.pdf',
                   title: 'Apryse Demo — Network PDF',
                 ),
               ),
@@ -1091,12 +1113,7 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            height: 1,
-            color: Colors.white12,
-          ),
-        ),
+        Expanded(child: Container(height: 1, color: Colors.white12)),
       ],
     );
   }
@@ -1218,8 +1235,9 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
       usePortrait: !_isTwoPageMode,
     );
 
-    final pageViewMode =
-        _isTwoPageMode ? PageViewMode.double : PageViewMode.single;
+    final pageViewMode = _isTwoPageMode
+        ? PageViewMode.double
+        : PageViewMode.single;
 
     if (widget.source == _PdfSource.asset) {
       return TurnablePdf.asset(
@@ -1259,10 +1277,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
               valueListenable: _currentPage,
               builder: (_, page, __) => Text(
                 'Page ${page + 1}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.white54,
-                ),
+                style: const TextStyle(fontSize: 12, color: Colors.white54),
               ),
             ),
           ],
@@ -1276,8 +1291,8 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
               _direction == TextDirection.rtl
                   ? Icons.format_textdirection_r_to_l_rounded
                   : _direction == TextDirection.ltr
-                      ? Icons.format_textdirection_l_to_r_rounded
-                      : Icons.auto_mode_rounded,
+                  ? Icons.format_textdirection_l_to_r_rounded
+                  : Icons.auto_mode_rounded,
               color: const Color(0xFFFFAB40),
             ),
             onSelected: (dir) => setState(() => _direction = dir),
@@ -1298,7 +1313,9 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
           ),
           // Toggle single / two-page mode
           Tooltip(
-            message: _isTwoPageMode ? 'Switch to single page' : 'Switch to two-page spread',
+            message: _isTwoPageMode
+                ? 'Switch to single page'
+                : 'Switch to two-page spread',
             child: IconButton(
               icon: Icon(
                 _isTwoPageMode
@@ -1338,16 +1355,13 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
             _NavBtn(
               icon: Icons.first_page_rounded,
               label: 'First',
-              onTap: () => _controller.goToPage(0),
+              onTap: () => _controller.animateToFirstPage(),
               color: Colors.white38,
             ),
             _NavBtn(
               icon: Icons.last_page_rounded,
               label: 'Last',
-              onTap: () {
-                final count = _controller.pageCount;
-                if (count > 0) _controller.goToPage(count - 1);
-              },
+              onTap: () => _controller.animateToLastPage(),
               color: Colors.white38,
             ),
             _NavBtn(
