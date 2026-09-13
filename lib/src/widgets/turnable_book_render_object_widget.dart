@@ -7,29 +7,37 @@ import '../render/render_turnable_book.dart';
 
 class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
   final int pageCount;
-  final PageWidgetBuilder builder;
+  final PageWidgetBuilder? builder;
   final FlipSettings settings;
   final PageFlip pageFlip;
+  final bool isZoomed;
 
   TurnableBookRenderObjectWidget({
     super.key,
     required this.pageCount,
-    required this.builder,
+    this.builder,
     required this.settings,
     required this.pageFlip,
+    this.isZoomed = false,
+    List<Widget>? children,
   }) : super(
-         children: List.generate(
-           pageCount,
-           (i) => PageHost(
-             index: i,
-             child: builder(WidgetsBinding.instance.rootElement!, i),
-           ),
-         ),
-       );
+          children: children ??
+              List.generate(
+                pageCount,
+                (i) => PageHost(
+                  key: ValueKey('page_host_$i'),
+                  index: i,
+                  child: builder != null
+                      ? builder(WidgetsBinding.instance.rootElement!, i)
+                      : const SizedBox.shrink(),
+                ),
+              ),
+        );
 
   @override
   RenderTurnableBook createRenderObject(BuildContext context) {
     final render = RenderTurnableBook(settings, pageFlip);
+    render.isZoomed = isZoomed;
     return render;
   }
 
@@ -39,5 +47,7 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
     RenderTurnableBook renderObject,
   ) {
     renderObject.updateSettings(settings);
+    renderObject.isZoomed = isZoomed;
   }
 }
+

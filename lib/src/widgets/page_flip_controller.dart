@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
@@ -13,6 +14,8 @@ import '../page/page_flip.dart';
 /// (`jumpToPage`) without animation.
 class PageFlipController {
   late PageFlip _pageFlip;
+  VoidCallback? _resetZoomCallback;
+  bool Function()? _isZoomedGetter;
 
   initializeController({required PageFlip pageFlip}) {
     _pageFlip = pageFlip;
@@ -20,6 +23,23 @@ class PageFlipController {
 
   /// Internal setter for the PageFlip instance
   set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
+
+  /// Attach zoom callbacks from TurnablePageView
+  void attachZoom({
+    required VoidCallback resetZoom,
+    required bool Function() isZoomed,
+  }) {
+    _resetZoomCallback = resetZoom;
+    _isZoomedGetter = isZoomed;
+  }
+
+  /// Whether the page/book is currently zoomed in (scale > 1.05)
+  bool get isZoomed => _isZoomedGetter?.call() ?? false;
+
+  /// Programmatically reset zoom back to 1.0
+  void resetZoom() {
+    _resetZoomCallback?.call();
+  }
 
   /// Get the current page index (0-based)
   int get currentPageIndex => _pageFlip.getCurrentPageIndex();

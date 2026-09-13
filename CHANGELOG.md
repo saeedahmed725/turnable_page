@@ -11,10 +11,14 @@ All notable changes to this project will be documented in this file.
   - `innerShadowColor`: Shadow cast on the back/inside of the curled page.
   - `perimeterShadowColor`: Elevation shadow along the curling page perimeter.
   - `perimeterBorderColor`: Subtle hairline border line along the curling edge.
+- **Pinch-to-Zoom Support**: Added `enableZoom`, `minScale`, and `maxScale` settings to `TurnablePage` and `FlipSettings`, with `InteractiveViewer` integration, automatic page-flip gesture suppression while zoomed in, double-tap zoom toggle, and programmatic `controller.resetZoom()`.
 - **Pages-Only Minimal Mode**: Added `PaperBoundaryDecoration.none` to disable all outer paper decorations and padding for modern minimal readers.
 - **PaperBoundaryDecoration Customization**: Added native `copyWith(...)` method, `PaperBoundaryDecoration.custom(...)` factory constructor for intuitive high-level customization, and implemented value equality (`operator ==` / `hashCode`).
 
 ### 🐞 Bug Fixes & Architecture Stability
+- **Gesture Harmony & Vertical Scroll Conflict**: Resolved issue where vertical scrolling inside `SingleChildScrollView` or `ListView` was hijacked by raw pointer handlers curling page corners. Implemented directional gesture locking with priority for vertical scrolling over page flipping.
+- **Dynamic Image Flip Performance (Issue #9)**: Isolated active pages in `RepaintBoundary` layers so the 60fps flip animation transforms cached GPU `PictureLayer`s with zero dropped frames or repaint stalls on network/dynamic images.
+- **Virtual Windowing for 150+ Pages (Issue #6)**: Transitioned from eager full-book widget instantiation to a sliding window (`current - 2 .. current + 3`), keeping memory consumption flat for large books of any page count.
 - **Compositing Layer Lifetime (Issue #5)**: Replaced raw `canvas.save()`/`restore()` with Flutter `PaintingContext` layer transforms (`pushTransform`, `pushClipPath`) and compositing checks, fixing native peer collected `nullptr` crashes when rendering `RepaintBoundary` or `CachedNetworkImage`.
 - **Layout Constraints (Issue #4)**: Fixed blank rendering and layout issues when embedding `Stack` and `SingleChildScrollView` inside pages.
 

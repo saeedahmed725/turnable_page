@@ -38,12 +38,20 @@ class FlipProcess {
   ///
   /// @param globalPos - Touch Point Coordinates (relative window)
   void fold(Point globalPos) {
+    final bookPos = render.convertToBook(globalPos);
+    final direction = getDirectionByPoint(bookPos);
+    if (!checkDirection(direction)) return;
+
     setState(FlippingState.userFold);
 
     // If the process has not started yet
-    if (calc == null) start(globalPos);
+    if (calc == null) {
+      if (!start(globalPos)) return;
+    }
 
-    doCalculation(render.convertToPage(globalPos));
+    if (calc != null) {
+      doCalculation(render.convertToPage(globalPos));
+    }
   }
 
   /// Page turning with animation
@@ -265,18 +273,19 @@ class FlipProcess {
     final pos = calc!.getPosition();
     final rect = getBoundsRect();
     final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
-    final settings = app.getSettings;
 
     double progress = calc!.getFlippingProgress() / 100.0;
     bool complete;
 
-    if (fastSwipe) {
-      final dirForward = calc!.getDirection() == FlipDirection.forward;
-      final swipeTowardsCenter = dirForward ? velocity < 0 : velocity > 0;
-      if (swipeTowardsCenter) {
-        progress += settings.inertiaProgressBoost;
-      }
-      complete = progress >= 0.5;
+    final dirForward = calc!.getDirection() == FlipDirection.forward;
+    final swipeTowardsCenter = dirForward ? velocity < 0 : velocity > 0;
+
+    // A fast flick towards center completes the flip seamlessly from current dragged pos.
+    // A flick away from center (back towards starting edge) cancels the flip.
+    final isFlick = fastSwipe || velocity.abs() > 300.0;
+
+    if (isFlick && progress > 0.05) {
+      complete = swipeTowardsCenter;
     } else {
       complete = progress > 0.5;
     }
@@ -305,6 +314,15 @@ class FlipProcess {
     final pageWidth = rect.pageWidth;
 
     if (isPointOnCorners(globalPos)) {
+      final bookPos = render.convertToBook(globalPos);
+      final direction = getDirectionByPoint(bookPos);
+      if (!checkDirection(direction)) {
+        if (state == FlippingState.foldCorner) {
+          abortFlip();
+        }
+        return;
+      }
+
       if (calc == null) {
         if (!start(globalPos)) return;
 
@@ -331,9 +349,9 @@ class FlipProcess {
         doCalculation(render.convertToPage(globalPos));
       }
     } else {
-      setState(FlippingState.read);
-      render.finishAnimation();
-      stopMove();
+      if (state == FlippingState.foldCorner) {
+        abortFlip();
+      }
     }
   }
 
@@ -459,10 +477,24 @@ class FlipProcess {
 
   /// Check if the flipping direction is available
   bool checkDirection(FlipDirection direction) {
+    final collection = app.getPageCollection();
+    if (collection == null) return false;
+    final spreads = collection.getSpread();
+    if (spreads.isEmpty) return false;
     if (direction == FlipDirection.forward) {
-      return app.getCurrentPageIndex() < app.getPageCount() - 1;
+      return collection.getCurrentSpreadIndex() < spreads.length - 1;
     }
-    return app.getCurrentPageIndex() >= 1;
+    return collection.getCurrentSpreadIndex() > 0;
+  }
+
+  /// Immediately abort/cancel any ongoing flip and return to clean read state
+  void abortFlip() {
+    render.finishAnimation();
+    render.setBottomPage(null);
+    render.setFlippingPage(null);
+    render.clearShadow();
+    setState(FlippingState.read);
+    reset();
   }
 
   /// Reset the current flipping process
@@ -488,20 +520,38 @@ class FlipProcess {
     final pageWidth = rect.pageWidth;
     final settings = app.getSettings;
 
+    final bookPos = render.convertToBook(globalPos);
+    final direction = getDirectionByPoint(bookPos);
+    if (!checkDirection(direction)) return false;
+
     final operatingDistance = settings.cornerTriggerAreaSize > 0
         ? math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) *
               settings.cornerTriggerAreaSize
         : math.sqrt(math.pow(pageWidth, 2) + math.pow(rect.height, 2)) / 5;
 
-    final bookPos = render.convertToBook(globalPos);
+    if (bookPos.x <= 0 ||
+        bookPos.y <= 0 ||
+        bookPos.x >= rect.width ||
+        bookPos.y >= rect.height) {
+      return false;
+    }
 
-    return bookPos.x > 0 &&
-        bookPos.y > 0 &&
-        bookPos.x < rect.width &&
-        bookPos.y < rect.height &&
-        (bookPos.x < operatingDistance ||
-            bookPos.x > rect.width - operatingDistance) &&
-        (bookPos.y < operatingDistance ||
-            bookPos.y > rect.height - operatingDistance);
+    final isVerticalCorner = bookPos.y < operatingDistance ||
+        bookPos.y > rect.height - operatingDistance;
+    if (!isVerticalCorner) return false;
+
+    if (render.getOrientation() == BookOrientation.landscape) {
+      // In landscape, corners near the center spine cannot be folded:
+      // Left page: corners only on the outer left edge
+      // Right page: corners only on the outer right edge
+      if (bookPos.x < rect.width / 2) {
+        return bookPos.x < operatingDistance;
+      } else {
+        return bookPos.x > rect.width - operatingDistance;
+      }
+    } else {
+      return bookPos.x < operatingDistance ||
+          bookPos.x > rect.width - operatingDistance;
+    }
   }
 }

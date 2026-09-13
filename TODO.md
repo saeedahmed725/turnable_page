@@ -208,15 +208,15 @@ gantt
 ### Phase 2: v1.1.0 Release (Visual & Layout Quality)
 - [x] Implement bounded layout constraints for `Stack` + `SingleChildScrollView` (Issue #4).
 - [x] Implement perimeter shadow for curling page boundary (Issue #7).
-- [ ] Optimize image raster caching during active flip (Issue #9).
+- [x] Optimize image raster caching during active flip (Issue #9) via automatic `RepaintBoundary` layer isolation.
 
 ### Phase 3: v1.2.0 Release (Navigation, RTL & Zoom)
 - [x] Expose `textDirection` in `TurnablePdf`, `TurnablePage`, and `TurnablePageView` with auto-detection from `Directionality` (Issue #3).
 - [x] Add `Future<bool>` async navigation methods and `jumpToPage` to `PageFlipController` (Issue #6).
 - [x] Integrate `PaperBoundaryDecoration.none`, configurable center shadow (`showCenterShadow`), and per-shadow custom colors (`FlipSettings`).
-- [ ] Integrate Zoom / Pinch-to-Zoom support (PR #8).
+- [x] Integrate Zoom / Pinch-to-Zoom support (PR #8) with gesture lock and `resetZoom()`.
 
 ### Phase 4: v2.0.0 Release (Production-Grade Architecture)
-- [ ] Implement virtualized page windowing to support 150+ dynamic pages without memory leaks (Issue #6).
+- [x] Implement virtualized page windowing to support 150+ dynamic pages without memory leaks (Issue #6).
+- [x] Refine gesture arena priority system for reading apps (Issue #6) — directional scroll locking and conflict resolution.
 - [ ] Build interactive real-time finger peel tracking physics (Issue #6).
-- [ ] Refine gesture arena priority system for reading apps (Issue #6).

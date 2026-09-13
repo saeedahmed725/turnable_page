@@ -1,34 +1,29 @@
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../render/turnable_parent_data.dart';
+import '../widgets/turnable_book_render_object_widget.dart';
 
-class PageHost extends SingleChildRenderObjectWidget {
+/// A [ParentDataWidget] that associates a [pageIndex] with each page's render object
+/// inside [TurnableBookRenderObjectWidget].
+class PageHost extends ParentDataWidget<TurnableParentData> {
   final int index;
 
-  const PageHost({super.key, required this.index, required Widget child})
-    : super(child: child);
+  const PageHost({
+    super.key,
+    required this.index,
+    required super.child,
+  });
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _PageRender(index);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant RenderObject renderObject,
-  ) {
-    (renderObject as _PageRender).index = index;
+  void applyParentData(RenderObject renderObject) {
+    if (renderObject.parentData is TurnableParentData) {
+      final parentData = renderObject.parentData! as TurnableParentData;
+      if (parentData.pageIndex != index) {
+        parentData.pageIndex = index;
+      }
+    }
   }
-}
-
-class _PageRender extends RenderProxyBox {
-  _PageRender(this.index);
-
-  int index;
 
   @override
-  void setupParentData(RenderObject child) {
-    if (parentData is! TurnableParentData) parentData = TurnableParentData();
-    (parentData as TurnableParentData).pageIndex = index;
-  }
+  Type get debugTypicalAncestorWidgetClass => TurnableBookRenderObjectWidget;
 }

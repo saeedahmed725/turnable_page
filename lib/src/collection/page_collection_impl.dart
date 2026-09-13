@@ -104,18 +104,25 @@ class PageCollectionImpl extends PageCollection {
   @override
   BookPage? getFlippingPage(FlipDirection direction) {
     final current = currentSpreadIndex;
+    final spreads = getSpread();
+    if (spreads.isEmpty) return null;
+
     if (render.getOrientation() == BookOrientation.portrait) {
       if (direction == FlipDirection.forward) {
-        // Use detached temporary copy so original static page stays intact
+        if (current < 0 || current >= pages.length) return null;
         final original = pages[current] as BookPageImpl;
         return original.createDetachedCopy();
       } else {
+        if (current <= 0 || current - 1 >= pages.length) return null;
         return pages[current - 1];
       }
     } else {
-      final spread = direction == FlipDirection.forward
-          ? getSpread()[current + 1]
-          : getSpread()[current - 1];
+      final targetSpread = direction == FlipDirection.forward
+          ? current + 1
+          : current - 1;
+      if (targetSpread < 0 || targetSpread >= spreads.length) return null;
+      final spread = spreads[targetSpread];
+      if (spread.isEmpty) return null;
       if (spread.length == 1) return pages[spread[0]];
       return direction == FlipDirection.forward
           ? pages[spread[0]]
@@ -126,14 +133,24 @@ class PageCollectionImpl extends PageCollection {
   @override
   BookPage? getBottomPage(FlipDirection direction) {
     final current = currentSpreadIndex;
+    final spreads = getSpread();
+    if (spreads.isEmpty) return null;
+
     if (render.getOrientation() == BookOrientation.portrait) {
-      return direction == FlipDirection.forward
-          ? pages[current + 1]
-          : pages[current - 1];
+      if (direction == FlipDirection.forward) {
+        if (current + 1 >= pages.length) return null;
+        return pages[current + 1];
+      } else {
+        if (current <= 0 || current - 1 >= pages.length) return null;
+        return pages[current - 1];
+      }
     } else {
-      final spread = direction == FlipDirection.forward
-          ? getSpread()[current + 1]
-          : getSpread()[current - 1];
+      final targetSpread = direction == FlipDirection.forward
+          ? current + 1
+          : current - 1;
+      if (targetSpread < 0 || targetSpread >= spreads.length) return null;
+      final spread = spreads[targetSpread];
+      if (spread.isEmpty) return null;
       if (spread.length == 1) return pages[spread[0]];
       return direction == FlipDirection.forward
           ? pages[spread[1]]

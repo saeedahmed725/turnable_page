@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:turnable_page/turnable_page.dart';
@@ -16,6 +17,14 @@ class TurnableTestApp extends StatelessWidget {
     return MaterialApp(
       title: 'Turnable Page — Test Suite',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.trackpad,
+        },
+      ),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF3D5AFE),
@@ -1216,7 +1225,7 @@ class PdfBookScreen extends StatefulWidget {
 class _PdfBookScreenState extends State<PdfBookScreen> {
   final PageFlipController _controller = PageFlipController();
   final ValueNotifier<int> _currentPage = ValueNotifier(0);
-  bool _isTwoPageMode = false;
+  bool _isTwoPageMode = true;
   TextDirection? _direction;
 
   @override

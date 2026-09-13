@@ -95,6 +95,9 @@ class FlipCalculation {
       }
 
       if (bottomIntersectPoint != null) {
+        if (!result.contains(Point(pageWidth, pageHeight))) {
+          result.add(Point(pageWidth, pageHeight));
+        }
         result.add(bottomIntersectPoint!);
       }
       if (topIntersectPoint != null) {
@@ -121,8 +124,7 @@ class FlipCalculation {
       }
 
       if (topIntersectPoint != null) {
-        if (sideIntersectPoint != null &&
-            !result.contains(Point(pageWidth, 0))) {
+        if (!result.contains(Point(pageWidth, 0))) {
           result.add(Point(pageWidth, 0));
         }
         result.add(topIntersectPoint!);

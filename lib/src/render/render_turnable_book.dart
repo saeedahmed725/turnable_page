@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import '../collection/page_collection_impl.dart';
@@ -7,7 +8,6 @@ import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
-import '../enums/flipping_state.dart';
 import '../enums/page_flip_event.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
@@ -16,7 +16,6 @@ import '../model/page_rect.dart';
 import '../model/point.dart' as model;
 import '../model/rect_points.dart';
 import '../model/shadow.dart';
-import '../model/swipe_data.dart';
 import '../page/book_page.dart';
 import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
@@ -27,8 +26,7 @@ class RenderTurnableBook extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, TurnableParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, TurnableParentData>
-    implements RenderPage {
-  static const int _swipeTimeout = 250;
+    implements RenderPage, GestureArenaMember {
   static const double _minMoveThreshold = 10.0;
   bool get _needsWhitePage {
     if (settings.usePortrait) return false;
@@ -54,11 +52,12 @@ class RenderTurnableBook extends RenderBox
   double? _lastRawTickerMs;
   List<RenderBox?> _indexedChildren = <RenderBox?>[];
   bool _needsIndexRebuild = true;
-  SwipeData? _touchPoint;
-  double get _swipeDistance => settings.swipeDistance;
 
   // Auto gesture detection properties
   bool _isDragging = false;
+  bool _isVerticalScrollLocked = false;
+  bool _isInvalidDirectionLocked = false;
+  bool isZoomed = false;
   model.Point? _initialTouchPoint;
 
   RenderTurnableBook(this.settings, this.pageFlip) {
@@ -114,8 +113,7 @@ class RenderTurnableBook extends RenderBox
   bool get _hasActiveVisualElements =>
       flippingPage != null || shadow != null || bottomPage != null;
 
-  bool get _shouldContinueAnimating =>
-      animation != null || _hasActiveVisualElements;
+  bool get _shouldContinueAnimating => animation != null;
 
   void _updateTimestamp(double rawMs) {
     if (_lastRawTickerMs == null || rawMs < _lastRawTickerMs!) {
@@ -155,10 +153,10 @@ class RenderTurnableBook extends RenderBox
     if (!_initialized) {
       final totalPages = _needsWhitePage ? childCount + 1 : childCount;
       collection = PageCollectionImpl(pageFlip, this, totalPages);
+      pageFlip.pages = collection;
       collection.loadBookPages();
       collection.show(settings.startPageIndex);
       _initialized = true;
-      pageFlip.pages = collection;
     }
   }
 
@@ -507,9 +505,20 @@ class RenderTurnableBook extends RenderBox
 
     if (_orientation != BookOrientation.portrait) {
       paintStatic(leftPage, true);
+      // In two-page mode, do not double-paint rightPage if it is already being flipped
+      if (flippingPage is! BookPageImpl ||
+          (flippingPage as BookPageImpl).index !=
+              (rightPage as BookPageImpl?)?.index) {
+        paintStatic(rightPage, false);
+      }
+    } else {
+      // In portrait mode, flippingPage and bottomPage partition the entire page area.
+      // Painting rightPage statically while it is also flippingPage causes Flutter's compositor
+      // to steal and ping-pong compositing layers between two locations every frame.
+      if (flippingPage == null && bottomPage == null) {
+        paintStatic(rightPage, false);
+      }
     }
-    // Always paint static right page so front content remains visible under the flipping layer.
-    paintStatic(rightPage, false);
 
     if (bottomPage is BookPageImpl) {
       _paintDynamicPage(
@@ -614,30 +623,6 @@ class RenderTurnableBook extends RenderBox
       // that it clips at the correct screen position WITHOUT any rotation applied.
       // path(0,0) is at the page anchor → shift by pageAnchor.
       final Path worldClipPath = clipPath.shift(pageAnchor);
-
-      // Perimeter elevation shadow (iOS UIPageViewController style) under the curling page
-      if (!isBottom && settings.drawShadow) {
-        context.canvas.save();
-        context.canvas.clipRect(
-          Rect.fromLTWH(
-            rect.left + rootOffset.dx,
-            rect.top + rootOffset.dy,
-            rect.width,
-            rect.height,
-          ),
-        );
-        final shadowColor = settings.perimeterShadowColor.withValues(
-          alpha: (settings.perimeterShadowColor.a * settings.maxShadowOpacity)
-              .clamp(0.0, 1.0),
-        );
-        context.canvas.drawShadow(
-          worldClipPath,
-          shadowColor,
-          4.0,
-          true,
-        );
-        context.canvas.restore();
-      }
 
       // Step 1 ── apply clip in world space (no rotation).
       //   pushClipPath with Offset.zero: Flutter internally does
@@ -884,6 +869,13 @@ class RenderTurnableBook extends RenderBox
     // Reset child consumed hit state for each new hit test
     _childConsumedHit = false;
 
+    // Touches on turnable page corners are reserved for book page flipping.
+    // Do not route them to child scroll views or child buttons on the corner.
+    final point = model.Point(position.dx, position.dy);
+    if (pageFlip.isPointOnCorners(point)) {
+      return false;
+    }
+
     final rect = getRect();
 
     // Test visible static pages for interactive widgets
@@ -892,13 +884,21 @@ class RenderTurnableBook extends RenderBox
       if (leftChild != null &&
           !_isWhitePageIndex((leftPage as BookPageImpl).index)) {
         final leftOffset = Offset(rect.left, rect.top);
-        final adjustedPosition = position - leftOffset;
-        if (_isPositionInChildBounds(
-              adjustedPosition,
+        final bool isHit = result.addWithPaintOffset(
+          offset: leftOffset,
+          position: position,
+          hitTest: (BoxHitTestResult result, Offset transformed) {
+            if (_isPositionInChildBounds(
+              transformed,
               rect.pageWidth,
               rect.height,
-            ) &&
-            leftChild.hitTest(result, position: adjustedPosition)) {
+            )) {
+              return leftChild.hitTest(result, position: transformed);
+            }
+            return false;
+          },
+        );
+        if (isHit) {
           _childConsumedHit = true;
           return true;
         }
@@ -910,13 +910,21 @@ class RenderTurnableBook extends RenderBox
       if (rightChild != null &&
           !_isWhitePageIndex((rightPage as BookPageImpl).index)) {
         final rightOffset = Offset(rect.left + rect.pageWidth, rect.top);
-        final adjustedPosition = position - rightOffset;
-        if (_isPositionInChildBounds(
-              adjustedPosition,
+        final bool isHit = result.addWithPaintOffset(
+          offset: rightOffset,
+          position: position,
+          hitTest: (BoxHitTestResult result, Offset transformed) {
+            if (_isPositionInChildBounds(
+              transformed,
               rect.pageWidth,
               rect.height,
-            ) &&
-            rightChild.hitTest(result, position: adjustedPosition)) {
+            )) {
+              return rightChild.hitTest(result, position: transformed);
+            }
+            return false;
+          },
+        );
+        if (isHit) {
           _childConsumedHit = true;
           return true;
         }
@@ -945,98 +953,227 @@ class RenderTurnableBook extends RenderBox
         : event.localPosition;
   }
 
+  GestureArenaEntry? _arenaEntry;
+
+  @override
+  void acceptGesture(int pointer) {}
+
+  @override
+  void rejectGesture(int pointer) {}
+
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {
+    final timeMs = event.timeStamp.inMicroseconds / 1000.0;
     if (event is PointerDownEvent) {
-      _handlePointerDown(getPointerOffset(event: event));
+      _arenaEntry = GestureBinding.instance.gestureArena.add(event.pointer, this);
+      _handlePointerDown(getPointerOffset(event: event), timeMs);
     } else if (event is PointerMoveEvent) {
-      _handlePointerMove(getPointerOffset(event: event));
+      _handlePointerMove(getPointerOffset(event: event), timeMs);
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
-      _handlePointerUp(getPointerOffset(event: event));
+      _handlePointerUp(getPointerOffset(event: event), timeMs);
     }
   }
 
-  void _handlePointerDown(Offset position) {
+  void _handlePointerDown(Offset position, [double? timeMs]) {
+    if (isZoomed) return;
+
     final point = model.Point(position.dx, position.dy);
 
-    // Reset only dragging state, keep _childConsumedHit as set by hitTestChildren
+    // Reset dragging & scroll lock state
     _isDragging = false;
+    _isVerticalScrollLocked = false;
+    _isInvalidDirectionLocked = false;
     _initialTouchPoint = point;
-
-    _touchPoint = SwipeData(
-      point: point,
-      time: DateTime.now().millisecondsSinceEpoch,
-    );
-
-    // If a child widget consumed the hit and this is just a tap, don't start page flip immediately
-    // We'll check again during movement or up event
-    if (!_childConsumedHit) {
-      // Start page flip interaction for dragging
-      pageFlip.startUserTouch(point);
-      ensureAnimating();
-    }
   }
 
-  void _handlePointerMove(Offset position) {
+  void _handlePointerMove(Offset position, [double? timeMs]) {
+    if (isZoomed || _isInvalidDirectionLocked) return;
+
     final point = model.Point(position.dx, position.dy);
+    if (_initialTouchPoint == null) return;
 
-    if (_initialTouchPoint != null) {
-      final deltaX = (point.x - _initialTouchPoint!.x).abs();
-      final deltaY = (point.y - _initialTouchPoint!.y).abs();
+    final deltaX = point.x - _initialTouchPoint!.x; // signed delta
+    final deltaY = (point.y - _initialTouchPoint!.y).abs();
+    final absDeltaX = deltaX.abs();
 
-      // Check if user is dragging (moved more than threshold)
-      if (deltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+    final rect = getRect();
+    final isLandscape = _orientation == BookOrientation.landscape;
+    final spineX = isLandscape ? rect.left + rect.pageWidth : rect.left;
+    final isTouchOnLeftSide = _initialTouchPoint!.x < spineX;
+
+    // ── Direction & Boundary validation ──────────────────────────────
+    // In Landscape (Two-page spread):
+    // - Left page can ONLY drag to the RIGHT (deltaX > 0) to turn backward.
+    //   Dragging to the LEFT (deltaX < 0) is an invalid reverse drag -> FORBIDDEN!
+    //   Also, dragging to the right requires canFlipPrev() -> if false, FORBIDDEN!
+    // - Right page can ONLY drag to the LEFT (deltaX < 0) to turn forward.
+    //   Dragging to the RIGHT (deltaX > 0) is an invalid reverse drag -> FORBIDDEN!
+    //   Also, dragging to the left requires canFlipNext() -> if false, FORBIDDEN!
+    if (isLandscape && absDeltaX > 5.0) {
+      if (isTouchOnLeftSide) {
+        if (deltaX < 0 || !pageFlip.canFlipPrev()) {
+          _isInvalidDirectionLocked = true;
+          pageFlip.abortFlip();
+          return;
+        }
+      } else {
+        if (deltaX > 0 || !pageFlip.canFlipNext()) {
+          _isInvalidDirectionLocked = true;
+          pageFlip.abortFlip();
+          return;
+        }
+      }
+    }
+
+    // In Portrait (Single page):
+    // - Dragging to the RIGHT (deltaX > 0) turns PREV -> disallowed if !canFlipPrev!
+    // - Dragging to the LEFT (deltaX < 0) turns NEXT -> disallowed if !canFlipNext!
+    if (!isLandscape && absDeltaX > 5.0) {
+      if (deltaX > 0 && !pageFlip.canFlipPrev()) {
+        _isInvalidDirectionLocked = true;
+        pageFlip.abortFlip();
+        return;
+      }
+      if (deltaX < 0 && !pageFlip.canFlipNext()) {
+        _isInvalidDirectionLocked = true;
+        pageFlip.abortFlip();
+        return;
+      }
+    }
+
+    final isOnCorner = pageFlip.isPointOnCorners(_initialTouchPoint!);
+
+    // ── Child widget / Scroll conflict resolution ───────────────────
+    if (_childConsumedHit) {
+      if (_isVerticalScrollLocked) return;
+
+      if (isOnCorner) {
+        // Corner touches are dedicated page flips; resolve arena as accepted immediately
+        // and do not lock to vertical scroll even if movement has a vertical component.
         if (!_isDragging) {
-          _isDragging = true;
+          if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
+            ensureAnimating();
+          } else {
+            return;
+          }
+        }
+      } else {
+        if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+          // Priority 1: Vertical movement intent -> lock to child scroll view completely
+          if (!settings.onlyVerticalPageFlip && deltaY > absDeltaX) {
+            _isVerticalScrollLocked = true;
+            _arenaEntry?.resolve(GestureDisposition.rejected);
+            _arenaEntry = null;
+            if (_isDragging) {
+              _isDragging = false;
+              pageFlip.abortFlip();
+            }
+            return;
+          }
 
-          // If we didn't start pageFlip before because of child hit, start it now for dragging
-          if (_childConsumedHit) {
-            pageFlip.startUserTouch(_initialTouchPoint!);
+          // Priority 2: Clear horizontal page flip intent
+          if (!_isDragging) {
+            if (absDeltaX > deltaY * settings.swipeAngleThreshold) {
+              _isDragging = true;
+              _arenaEntry?.resolve(GestureDisposition.accepted);
+              pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
+              ensureAnimating();
+            } else {
+              return; // Ambiguous or vertical motion, yield to child
+            }
           }
         }
 
-        // Ensure animation continues during dragging
-        ensureAnimating();
+        if (!_isDragging) return;
       }
-    }
-
-    // Process move if we're dragging or no child consumed the initial hit
-    if (_isDragging || !_childConsumedHit) {
-      if (settings.mobileScrollSupport && _touchPoint != null) {
-        final deltaX = (_touchPoint!.point.x - point.x).abs();
-        if (deltaX > _minMoveThreshold ||
-            pageFlip.getState() != FlippingState.read) {
-          pageFlip.userMove(point, true);
+    } else {
+      // Normal drag (no interactive child consumed hit):
+      if (!_isDragging) {
+        if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+          if (!settings.onlyVerticalPageFlip && !isOnCorner && deltaY > absDeltaX) {
+            _isVerticalScrollLocked = true;
+            _arenaEntry?.resolve(GestureDisposition.rejected);
+            _arenaEntry = null;
+            return;
+          }
+          if (absDeltaX >= _minMoveThreshold || (isOnCorner && deltaY >= _minMoveThreshold)) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
+            ensureAnimating();
+          } else {
+            return;
+          }
+        } else {
+          return;
         }
-      } else {
-        pageFlip.userMove(point, true);
       }
-
-      // Mark for repaint during interaction
-      markNeedsPaint();
     }
+
+    // Now actively dragging in a valid direction:
+    pageFlip.userMove(point, true, timeMs);
+    markNeedsPaint();
   }
 
-  void _handlePointerUp(Offset position) {
+  void _handlePointerUp(Offset position, [double? timeMs]) {
+    if (isZoomed || _isVerticalScrollLocked || _isInvalidDirectionLocked) {
+      pageFlip.abortFlip();
+      _resetGestureState();
+      return;
+    }
+
     final point = model.Point(position.dx, position.dy);
 
-    // If child consumed the hit and user didn't drag, let the child handle it
+    // If child consumed the hit and user didn't drag horizontally, let the child handle it
     if (_childConsumedHit && !_isDragging) {
+      pageFlip.abortFlip();
       _resetGestureState();
       return;
     }
 
     // Process page flip gesture
-    if (_touchPoint != null && _isValidSwipe(point)) {
-      _processSwipeGesture(point);
-      _touchPoint = null;
+    if (_isDragging) {
+      pageFlip.userStop(point, false, timeMs);
+      ensureAnimating();
     } else {
-      _touchPoint = null;
-      // Only trigger flip on tap if user didn't interact with a child widget
-      if (!_childConsumedHit || _isDragging) {
-        pageFlip.userStop(point, false);
-        // Ensure animation continues for completion
-        ensureAnimating();
+      // Pure tap on book canvas (not on interactive child):
+      final rect = getRect();
+      final isLandscape = _orientation == BookOrientation.landscape;
+      final spineX = isLandscape ? rect.left + rect.pageWidth : rect.left;
+      final isTouchOnLeftSide = point.x < spineX;
+
+      if (isLandscape) {
+        if (isTouchOnLeftSide) {
+          if (pageFlip.canFlipPrev()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipPrev(corner);
+            ensureAnimating();
+          }
+        } else {
+          if (pageFlip.canFlipNext()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipNext(corner);
+            ensureAnimating();
+          }
+        }
+      } else {
+        final halfWidth = rect.left + rect.pageWidth * 0.5;
+        if (point.x < halfWidth) {
+          if (pageFlip.canFlipPrev()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipPrev(corner);
+            ensureAnimating();
+          }
+        } else {
+          if (pageFlip.canFlipNext()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipNext(corner);
+            ensureAnimating();
+          }
+        }
       }
     }
 
@@ -1045,34 +1182,19 @@ class RenderTurnableBook extends RenderBox
 
   void _resetGestureState() {
     _isDragging = false;
+    _isVerticalScrollLocked = false;
+    _isInvalidDirectionLocked = false;
     _initialTouchPoint = null;
+    _arenaEntry?.resolve(GestureDisposition.rejected);
+    _arenaEntry = null;
     // Note: _childConsumedHit is reset in hitTestChildren for each new gesture
   }
 
-  bool _isValidSwipe(model.Point point) {
-    if (_touchPoint == null) return false;
-    final dx = point.x - _touchPoint!.point.x;
-    final distY = (point.y - _touchPoint!.point.y).abs();
-    final timeDelta = DateTime.now().millisecondsSinceEpoch - _touchPoint!.time;
-    return dx.abs() > _swipeDistance &&
-        distY < _swipeDistance * 2 &&
-        timeDelta < _swipeTimeout;
-  }
-
-  void _processSwipeGesture(model.Point point) {
-    final dx = point.x - _touchPoint!.point.x;
-    final rect = getRect();
-    final halfHeight = rect.height * 0.5;
-    final corner = _touchPoint!.point.y < halfHeight
-        ? FlipCorner.top
-        : FlipCorner.bottom;
-    if (dx > 0) {
-      pageFlip.flipPrev(corner);
-    } else {
-      pageFlip.flipNext(corner);
-    }
-    // Ensure animation continues for swipe gesture
-    ensureAnimating();
+  @override
+  void detach() {
+    _arenaEntry?.resolve(GestureDisposition.rejected);
+    _arenaEntry = null;
+    super.detach();
   }
 
   void ensureAnimating() => _scheduleFrame();

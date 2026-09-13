@@ -32,17 +32,22 @@ class TurnablePage extends StatelessWidget {
     FlipSettings? settings,
     this.pagesBoundaryIsEnabled = true,
     this.textDirection,
-  }) : settings = settings ?? FlipSettings() {
-    if (settings != null) {
-      assert(
-        this.settings.startPageIndex >= 0,
-        'Page count must be greater than 0',
-      );
-      assert(
-        this.settings.startPageIndex < pageCount,
-        'Start page index must be less than page count',
-      );
-    }
+    bool? enableZoom,
+    double? minScale,
+    double? maxScale,
+  }) : settings = (settings ?? FlipSettings()).copyWith(
+          enableZoom: enableZoom,
+          minScale: minScale,
+          maxScale: maxScale,
+        ) {
+    assert(
+      this.settings.startPageIndex >= 0,
+      'Page count must be greater than 0',
+    );
+    assert(
+      this.settings.startPageIndex < pageCount,
+      'Start page index must be less than page count',
+    );
   }
 
   Size _calculateBookSize({

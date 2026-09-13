@@ -91,6 +91,18 @@ class FlipSettings {
   /// Bend strength multiplier (0-1) influencing hardAngle easing
   final double bendStrength;
 
+  /// Whether pinch-to-zoom is enabled
+  final bool enableZoom;
+
+  /// Minimum zoom scale
+  final double minScale;
+
+  /// Maximum zoom scale
+  final double maxScale;
+
+  /// Ratio of horizontal to vertical movement required to prioritize page flip over vertical scroll
+  final double swipeAngleThreshold;
+
   FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
     this.startPageIndex = 0,
@@ -161,6 +173,10 @@ class FlipSettings {
     this.bendStrength = 0.6,
     this.onlyVerticalPageFlip = false,
     this.hideLeftShadow = false,
+    this.enableZoom = false,
+    this.minScale = 1.0,
+    this.maxScale = 3.0,
+    this.swipeAngleThreshold = 1.25,
   });
 
   FlipSettings copyWith({
@@ -193,6 +209,10 @@ class FlipSettings {
     double? bendStrength,
     bool? onlyVerticalPageFlip,
     bool? hideLeftShadow,
+    bool? enableZoom,
+    double? minScale,
+    double? maxScale,
+    double? swipeAngleThreshold,
   }) {
     return FlipSettings(
       startPageIndex: startPage ?? startPageIndex,
@@ -226,6 +246,10 @@ class FlipSettings {
       bendStrength: bendStrength ?? this.bendStrength,
       hideLeftShadow: hideLeftShadow ?? this.hideLeftShadow,
       onlyVerticalPageFlip: onlyVerticalPageFlip ?? this.onlyVerticalPageFlip,
+      enableZoom: enableZoom ?? this.enableZoom,
+      minScale: minScale ?? this.minScale,
+      maxScale: maxScale ?? this.maxScale,
+      swipeAngleThreshold: swipeAngleThreshold ?? this.swipeAngleThreshold,
     );
   }
 }

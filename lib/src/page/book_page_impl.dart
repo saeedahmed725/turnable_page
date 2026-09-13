@@ -13,9 +13,6 @@ class BookPageImpl extends BookPage {
   PageDensity drawingDensity;
   PageOrientation orientation = PageOrientation.right;
 
-  Path? cachedClipPath;
-  List<Point>? _lastAreaSnapshot;
-
   BookPageImpl({required this.index, this.createdDensity = PageDensity.hard})
     : drawingDensity = createdDensity;
 
@@ -39,24 +36,8 @@ class BookPageImpl extends BookPage {
     Point Function(Point) toGlobal,
   ) {
     if (state.area.isEmpty || globalOrigin == null) {
-      cachedClipPath = null;
-      _lastAreaSnapshot = null;
       return null;
     }
-    bool unchanged =
-        _lastAreaSnapshot != null &&
-        _lastAreaSnapshot!.length == state.area.length;
-    if (unchanged) {
-      for (int i = 0; i < state.area.length; i++) {
-        final a = state.area[i];
-        final b = _lastAreaSnapshot![i];
-        if ((a.x - b.x).abs() > 0.01 || (a.y - b.y).abs() > 0.01) {
-          unchanged = false;
-          break;
-        }
-      }
-    }
-    if (unchanged && cachedClipPath != null) return cachedClipPath;
     final path = Path();
     bool first = true;
     for (final p in state.area) {
@@ -71,13 +52,9 @@ class BookPageImpl extends BookPage {
     }
     if (!first) {
       path.close();
-      cachedClipPath = path;
-      _lastAreaSnapshot = List.from(state.area);
-    } else {
-      cachedClipPath = null;
-      _lastAreaSnapshot = null;
+      return path;
     }
-    return cachedClipPath;
+    return null;
   }
 
   @override

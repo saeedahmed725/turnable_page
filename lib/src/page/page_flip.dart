@@ -202,6 +202,27 @@ class PageFlip extends EventObject {
     return pages;
   }
 
+  /// Check if next spread/page is available
+  bool canFlipNext() {
+    final col = pages;
+    if (col == null) return false;
+    final spreads = col.getSpread();
+    if (spreads.isEmpty) return false;
+    return col.getCurrentSpreadIndex() < spreads.length - 1;
+  }
+
+  /// Check if previous spread/page is available
+  bool canFlipPrev() {
+    final col = pages;
+    if (col == null) return false;
+    return col.getCurrentSpreadIndex() > 0;
+  }
+
+  /// Check if a given global point is on the turnable page corners
+  bool isPointOnCorners(Point pos) {
+    return flipProcess.isPointOnCorners(pos);
+  }
+
   /// Calculate distance between two points
   double _getDistanceBetweenPoints(Point point1, Point point2) {
     final dx = point1.x - point2.x;
@@ -210,34 +231,34 @@ class PageFlip extends EventObject {
   }
 
   /// Start user touch interaction
-  void startUserTouch(Point pos) {
+  void startUserTouch(Point pos, [double? timeMs]) {
     isUserTouch = true;
     isUserMove = false;
     mousePosition = pos;
     _samples.clear();
-    _recordSample(pos);
+    _recordSample(pos, timeMs);
     flipProcess.fold(pos);
   }
 
   /// Handle user move
-  void userMove(Point pos, bool isTouch) {
+  void userMove(Point pos, bool isTouch, [double? timeMs]) {
     if (isUserTouch) {
       if (mousePosition != null &&
           _getDistanceBetweenPoints(mousePosition!, pos) > 5) {
         isUserMove = true;
         flipProcess.fold(pos);
-        _recordSample(pos);
+        _recordSample(pos, timeMs);
       }
     }
   }
 
   /// Handle user stop interaction
-  void userStop(Point pos, [bool isSwipe = false]) {
+  void userStop(Point pos, [bool isSwipe = false, double? timeMs]) {
     if (isUserTouch) {
       isUserTouch = false;
 
       if (!isSwipe) {
-        final velocity = _computeVelocity();
+        final velocity = _computeVelocity(timeMs);
         final settings = getSettings;
         final fastSwipe =
             settings.enableInertia &&
@@ -251,20 +272,41 @@ class PageFlip extends EventObject {
     }
   }
 
-  void _recordSample(Point p) {
-    final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+  /// Abort and clean up any in-progress user touch or flip
+  void abortFlip() {
+    isUserTouch = false;
+    isUserMove = false;
+    mousePosition = null;
+    _samples.clear();
+    flipProcess.abortFlip();
+  }
+
+  void _recordSample(Point p, [double? timeMs]) {
+    final now = timeMs ?? DateTime.now().millisecondsSinceEpoch.toDouble();
     _samples.add(_MotionSample(now, p));
     if (_samples.length > _maxSamples) {
       _samples.removeAt(0);
     }
   }
 
-  double _computeVelocity() {
+  double _computeVelocity([double? timeMs]) {
     if (_samples.length < 2) return 0;
-    final a = _samples.first;
+    final now = timeMs ?? DateTime.now().millisecondsSinceEpoch.toDouble();
     final b = _samples.last;
+    if (now - b.t > 200.0) return 0;
+
+    int firstRecentIndex = _samples.length - 1;
+    for (int i = _samples.length - 2; i >= 0; i--) {
+      if (now - _samples[i].t <= 200.0) {
+        firstRecentIndex = i;
+      } else {
+        break;
+      }
+    }
+
+    final a = _samples[firstRecentIndex];
     final dt = (b.t - a.t) / 1000.0;
-    if (dt <= 0) return 0;
+    if (dt <= 0.001) return 0;
     final dx = b.p.x - a.p.x;
     return dx / dt;
   }
