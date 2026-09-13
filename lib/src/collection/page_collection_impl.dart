@@ -11,7 +11,7 @@ class PageCollectionImpl extends PageCollection {
   final int pageCount;
   late final PageFlip app;
   late final RenderPage render;
-  late final bool isShowCover;
+  bool get isShowCover => app.getSettings.showCover;
 
   final List<BookPage> pages = [];
   int currentPageIndex = 0;
@@ -19,9 +19,7 @@ class PageCollectionImpl extends PageCollection {
   final List<NumberArray> landscapeSpread = [];
   final List<NumberArray> portraitSpread = [];
 
-  PageCollectionImpl(this.app, this.render, this.pageCount) {
-    isShowCover = app.getSettings.showCover;
-  }
+  PageCollectionImpl(this.app, this.render, this.pageCount);
 
   @override
   void loadBookPages() {
@@ -141,8 +139,7 @@ class PageCollectionImpl extends PageCollection {
         if (current + 1 >= pages.length) return null;
         return pages[current + 1];
       } else {
-        if (current <= 0 || current - 1 >= pages.length) return null;
-        return pages[current - 1];
+        return null;
       }
     } else {
       final targetSpread = direction == FlipDirection.forward
@@ -202,7 +199,15 @@ class PageCollectionImpl extends PageCollection {
 
   @override
   void showSpread() {
-    final spread = getSpread()[currentSpreadIndex];
+    final spreads = getSpread();
+    if (spreads.isEmpty) return;
+    if (currentSpreadIndex < 0 || currentSpreadIndex >= spreads.length) {
+      final spreadIndex = getSpreadIndexByPage(currentPageIndex);
+      currentSpreadIndex = (spreadIndex != null && spreadIndex < spreads.length)
+          ? spreadIndex
+          : 0;
+    }
+    final spread = spreads[currentSpreadIndex];
     if (spread.length == 2) {
       render.setLeftPage(pages[spread[0]]);
       render.setRightPage(pages[spread[1]]);

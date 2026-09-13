@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../enums/page_view_mode.dart';
 import '../enums/size_type.dart';
 
 /// Configuration object for PageFlip widget behavior and appearance
@@ -43,8 +44,13 @@ class FlipSettings {
   /// Duration of flip animation in milliseconds
   final int flippingTime;
 
-  /// Book orientation - true for single page (portrait), false for two-page spread (landscape)
-  final bool usePortrait;
+  /// Page view mode: single page, double-page spread, or auto-responsive
+  final PageViewMode pageViewMode;
+
+  /// Portrait mode (single page) vs landscape (two-page spread).
+  /// Deprecated: use [pageViewMode] instead.
+  @Deprecated('Use pageViewMode instead')
+  bool get usePortrait => pageViewMode == PageViewMode.single;
 
   /// Maximum opacity for shadow effects (0.0 to 1.0)
   final double maxShadowOpacity;
@@ -140,8 +146,11 @@ class FlipSettings {
     /// Animation duration in milliseconds. Default: 700ms (0.7 second)
     this.flippingTime = 700,
 
-    /// Portrait mode (single page). Default: true. Set false for landscape (two-page spread)
-    this.usePortrait = true,
+    /// Controls how pages are displayed: single, double, or auto. Default: PageViewMode.single
+    PageViewMode? pageViewMode,
+
+    /// Deprecated: use [pageViewMode] instead.
+    @Deprecated('Use pageViewMode instead') bool? usePortrait,
 
     /// Shadow opacity (0.0-1.0). Default: 1.0 (fully opaque)
     this.maxShadowOpacity = 1.0,
@@ -177,7 +186,10 @@ class FlipSettings {
     this.minScale = 1.0,
     this.maxScale = 3.0,
     this.swipeAngleThreshold = 1.25,
-  });
+  }) : pageViewMode = pageViewMode ??
+            (usePortrait != null
+                ? (usePortrait ? PageViewMode.single : PageViewMode.double)
+                : PageViewMode.single);
 
   FlipSettings copyWith({
     int? startPage,
@@ -192,7 +204,8 @@ class FlipSettings {
     Color? perimeterShadowColor,
     Color? perimeterBorderColor,
     int? flippingTime,
-    bool? usePortrait,
+    PageViewMode? pageViewMode,
+    @Deprecated('Use pageViewMode instead') bool? usePortrait,
     double? maxShadowOpacity,
     bool? showCover,
     bool? mobileScrollSupport,
@@ -214,10 +227,17 @@ class FlipSettings {
     double? maxScale,
     double? swipeAngleThreshold,
   }) {
+    final resolvedMode = pageViewMode ??
+        (usePortrait != null
+            ? (usePortrait ? PageViewMode.single : PageViewMode.double)
+            : this.pageViewMode);
+
     return FlipSettings(
       startPageIndex: startPage ?? startPageIndex,
       size: size ?? this.size,
-      width: (width ?? this.width) / (usePortrait ?? this.usePortrait ? 1 : 2),
+      width: width != null
+          ? (resolvedMode == PageViewMode.double ? width / 2 : width)
+          : this.width,
       height: height ?? this.height,
       drawShadow: drawShadow ?? this.drawShadow,
       showCenterShadow: showCenterShadow ?? this.showCenterShadow,
@@ -227,7 +247,7 @@ class FlipSettings {
       perimeterShadowColor: perimeterShadowColor ?? this.perimeterShadowColor,
       perimeterBorderColor: perimeterBorderColor ?? this.perimeterBorderColor,
       flippingTime: flippingTime ?? this.flippingTime,
-      usePortrait: usePortrait ?? this.usePortrait,
+      pageViewMode: resolvedMode,
       maxShadowOpacity: maxShadowOpacity ?? this.maxShadowOpacity,
       showCover: showCover ?? this.showCover,
       mobileScrollSupport: mobileScrollSupport ?? this.mobileScrollSupport,

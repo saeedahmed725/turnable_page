@@ -38,16 +38,15 @@ class FlipProcess {
   ///
   /// @param globalPos - Touch Point Coordinates (relative window)
   void fold(Point globalPos) {
-    final bookPos = render.convertToBook(globalPos);
-    final direction = getDirectionByPoint(bookPos);
-    if (!checkDirection(direction)) return;
-
-    setState(FlippingState.userFold);
-
-    // If the process has not started yet
+    // If the process has not started yet, determine initial direction and start
     if (calc == null) {
+      final bookPos = render.convertToBook(globalPos);
+      final direction = getDirectionByPoint(bookPos);
+      if (!checkDirection(direction)) return;
       if (!start(globalPos)) return;
     }
+
+    setState(FlippingState.userFold);
 
     if (calc != null) {
       doCalculation(render.convertToPage(globalPos));
@@ -251,7 +250,10 @@ class FlipProcess {
       return;
     }
 
-    if (progress > 0.5) {
+    final threshold =
+        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+
+    if (progress >= threshold) {
       animateFlippingTo(
         pos,
         Point(-rect.pageWidth.toDouble(), y.toDouble()),
@@ -284,10 +286,13 @@ class FlipProcess {
     // A flick away from center (back towards starting edge) cancels the flip.
     final isFlick = fastSwipe || velocity.abs() > 300.0;
 
+    final threshold =
+        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+
     if (isFlick && progress > 0.05) {
       complete = swipeTowardsCenter;
     } else {
-      complete = progress > 0.5;
+      complete = progress >= threshold;
     }
 
     if (complete) {

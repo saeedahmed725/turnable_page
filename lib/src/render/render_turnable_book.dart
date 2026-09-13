@@ -3,15 +3,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:turnable_page/turnable_page.dart';
 import '../collection/page_collection_impl.dart';
 import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
-import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
-import '../enums/page_flip_event.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
-import '../flip/flip_settings.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart' as model;
 import '../model/rect_points.dart';
@@ -73,7 +71,11 @@ class RenderTurnableBook extends RenderBox
   bool get alwaysNeedsCompositing => true;
 
   void updateSettings(FlipSettings s) {
+    final oldStartPage = settings.startPageIndex;
     settings = s;
+    if (_initialized && oldStartPage != s.startPageIndex) {
+      collection.show(s.startPageIndex);
+    }
     markNeedsLayout();
   }
 
@@ -134,7 +136,9 @@ class RenderTurnableBook extends RenderBox
         ? constraints.maxHeight
         : settings.height;
     size = Size(maxWidth, maxHeight);
+    final oldOrientation = _orientation;
     calculateBoundsRect();
+    final newOrientation = _orientation;
     final pageWidth = _boundsRect!.pageWidth;
     final pageHeight = _boundsRect!.height;
     RenderBox? child = firstChild;
@@ -157,6 +161,12 @@ class RenderTurnableBook extends RenderBox
       collection.loadBookPages();
       collection.show(settings.startPageIndex);
       _initialized = true;
+    } else if (oldOrientation != null && oldOrientation != newOrientation) {
+      finishAnimation();
+      flippingPage = null;
+      bottomPage = null;
+      shadow = null;
+      collection.show(collection.getCurrentPageIndex());
     }
   }
 
@@ -285,37 +295,46 @@ class RenderTurnableBook extends RenderBox
 
   @override
   BookOrientation calculateBoundsRect() {
-    BookOrientation orientation = BookOrientation.landscape;
     final blockWidth = size.width;
     final middlePoint = model.Point(blockWidth / 2, size.height / 2);
-    final ratio = settings.width / settings.height;
-    double pageWidth = settings.width;
-    double pageHeight = settings.height;
+    final ratio = (settings.height > 0) ? settings.width / settings.height : 1.0;
+    double pageWidth = settings.width > 0 ? settings.width : blockWidth;
+    double pageHeight = settings.height > 0 ? settings.height : size.height;
+
+    final isSingle = settings.pageViewMode == PageViewMode.single ||
+        (settings.pageViewMode == PageViewMode.auto &&
+            blockWidth < (settings.width > 0 ? settings.width * 2 : 600));
+
+    final BookOrientation orientation =
+        isSingle ? BookOrientation.portrait : BookOrientation.landscape;
+
     double left = middlePoint.x - pageWidth;
+
     if (settings.size == SizeType.stretch) {
-      if (blockWidth < settings.width * 2 && settings.usePortrait) {
-        orientation = BookOrientation.portrait;
-      }
       pageWidth = orientation == BookOrientation.portrait
           ? blockWidth
           : blockWidth / 2;
-      if (pageWidth > settings.width) pageWidth = settings.width;
-      pageHeight = pageWidth / ratio;
+      if (settings.width > 0 && pageWidth > settings.width) {
+        pageWidth = settings.width;
+      }
+      if (ratio.isFinite && ratio > 0) {
+        pageHeight = pageWidth / ratio;
+      }
       if (pageHeight > size.height) {
         pageHeight = size.height;
-        pageWidth = pageHeight * ratio;
+        if (ratio.isFinite && ratio > 0) {
+          pageWidth = pageHeight * ratio;
+        }
       }
       left = orientation == BookOrientation.portrait
           ? middlePoint.x - pageWidth / 2 - pageWidth
           : middlePoint.x - pageWidth;
     } else {
-      if (blockWidth < pageWidth * 2) {
-        if (settings.usePortrait) {
-          orientation = BookOrientation.portrait;
-          left = middlePoint.x - pageWidth / 2 - pageWidth;
-        }
-      }
+      left = orientation == BookOrientation.portrait
+          ? middlePoint.x - pageWidth / 2 - pageWidth
+          : middlePoint.x - pageWidth;
     }
+
     _boundsRect = PageRect(
       left: left,
       top: middlePoint.y - pageHeight / 2,
@@ -512,12 +531,9 @@ class RenderTurnableBook extends RenderBox
         paintStatic(rightPage, false);
       }
     } else {
-      // In portrait mode, flippingPage and bottomPage partition the entire page area.
-      // Painting rightPage statically while it is also flippingPage causes Flutter's compositor
-      // to steal and ping-pong compositing layers between two locations every frame.
-      if (flippingPage == null && bottomPage == null) {
-        paintStatic(rightPage, false);
-      }
+      // In portrait mode, rightPage is the static base page (Page N) currently visible.
+      // It must always be painted so the unturned content remains visible while curling.
+      paintStatic(rightPage, false);
     }
 
     if (bottomPage is BookPageImpl) {
@@ -539,7 +555,18 @@ class RenderTurnableBook extends RenderBox
     }
 
     if (flippingPage is BookPageImpl) {
-      _paintDynamicPage(context, offset, flippingPage as BookPageImpl);
+      if (_orientation == BookOrientation.portrait &&
+          direction == FlipDirection.forward) {
+        // In portrait mode forward flip, the curled flap being folded over is the
+        // physical backside of the current sheet. The backside is white paper.
+        _paintDynamicWhitePage(
+          context.canvas,
+          offset,
+          flippingPage as BookPageImpl,
+        );
+      } else {
+        _paintDynamicPage(context, offset, flippingPage as BookPageImpl);
+      }
     }
 
     if (shadow != null && settings.drawShadow) {
@@ -687,13 +714,14 @@ class RenderTurnableBook extends RenderBox
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
     final rect = getRect();
-    canvas.save();
-    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
     final origin = convertToGlobal(position);
     final path = page.buildOrGetClipPath(
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
+
+    canvas.save();
+    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
     if (path != null) canvas.clipPath(path);
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
@@ -712,6 +740,24 @@ class RenderTurnableBook extends RenderBox
       borderPaint,
     );
     canvas.restore();
+
+    // Subtle hairline boundary along curling white page perimeter
+    if (path != null && settings.drawShadow) {
+      final borderColor = settings.perimeterBorderColor.withValues(
+        alpha: (settings.perimeterBorderColor.a * settings.maxShadowOpacity)
+            .clamp(0.0, 1.0),
+      );
+      canvas.save();
+      canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5,
+      );
+      canvas.restore();
+    }
   }
 
   void _drawBookShadow(Canvas canvas, PageRect rect, Offset root) {

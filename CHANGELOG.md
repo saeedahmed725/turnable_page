@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.0 - 2026-09-14
+### ✨ New Features & Unified API
+- **Unified PageViewMode**: Unified single-page vs two-page spread controls into a single parameter `pageViewMode` (`single`, `double`, `auto`):
+  - `PageViewMode.single`: Always single page (portrait) across all devices and screen sizes.
+  - `PageViewMode.double`: Always two-page spread (landscape).
+  - `PageViewMode.auto`: Automatically responsive—displays a single page on mobile (<600px) and two-page spread on wide screens (>=600px).
+  - Maintained 100% backward compatibility for deprecated `usePortrait`.
+- **Dynamic Spread Synchronization**: Fixed orientation transition in auto mode when resizing between mobile and desktop. Automatically re-assigns spreads with zero blank pages.
+
+### 🎨 Realistic Page Curl Physics
+- **Authentic Paper Backside**: In single-page mode forward flip, the curling flap renders as a realistic 3D paper backside with natural fold gradients, keeping active page content visible on the page body during drag.
+- **Directional Drag Locking**: Boundary flip prevention to reject invalid drag gestures on the first and last spreads.
+
+### 🐞 Bug Fixes & Stability
+- **Auto Mode Transition**: Fixed issue where switching from single to double page mode left the left page blank/white with Page 1 on the right.
+- **Widget & Engine Synchronization**: Added `didUpdateWidget` to `TurnablePageView` to ensure runtime setting and constraint changes propagate cleanly to the render tree.
+- **Safe Render Access**: Added `renderNullable` and `hasRender` getters to `PageFlip` for safe null-aware access.
+
 ## 1.0.2 - 2026-09-13
 ### ✨ New Features
 - **Configurable Center Shadow**: Added `showCenterShadow` to [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) to toggle the spine crease shadow between pages on or off.

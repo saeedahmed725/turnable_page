@@ -26,7 +26,7 @@ class TurnablePage extends StatelessWidget {
     required this.builder,
     required this.pageCount,
     this.onPageChanged,
-    this.pageViewMode = PageViewMode.single,
+    PageViewMode? pageViewMode,
     this.autoResponseSize = true,
     this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
     FlipSettings? settings,
@@ -35,7 +35,9 @@ class TurnablePage extends StatelessWidget {
     bool? enableZoom,
     double? minScale,
     double? maxScale,
-  }) : settings = (settings ?? FlipSettings()).copyWith(
+  })  : pageViewMode = pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+        settings = (settings ?? FlipSettings()).copyWith(
+          pageViewMode: pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
           enableZoom: enableZoom,
           minScale: minScale,
           maxScale: maxScale,
@@ -63,22 +65,24 @@ class TurnablePage extends StatelessWidget {
     return Size(maxWidth, height);
   }
 
-  double _getAspectRatio(bool isMobile) {
-    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
-      return aspectRatio ?? 2 / 3;
+  PageViewMode _resolveMode(bool isMobile) {
+    if (pageViewMode == PageViewMode.auto) {
+      return isMobile ? PageViewMode.single : PageViewMode.double;
     }
-    if (pageViewMode == PageViewMode.single) {
-      return aspectRatio ?? 2 / 3 * (isMobile ? 1 : 2);
+    return pageViewMode;
+  }
+
+  double _getAspectRatio(bool isMobile) {
+    final mode = _resolveMode(isMobile);
+    if (mode == PageViewMode.single) {
+      return aspectRatio ?? 2 / 3;
     }
     return aspectRatio ?? (2 / 3) * 2;
   }
 
   FlipSettings _getAdjustedSetting(bool isMobile) {
-    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
-      return settings.copyWith(usePortrait: true);
-    }
-    final usePortrait = pageViewMode == PageViewMode.single && isMobile;
-    return settings.copyWith(usePortrait: usePortrait);
+    final mode = _resolveMode(isMobile);
+    return settings.copyWith(pageViewMode: mode);
   }
 
   @override

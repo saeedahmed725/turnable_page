@@ -333,13 +333,12 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
         child: TurnablePage(
           controller: _controller,
           pageCount: _pages.length,
-          pageViewMode: PageViewMode.single,
+          pageViewMode: PageViewMode.auto,
           paperBoundaryDecoration: PaperBoundaryDecoration.modern,
           textDirection: _direction,
           settings: FlipSettings(
             drawShadow: true,
             hideLeftShadow: true,
-            usePortrait: true,
             flippingTime: 700,
             swipeDistance: 60,
             cornerTriggerAreaSize: 0.2,
@@ -1235,18 +1234,18 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
   }
 
   Widget _buildPdfWidget() {
+    final pageViewMode = _isTwoPageMode
+        ? PageViewMode.double
+        : PageViewMode.single;
+
     final settings = FlipSettings(
       drawShadow: true,
       hideLeftShadow: true,
       flippingTime: 700,
       swipeDistance: 60,
       cornerTriggerAreaSize: 0.2,
-      usePortrait: !_isTwoPageMode,
+      pageViewMode: pageViewMode,
     );
-
-    final pageViewMode = _isTwoPageMode
-        ? PageViewMode.double
-        : PageViewMode.single;
 
     if (widget.source == _PdfSource.asset) {
       return TurnablePdf.asset(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
 import '../enums/page_flip_event.dart';
@@ -48,9 +49,13 @@ class PageFlipController {
   int get pageCount => _pageFlip.getPageCount();
 
   /// Check if there is a next page available
-  bool get hasNextPage =>
-      currentPageIndex + (_pageFlip.getSettings.usePortrait ? 0 : 1) <
-      (pageCount - 1);
+  bool get hasNextPage {
+    final orientation = _pageFlip.renderNullable?.getOrientation();
+    final isPortrait = orientation != null
+        ? orientation == BookOrientation.portrait
+        : _pageFlip.getSettings.usePortrait;
+    return currentPageIndex + (isPortrait ? 0 : 1) < (pageCount - 1);
+  }
 
   /// Check if there is a previous page available
   bool get hasPreviousPage => currentPageIndex > 0;

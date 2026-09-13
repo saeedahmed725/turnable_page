@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../turnable_page.dart';
+import '../enums/book_orientation.dart';
 import '../page/page_flip.dart';
 import '../page/page_host.dart';
 import 'paper_widget.dart';
@@ -52,6 +53,27 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     height: widget.bookSize.height,
     startPage: widget.settings.startPageIndex,
   );
+
+  bool get _isSingleMode {
+    final orientation = _pageFlip.renderNullable?.getOrientation();
+    if (orientation != null) {
+      return orientation == BookOrientation.portrait;
+    }
+    if (widget.settings.pageViewMode == PageViewMode.auto) {
+      return widget.bookSize.width <
+          (widget.settings.width > 0 ? widget.settings.width * 2 : 600);
+    }
+    return widget.settings.pageViewMode == PageViewMode.single;
+  }
+
+  @override
+  void didUpdateWidget(covariant TurnablePageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.settings != oldWidget.settings ||
+        widget.bookSize != oldWidget.bookSize) {
+      _pageFlip.updateSetting(_settings);
+    }
+  }
 
   @override
   void initState() {
@@ -150,7 +172,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
         } else {
           _currentPageIndex = newIndex;
         }
-        if (isRtl && !widget.settings.usePortrait) {
+        if (isRtl && !_isSingleMode) {
           widget.onPageChanged?.call(right, left);
         } else {
           widget.onPageChanged?.call(left, right);
@@ -236,7 +258,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
 
     Widget content = PaperWidget(
       size: widget.bookSize,
-      isSinglePage: widget.settings.usePortrait,
+      isSinglePage: _isSingleMode,
       paperBoundaryDecoration: widget.paperBoundaryDecoration,
       isEnabled: widget.pagesBoundaryIsEnabled,
       child: bookWidget,

@@ -40,6 +40,8 @@ class PageFlip extends EventObject {
   bool _flipProcessInitialized = false;
 
   // Render getter/setter with lazy FlipProcess initialization
+  bool get hasRender => _render != null;
+  RenderPage? get renderNullable => _render;
   RenderPage get render => _render!; // safe after injection by TurnableBook
   set render(RenderPage r) {
     _render = r;

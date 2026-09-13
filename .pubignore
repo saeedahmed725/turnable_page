@@ -15,3 +15,9 @@ example/build/
 
 # Exclude large demo media from the published package (images are linked via GitHub raw URLs in README)
 videos/
+demo/
+StPageFlip/
+
+# Internal documentation / scratch files
+rodo.md
+TODO.md
