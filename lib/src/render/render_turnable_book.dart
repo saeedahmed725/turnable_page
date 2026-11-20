@@ -10,6 +10,7 @@ import '../enums/book_orientation.dart';
 import '../enums/flip_direction.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
+import '../helpers/helper.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart' as model;
 import '../model/rect_points.dart';
@@ -45,6 +46,10 @@ class RenderTurnableBook extends RenderBox
   BookPage? bottomPage;
   AnimationProcess? animation;
   Shadow? shadow;
+
+  /// Progress (0-100) of the current flip, as last reported by the flip
+  /// process. Used to decide how to paint a page whose clip area collapsed.
+  double _flipProgress = 0;
   bool _frameScheduled = false;
   double _timeMs = 0;
   double? _lastRawTickerMs;
@@ -71,11 +76,11 @@ class RenderTurnableBook extends RenderBox
   bool get alwaysNeedsCompositing => true;
 
   void updateSettings(FlipSettings s) {
-    final oldStartPage = settings.startPageIndex;
+    // [FlipSettings.startPageIndex] is an initial value only (like
+    // PageController.initialPage). Re-applying it here made any rebuild with
+    // a stale settings object jump back to an old page, and re-showing the
+    // current page emitted a duplicate page-change event.
     settings = s;
-    if (_initialized && oldStartPage != s.startPageIndex) {
-      collection.show(s.startPageIndex);
-    }
     markNeedsLayout();
   }
 
@@ -250,15 +255,24 @@ class RenderTurnableBook extends RenderBox
   @override
   void render(double timer) {
     if (animation != null) {
-      double elapsed = _timeMs - animation!.startedAt;
+      final anim = animation!;
+      double elapsed = _timeMs - anim.startedAt;
       if (elapsed < 0) elapsed = 0;
-      final frameIndex = (elapsed / animation!.durationFrame).floor();
-      if (frameIndex < animation!.frames.length) {
-        animation!.frames[frameIndex]();
+      final lastIndex = anim.frames.length - 1;
+      final frameIndex = anim.durationFrame > 0
+          ? (elapsed / anim.durationFrame).floor()
+          : lastIndex;
+      if (frameIndex < lastIndex) {
+        anim.frames[frameIndex]();
       } else {
-        animation!.onAnimateEnd();
-        pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
+        // Reached the final frame: apply it and complete the turn in the SAME
+        // tick. Previously the last frame was painted on its own and the page
+        // swap happened one vsync later, leaving a frame on screen where the
+        // incoming page was (almost) fully clipped away.
+        if (lastIndex >= 0) anim.frames[lastIndex]();
         animation = null;
+        anim.onAnimateEnd();
+        pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
       }
       markNeedsPaint();
     }
@@ -276,7 +290,10 @@ class RenderTurnableBook extends RenderBox
       duration: duration,
       durationFrame: duration / (frames.isEmpty ? 1 : frames.length),
       onAnimateEnd: onAnimateEnd,
-      startedAt: _timeMs > 0 ? -1 : 0,
+      // Always take the start time from the first animation tick. Using 0
+      // when no tick had advanced the clock yet made the first tick add the
+      // whole preceding drag time as "elapsed", so the turn finished at once.
+      startedAt: -1,
     );
     _scheduleFrame();
   }
@@ -284,12 +301,14 @@ class RenderTurnableBook extends RenderBox
   @override
   void finishAnimation() {
     if (animation != null) {
-      if (animation!.frames.isNotEmpty) {
-        animation!.frames.last();
-      }
-      animation!.onAnimateEnd();
-      pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
+      final anim = animation!;
+      // Clear first so callbacks that start a new animation are not wiped.
       animation = null;
+      if (anim.frames.isNotEmpty) {
+        anim.frames.last();
+      }
+      anim.onAnimateEnd();
+      pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
     }
   }
 
@@ -353,6 +372,7 @@ class RenderTurnableBook extends RenderBox
     double progress,
     FlipDirection direction,
   ) {
+    _flipProgress = progress;
     if (!settings.drawShadow) return;
     final maxShadowOpacity = 100 * settings.maxShadowOpacity;
     shadow = Shadow(
@@ -369,6 +389,7 @@ class RenderTurnableBook extends RenderBox
   @override
   void clearShadow() {
     shadow = null;
+    _flipProgress = 0;
   }
 
   @override
@@ -498,7 +519,7 @@ class RenderTurnableBook extends RenderBox
         rect.width,
         rect.height,
       ),
-      Paint()..color = const ui.Color(0xFFFFFFFF),
+      Paint()..color = settings.pageBackgroundColor,
     );
 
     // Nested helper: paint a static (non-flipping) page child.
@@ -590,6 +611,12 @@ class RenderTurnableBook extends RenderBox
     final child = _childByIndex(page.index);
     if (child == null) return;
 
+    // A collapsed (zero-area) clip must never be used: clipping with it hides
+    // the page entirely. For the incoming bottom page late in a turn it means
+    // the page is fully revealed, so paint it unclipped; otherwise skip it.
+    final bool degenerate = Helper.isDegenerateArea(page.state.area);
+    if (degenerate && (!isBottom || _flipProgress < 50)) return;
+
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
     final rect = getRect();
@@ -598,10 +625,12 @@ class RenderTurnableBook extends RenderBox
     // The clip path is built relative to globalOrigin (page-anchor-local).
     // See BookPageImpl.buildOrGetClipPath: path(0,0) = top-left of page at globalPos.
     final origin = convertToGlobal(position);
-    final clipPath = page.buildOrGetClipPath(
-      origin,
-      (model.Point p) => convertToGlobal(p)!,
-    );
+    final clipPath = degenerate
+        ? null
+        : page.buildOrGetClipPath(
+            origin,
+            (model.Point p) => convertToGlobal(p)!,
+          );
 
     // Page anchor position in world/screen space.
     final Offset pageAnchor = Offset(
@@ -639,7 +668,7 @@ class RenderTurnableBook extends RenderBox
       ctx.canvas.drawRect(
         Rect.fromLTWH(off.dx, off.dy, rect.pageWidth, rect.height),
         Paint()
-          ..color = const Color(0xFFFFFFFF)
+          ..color = settings.pageBackgroundColor
           ..style = PaintingStyle.fill,
       );
       ctx.paintChild(child, off);
@@ -695,8 +724,8 @@ class RenderTurnableBook extends RenderBox
             ..strokeWidth = 0.5,
         );
       }
-    } else if (!isBottom) {
-      // No clip: just translate + rotate then paint (flipping page only).
+    } else {
+      // No clip (bottom page fully revealed at the end of a turn).
       context.pushTransform(
         needsCompositing,
         Offset.zero,
@@ -711,6 +740,10 @@ class RenderTurnableBook extends RenderBox
     Offset rootOffset,
     BookPageImpl page,
   ) {
+    // Without a drawable clip area there is nothing sensible to paint: an
+    // unclipped full-page rect here would flash a white sheet over the book.
+    if (Helper.isDegenerateArea(page.state.area)) return;
+
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
     final rect = getRect();
@@ -719,16 +752,17 @@ class RenderTurnableBook extends RenderBox
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
+    if (path == null) return;
 
     canvas.save();
     canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
-    if (path != null) canvas.clipPath(path);
+    canvas.clipPath(path);
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
       canvas.rotate(angle);
     }
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = settings.pageBackgroundColor
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height), paint);
     final borderPaint = Paint()
@@ -742,7 +776,7 @@ class RenderTurnableBook extends RenderBox
     canvas.restore();
 
     // Subtle hairline boundary along curling white page perimeter
-    if (path != null && settings.drawShadow) {
+    if (settings.drawShadow) {
       final borderColor = settings.perimeterBorderColor.withValues(
         alpha: (settings.perimeterBorderColor.a * settings.maxShadowOpacity)
             .clamp(0.0, 1.0),
@@ -1100,8 +1134,7 @@ class RenderTurnableBook extends RenderBox
           if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
             _isDragging = true;
             _arenaEntry?.resolve(GestureDisposition.accepted);
-            pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
-            ensureAnimating();
+            _beginUserDrag(deltaX, timeMs);
           } else {
             return;
           }
@@ -1125,8 +1158,7 @@ class RenderTurnableBook extends RenderBox
             if (absDeltaX > deltaY * settings.swipeAngleThreshold) {
               _isDragging = true;
               _arenaEntry?.resolve(GestureDisposition.accepted);
-              pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
-              ensureAnimating();
+              _beginUserDrag(deltaX, timeMs);
             } else {
               return; // Ambiguous or vertical motion, yield to child
             }
@@ -1148,8 +1180,7 @@ class RenderTurnableBook extends RenderBox
           if (absDeltaX >= _minMoveThreshold || (isOnCorner && deltaY >= _minMoveThreshold)) {
             _isDragging = true;
             _arenaEntry?.resolve(GestureDisposition.accepted);
-            pageFlip.startUserTouch(_initialTouchPoint!, timeMs);
-            ensureAnimating();
+            _beginUserDrag(deltaX, timeMs);
           } else {
             return;
           }
@@ -1160,7 +1191,7 @@ class RenderTurnableBook extends RenderBox
     }
 
     // Now actively dragging in a valid direction:
-    pageFlip.userMove(point, true, timeMs);
+    pageFlip.userMove(_shiftDrag(point), true, timeMs);
     markNeedsPaint();
   }
 
@@ -1182,7 +1213,7 @@ class RenderTurnableBook extends RenderBox
 
     // Process page flip gesture
     if (_isDragging) {
-      pageFlip.userStop(point, false, timeMs);
+      pageFlip.userStop(_shiftDrag(point), false, timeMs);
       ensureAnimating();
     } else {
       // Pure tap on book canvas (not on interactive child):
@@ -1226,7 +1257,41 @@ class RenderTurnableBook extends RenderBox
     _resetGestureState();
   }
 
+  /// Shift applied to drag points when [FlipSettings.directionFromDrag]
+  /// re-anchors the curl to the page edge matching the drag direction.
+  model.Point _dragShift = const model.Point(0, 0);
+
+  model.Point _shiftDrag(model.Point p) =>
+      model.Point(p.x + _dragShift.x, p.y + _dragShift.y);
+
+  /// Starts a user drag. Local coordinates are already mirrored for RTL
+  /// books (the whole book is flipped with a Transform), so a negative
+  /// [deltaX] always means "towards the next page".
+  void _beginUserDrag(double deltaX, double? timeMs) {
+    final start = _initialTouchPoint!;
+    _dragShift = const model.Point(0, 0);
+    if (settings.directionFromDrag &&
+        _orientation == BookOrientation.portrait &&
+        deltaX != 0) {
+      final rect = getRect();
+      final forward = deltaX < 0;
+      if (forward ? pageFlip.canFlipNext() : pageFlip.canFlipPrev()) {
+        // Forward: curl from the outer (right) edge. Back: the previous page
+        // enters from the inner (left) edge. The finger's movement is then
+        // applied relative to that anchor, so the curl follows the drag
+        // without jumping.
+        final anchorX = forward
+            ? rect.left + rect.width - 2
+            : rect.left + rect.pageWidth + 2;
+        _dragShift = model.Point(anchorX - start.x, 0);
+      }
+    }
+    pageFlip.startUserTouch(_shiftDrag(start), timeMs);
+    ensureAnimating();
+  }
+
   void _resetGestureState() {
+    _dragShift = const model.Point(0, 0);
     _isDragging = false;
     _isVerticalScrollLocked = false;
     _isInvalidDirectionLocked = false;
@@ -1256,7 +1321,7 @@ class RenderTurnableBook extends RenderBox
     bool isLeft,
   ) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = settings.pageBackgroundColor
       ..style = PaintingStyle.fill;
     final pageX = (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx;
     final pageY = rect.top + offset.dy;

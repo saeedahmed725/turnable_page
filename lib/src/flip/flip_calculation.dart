@@ -42,6 +42,19 @@ class FlipCalculation {
     }
   }
 
+  /// Whether the last successful [calc] produced drawable clip areas for both
+  /// the flipping page and the page below it.
+  ///
+  /// Near the end of a turn (fold line collinear with the page edges) the
+  /// intersection points become null and both areas collapse to zero-area
+  /// lines. Rendering such a frame hides the incoming page and briefly shows
+  /// the old one (flicker), so animation frames with degenerate geometry must
+  /// be skipped.
+  bool hasDrawableClipAreas() {
+    return !Helper.isDegenerateArea(getFlippingClipArea()) &&
+        !Helper.isDegenerateArea(getBottomClipArea());
+  }
+
   /// Get the crop area for the flipping page
   List<Point> getFlippingClipArea() {
     final result = <Point>[];
@@ -233,7 +246,12 @@ class FlipCalculation {
       );
     }
 
-    if ((result.x - pageWidth).abs() < 1 && result.y.abs() < 1) {
+    // The corner is back at its resting place: no fold to draw. This used to
+    // check only y == 0 (top corner), so at the bottom corner the resting
+    // point produced garbage geometry and the fold "popped" at the end of a
+    // cancelled drag.
+    final restingY = corner == FlipCorner.top ? 0.0 : pageHeight;
+    if ((result.x - pageWidth).abs() < 1 && (result.y - restingY).abs() < 1) {
       throw Exception('Point is too small');
     }
 

@@ -22,6 +22,17 @@ class TurnablePageView extends StatefulWidget {
   final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
 
+  /// Number of pages kept built on EACH side of the current page when the
+  /// book is large (more than [virtualWindowingThreshold] pages). Pages
+  /// outside `current - pageCacheExtent .. current + pageCacheExtent` are
+  /// replaced by empty placeholders to bound memory. Pages that stay inside
+  /// the window are never rebuilt because of a page change.
+  final int pageCacheExtent;
+
+  /// Books with more pages than this use virtual windowing (see
+  /// [pageCacheExtent]); smaller books keep every page built.
+  static const int virtualWindowingThreshold = 20;
+
   const TurnablePageView({
     super.key,
     this.controller,
@@ -34,7 +45,8 @@ class TurnablePageView extends StatefulWidget {
     required this.paperBoundaryDecoration,
     this.pagesBoundaryIsEnabled = true,
     this.textDirection,
-  });
+    this.pageCacheExtent = 4,
+  }) : assert(pageCacheExtent >= 1, 'pageCacheExtent must be at least 1');
 
   @override
   State<TurnablePageView> createState() => _TurnablePageViewState();
@@ -45,13 +57,30 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   late PageFlip _pageFlip;
   late final TransformationController _transformationController;
   bool _isZoomed = false;
+
+  /// Page currently shown (source of truth for the widget layer).
   late int _currentPageIndex;
 
-  /// Get the adjusted settings for the PageFlip instance
+  /// Center of the virtual window. Follows [_currentPageIndex], updated one
+  /// frame after a page change so the turn's final frame is not slowed down
+  /// by building/tearing down off-screen pages.
+  late int _windowCenter;
+  bool _windowUpdateScheduled = false;
+
+  /// Built page widgets, reused across rebuilds caused by page changes or
+  /// zoom so pages that stay in the window are not rebuilt. Cleared whenever
+  /// the parent rebuilds us or an inherited dependency changes.
+  final Map<int, Widget> _pageCache = <int, Widget>{};
+
+  /// Get the adjusted settings for the PageFlip instance.
+  ///
+  /// `startPage` is the CURRENT page: the render object only reads it on its
+  /// first layout, so a recreated render object resumes where the user was
+  /// instead of jumping back to the original start page.
   FlipSettings get _settings => widget.settings.copyWith(
     width: widget.bookSize.width,
     height: widget.bookSize.height,
-    startPage: widget.settings.startPageIndex,
+    startPage: _currentPageIndex,
   );
 
   bool get _isSingleMode {
@@ -69,6 +98,20 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   @override
   void didUpdateWidget(covariant TurnablePageView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // The parent rebuilt us (new builder closure, settings, ...): page
+    // content may have changed, so drop cached page widgets.
+    _pageCache.clear();
+    if (widget.controller != oldWidget.controller) {
+      widget.controller?.initializeController(pageFlip: _pageFlip);
+      widget.controller?.attachZoom(
+        resetZoom: _resetZoom,
+        isZoomed: () => _isZoomed,
+      );
+    }
+    if (widget.pageCount != oldWidget.pageCount) {
+      _currentPageIndex = _currentPageIndex.clamp(0, widget.pageCount - 1);
+      _windowCenter = _currentPageIndex;
+    }
     if (widget.settings != oldWidget.settings ||
         widget.bookSize != oldWidget.bookSize) {
       _pageFlip.updateSetting(_settings);
@@ -76,9 +119,18 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The page builder runs with our context; inherited changes (theme,
+    // media query, ...) must reach the pages.
+    _pageCache.clear();
+  }
+
+  @override
   void initState() {
     super.initState();
     _currentPageIndex = widget.settings.startPageIndex;
+    _windowCenter = _currentPageIndex;
     _transformationController = TransformationController();
     _transformationController.addListener(_onTransformationChanged);
     _pageFlip = PageFlip(_settings);
@@ -147,31 +199,26 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     );
 
     // Set up event listeners
+    // Fired exactly once per page change, after the turn completed, with the
+    // new page index (see PageFlip.updatePageIndex).
     _pageFlip.on(PageFlipEvent.flip, (event) {
       if (!mounted) return;
+      final data = event.data;
+      if (data is! int) return;
       final effectiveDir =
           widget.textDirection ??
           Directionality.maybeOf(context) ??
           TextDirection.ltr;
       final isRtl = effectiveDir == TextDirection.rtl;
 
-      final newIndex = (event.data is int)
-          ? (event.data as int)
-          : _pageFlip.getCurrentPageIndex();
-      final left = newIndex.clamp(0, widget.pageCount - 1);
+      final newIndex = data.clamp(0, widget.pageCount - 1);
+      final left = newIndex;
       final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
-      widget.settings.startPageIndex = left;
-      _pageFlip.updateSetting(_settings);
 
       void applyPageChange() {
         if (!mounted) return;
-        if (_currentPageIndex != newIndex && widget.pageCount > 20) {
-          setState(() {
-            _currentPageIndex = newIndex;
-          });
-        } else {
-          _currentPageIndex = newIndex;
-        }
+        _currentPageIndex = newIndex;
+        _updateWindowFor(newIndex);
         if (isRtl && !_isSingleMode) {
           widget.onPageChanged?.call(right, left);
         } else {
@@ -189,6 +236,51 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     });
   }
 
+  bool get _usesWindowing =>
+      widget.pageCount > TurnablePageView.virtualWindowingThreshold;
+
+  /// Moves the virtual window to follow [page].
+  ///
+  /// If [page] or its direct neighbours (needed as the bottom/back page of
+  /// the next turn) are outside the current window, the window moves now.
+  /// Otherwise the move is deferred by one frame, so the frame that completes
+  /// a turn does not also pay for building/disposing off-screen pages.
+  void _updateWindowFor(int page) {
+    if (!_usesWindowing || page == _windowCenter) return;
+    final needsNow =
+        (page - _windowCenter).abs() + 1 > widget.pageCacheExtent;
+    if (needsNow) {
+      setState(() => _windowCenter = page);
+      return;
+    }
+    if (_windowUpdateScheduled) return;
+    _windowUpdateScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _windowUpdateScheduled = false;
+      if (!mounted || _windowCenter == _currentPageIndex) return;
+      setState(() => _windowCenter = _currentPageIndex);
+    });
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  Widget _buildPage(
+    BuildContext context,
+    int index,
+    bool isRtl,
+    TextDirection effectiveDir,
+  ) {
+    final rawChild = widget.builder(context, index);
+    if (!isRtl) return rawChild;
+    return Directionality(
+      textDirection: effectiveDir,
+      child: Transform(
+        alignment: Alignment.center,
+        transform: Matrix4.diagonal3Values(-1.0, 1.0, 1.0),
+        child: rawChild,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveDir =
@@ -197,21 +289,26 @@ class _TurnablePageViewState extends State<TurnablePageView> {
         TextDirection.ltr;
     final isRtl = effectiveDir == TextDirection.rtl;
 
-    // Virtual windowing: enabled only for large books (> 20 pages) to prevent OOM.
-    // For normal/small books, all pages stay stable in the tree to eliminate rebuild/drop flicker.
-    final bool enableVirtualWindowing = widget.pageCount > 20;
+    // Virtual windowing: enabled only for large books to bound memory. The
+    // window is symmetric around the current page ([pageCacheExtent] pages on
+    // each side). For small books all pages stay in the tree.
+    final bool enableVirtualWindowing = _usesWindowing;
+    final extent = widget.pageCacheExtent;
     final windowStart = enableVirtualWindowing
-        ? (_currentPageIndex - 4).clamp(0, widget.pageCount - 1)
+        ? (_windowCenter - extent).clamp(0, widget.pageCount - 1)
         : 0;
     final windowEnd = enableVirtualWindowing
-        ? (_currentPageIndex + 5).clamp(0, widget.pageCount - 1)
+        ? (_windowCenter + extent).clamp(0, widget.pageCount - 1)
         : widget.pageCount - 1;
+
+    if (enableVirtualWindowing) {
+      _pageCache.removeWhere((i, _) => i < windowStart || i > windowEnd);
+    }
 
     final children = List<Widget>.generate(
       widget.pageCount,
       (index) {
-        if (enableVirtualWindowing &&
-            (index < windowStart || index > windowEnd)) {
+        if (index < windowStart || index > windowEnd) {
           return PageHost(
             key: ValueKey('page_host_$index'),
             index: index,
@@ -219,17 +316,12 @@ class _TurnablePageViewState extends State<TurnablePageView> {
           );
         }
 
-        final rawChild = widget.builder(context, index);
-        final content = isRtl
-            ? Directionality(
-                textDirection: effectiveDir,
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.diagonal3Values(-1.0, 1.0, 1.0),
-                  child: rawChild,
-                ),
-              )
-            : rawChild;
+        // Reusing the identical widget instance lets the framework skip
+        // rebuilding pages that were already built.
+        final content = _pageCache.putIfAbsent(
+          index,
+          () => _buildPage(context, index, isRtl, effectiveDir),
+        );
 
         return PageHost(
           key: ValueKey('page_host_$index'),

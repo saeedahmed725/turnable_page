@@ -96,9 +96,8 @@ class PageFlip extends EventObject {
   /// @param {String} corner - Corner to flip from ('top' or 'bottom')
   void showPage(int pageNum, [String? corner]) {
     if (pages != null) {
+      // [PageCollection.show] reports the page change itself.
       pages!.show(pageNum);
-
-      trigger(PageFlipEvent.flip, this, {'page': pageNum, 'mode': render.getOrientation()});
     }
   }
 
@@ -112,8 +111,9 @@ class PageFlip extends EventObject {
     final totalPages = getPageCount();
 
     if (currentIndex < totalPages - 1) {
+      // The flip event is emitted once the turn completes (see
+      // [updatePageIndex]), not when the animation starts.
       flipProcess.flipNext(corner);
-      trigger(PageFlipEvent.flip, this, {'page': currentIndex + 1, 'direction': 'next'});
     }
   }
 
@@ -125,7 +125,6 @@ class PageFlip extends EventObject {
 
     if (currentIndex > 0) {
       flipProcess.flipPrev(corner);
-      trigger(PageFlipEvent.flip, this, {'page': currentIndex - 1, 'direction': 'prev'});
     }
   }
 
@@ -136,14 +135,7 @@ class PageFlip extends EventObject {
     final totalPages = getPageCount();
 
     if (page >= 0 && page < totalPages) {
-      final currentIndex = getCurrentPageIndex();
-
       flipProcess.flipToPage(page, corner);
-
-      trigger(PageFlipEvent.flip, this, {
-        'page': page,
-        'direction': page > currentIndex ? 'next' : 'prev',
-      });
     }
   }
 
@@ -152,8 +144,16 @@ class PageFlip extends EventObject {
     trigger(PageFlipEvent.changeState, this, newState);
   }
 
-  /// Update current page index
+  int? _lastReportedPage;
+
+  /// Called by the page collection whenever the visible spread is (re)shown.
+  ///
+  /// Emits [PageFlipEvent.flip] with the new page index (an `int`) exactly
+  /// once per actual page change, after the turn has completed. Re-showing
+  /// the same page (orientation change, settings update) is not reported.
   void updatePageIndex(int newPage) {
+    if (_lastReportedPage == newPage) return;
+    _lastReportedPage = newPage;
     trigger(PageFlipEvent.flip, this, newPage);
   }
 

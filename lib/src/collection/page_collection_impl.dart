@@ -112,7 +112,10 @@ class PageCollectionImpl extends PageCollection {
         return original.createDetachedCopy();
       } else {
         if (current <= 0 || current - 1 >= pages.length) return null;
-        return pages[current - 1];
+        // Detached copy: the flip writes area/position/angle into the page
+        // state; doing that on the shared page would leave stale geometry
+        // on it after the turn.
+        return (pages[current - 1] as BookPageImpl).createDetachedCopy();
       }
     } else {
       final targetSpread = direction == FlipDirection.forward
@@ -137,7 +140,7 @@ class PageCollectionImpl extends PageCollection {
     if (render.getOrientation() == BookOrientation.portrait) {
       if (direction == FlipDirection.forward) {
         if (current + 1 >= pages.length) return null;
-        return pages[current + 1];
+        return (pages[current + 1] as BookPageImpl).createDetachedCopy();
       } else {
         return null;
       }

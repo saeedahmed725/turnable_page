@@ -5,7 +5,11 @@ import '../enums/size_type.dart';
 
 /// Configuration object for PageFlip widget behavior and appearance
 class FlipSettings {
-  /// Initial page to display when the book loads (0-based index)
+  /// Initial page to display when the book loads (0-based index).
+  ///
+  /// Like `PageController.initialPage`, this is read only when the book is
+  /// first laid out. Changing it later does not navigate; use
+  /// `PageFlipController.jumpToPage` / `animateToPage` instead.
   int startPageIndex;
 
   /// How the book size is calculated - fixed dimensions or stretch to fit parent
@@ -109,6 +113,21 @@ class FlipSettings {
   /// Ratio of horizontal to vertical movement required to prioritize page flip over vertical scroll
   final double swipeAngleThreshold;
 
+  /// Decide the turn direction from the drag direction instead of the
+  /// position where the finger landed (single-page mode only).
+  ///
+  /// When `false` (default, legacy behaviour) touching the left 40% of the
+  /// page always means "previous page". When `true`, dragging right-to-left
+  /// turns forward and left-to-right turns back, wherever the finger
+  /// landed; the curl starts from the matching page edge and follows the
+  /// finger. Mirrored automatically for right-to-left books.
+  final bool directionFromDrag;
+
+  /// Paper color painted under pages, on the back side of a turning page and
+  /// on blank filler pages. Defaults to white. Set it to your page background
+  /// (e.g. a dark color in dark mode) to avoid light flashes at curl edges.
+  final Color pageBackgroundColor;
+
   FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
     this.startPageIndex = 0,
@@ -186,6 +205,8 @@ class FlipSettings {
     this.minScale = 1.0,
     this.maxScale = 3.0,
     this.swipeAngleThreshold = 1.25,
+    this.directionFromDrag = false,
+    this.pageBackgroundColor = const Color(0xFFFFFFFF),
   }) : pageViewMode = pageViewMode ??
             (usePortrait != null
                 ? (usePortrait ? PageViewMode.single : PageViewMode.double)
@@ -226,6 +247,8 @@ class FlipSettings {
     double? minScale,
     double? maxScale,
     double? swipeAngleThreshold,
+    bool? directionFromDrag,
+    Color? pageBackgroundColor,
   }) {
     final resolvedMode = pageViewMode ??
         (usePortrait != null
@@ -270,6 +293,8 @@ class FlipSettings {
       minScale: minScale ?? this.minScale,
       maxScale: maxScale ?? this.maxScale,
       swipeAngleThreshold: swipeAngleThreshold ?? this.swipeAngleThreshold,
+      directionFromDrag: directionFromDrag ?? this.directionFromDrag,
+      pageBackgroundColor: pageBackgroundColor ?? this.pageBackgroundColor,
     );
   }
 }

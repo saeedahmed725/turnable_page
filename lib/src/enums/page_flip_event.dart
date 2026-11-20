@@ -1,6 +1,7 @@
 /// Events emitted by [PageFlip] during page flipping and state changes.
 enum PageFlipEvent {
-  /// Triggered when the page changes or when flipping to a page.
+  /// Triggered once when the visible page changes (after a turn completes, or
+  /// after a jump). The event data is the new page index as an `int`.
   flip,
 
   /// Triggered when the flipping state changes (e.g. read, userFold, flipping, foldCorner).

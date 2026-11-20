@@ -19,6 +19,10 @@ class TurnablePage extends StatelessWidget {
   final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
 
+  /// Pages kept built on each side of the current page for large books.
+  /// See [TurnablePageView.pageCacheExtent].
+  final int pageCacheExtent;
+
   TurnablePage({
     super.key,
     this.controller,
@@ -32,6 +36,7 @@ class TurnablePage extends StatelessWidget {
     FlipSettings? settings,
     this.pagesBoundaryIsEnabled = true,
     this.textDirection,
+    this.pageCacheExtent = 4,
     bool? enableZoom,
     double? minScale,
     double? maxScale,
@@ -114,6 +119,7 @@ class TurnablePage extends StatelessWidget {
           pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
           paperBoundaryDecoration: paperBoundaryDecoration,
           textDirection: textDirection,
+          pageCacheExtent: pageCacheExtent,
         );
       },
     );

@@ -20,6 +20,31 @@ class Helper {
     );
   }
 
+  /// Minimum polygon area (in px²) for a clip area to be considered drawable.
+  static const double minClipArea = 1.0;
+
+  /// Returns the absolute area of the polygon described by [points]
+  /// (shoelace formula). Returns 0 for fewer than 3 points.
+  static double getPolygonArea(List<Point> points) {
+    if (points.length < 3) return 0;
+    double sum = 0;
+    for (int i = 0; i < points.length; i++) {
+      final p = points[i];
+      final q = points[(i + 1) % points.length];
+      sum += p.x * q.y - q.x * p.y;
+    }
+    return sum.abs() / 2;
+  }
+
+  /// Whether a clip polygon collapsed to a line/point (zero area).
+  ///
+  /// Such polygons appear at the very end of a page turn, when the fold
+  /// line becomes collinear with the page edges and the intersection points
+  /// can no longer be computed. Clipping with them hides the whole page.
+  static bool isDegenerateArea(List<Point> points) {
+    return getPolygonArea(points) < minClipArea;
+  }
+
   /// Returns the length of the given line segment.
   ///
   /// [segment] The segment whose length is calculated.

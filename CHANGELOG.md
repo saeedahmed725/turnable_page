@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### 🐛 Fixes
+- **Old page flashing at the end of a turn**: the last frames of a completed turn produced zero-area clip polygons, which hid the incoming page so the old page showed for one frame. Degenerate frames are now dropped when the animation is built, the turn completes in the same tick as its final frame, and the painter never clips with a collapsed area. Applies to forward and backward turns, taps, drags and flings.
+- **`onPageChanged` fires once, with the new page, when the turn completes**. It used to fire twice per turn, and `flipNext` / `flipPrev` / `flip` reported the old page when the animation started. `PageFlipEvent.flip` now always carries the new page index as an `int`.
+- **`startPageIndex` is an initial value only** (like `PageController.initialPage`). The widget no longer mutates the caller's settings, and rebuilding with the original settings no longer jumps back to an old page.
+- Turning pages in large books no longer rebuilds every page in the window: built pages are reused and only the page entering the window is built.
+- Single-page flips use detached page copies, so pages keep no stale flip geometry.
+- A turning page with no clip area no longer paints a full unclipped white sheet.
+- Replacing the `controller` on a live widget now attaches the new controller.
+- **Forward and back turns now look equally fast in single-page mode.** The edge of a back turn moves 1:1 with the corner, while forward turns only show the first half of the corner's path. Back turns get a bigger frame budget and `previousPage()` starts at the spine instead of off-screen. Completed forward turns use a gentler, near-linear curve, so the flap no longer shoots across the page in ~75 ms.
+- **Releasing a small corner fold returns smoothly** at both the top and bottom corners. The sag arc is scaled to the travel distance (a short return used to make the fold grow before shrinking), the return lasts at least 30% of `flippingTime`, and the bottom corner no longer pops on the last frame. That pop came from `FlipCalculation` only recognising the top corner's resting point.
+- The first drag release in a session no longer finishes instantly. The animation clock used to count the whole drag as elapsed time.
+
+### ✨ New options
+- `TurnablePage.pageCacheExtent` / `TurnablePageView.pageCacheExtent` (default 4): pages kept built on **each** side of the current page for books with more than 20 pages. The window is now symmetric (it used to be -4/+5).
+- `FlipSettings.directionFromDrag` (default `false`): in single-page mode, the drag direction decides forward or back instead of where the finger landed. RTL books are mirrored automatically.
+- `FlipSettings.pageBackgroundColor` (default white): the paper color under pages and on the back of a turning page, for example for dark mode.
+
 ## 1.1.0 - 2026-09-14
 ### ✨ New Features & Unified API
 - **Unified PageViewMode**: Unified single-page vs two-page spread controls into a single parameter `pageViewMode` (`single`, `double`, `auto`):
