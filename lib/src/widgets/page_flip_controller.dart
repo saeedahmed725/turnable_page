@@ -14,16 +14,48 @@ import '../page/page_flip.dart';
 /// which return a [Future<bool>] completing when the turn finishes, and instant jump methods
 /// (`jumpToPage`) without animation.
 class PageFlipController {
-  late PageFlip _pageFlip;
+  PageFlip? _attached;
+
+  /// Whether a [TurnablePage] / [TurnablePageView] is attached to this
+  /// controller. Until then the getters return neutral values
+  /// (`currentPageIndex` 0, `pageCount` 0, no next/previous page), the
+  /// navigation methods do nothing and return `false`, and
+  /// [addEventListener] / [removeEventListener] throw a [StateError].
+  ///
+  /// Note that the page count is known only after the book's first layout;
+  /// to open on a given page prefer `FlipSettings.startPageIndex` over
+  /// jumping after the first frame.
+  bool get hasClients => _attached != null;
+
+  PageFlip get _pageFlip {
+    final p = _attached;
+    if (p == null) {
+      throw StateError(
+        'PageFlipController is not attached to a TurnablePage yet. '
+        'Check hasClients first.',
+      );
+    }
+    return p;
+  }
   VoidCallback? _resetZoomCallback;
   bool Function()? _isZoomedGetter;
 
   initializeController({required PageFlip pageFlip}) {
-    _pageFlip = pageFlip;
+    _attached = pageFlip;
+  }
+
+  /// Detaches [pageFlip] if it is the one attached (called by the view on
+  /// dispose).
+  void detach(PageFlip pageFlip) {
+    if (identical(_attached, pageFlip)) {
+      _attached = null;
+      _resetZoomCallback = null;
+      _isZoomedGetter = null;
+    }
   }
 
   /// Internal setter for the PageFlip instance
-  set pageFlip(PageFlip pageFlip) => _pageFlip = pageFlip;
+  set pageFlip(PageFlip pageFlip) => _attached = pageFlip;
 
   /// Attach zoom callbacks from TurnablePageView
   void attachZoom({
@@ -43,13 +75,14 @@ class PageFlipController {
   }
 
   /// Get the current page index (0-based)
-  int get currentPageIndex => _pageFlip.getCurrentPageIndex();
+  int get currentPageIndex => _attached?.getCurrentPageIndex() ?? 0;
 
   /// Get the total number of pages
-  int get pageCount => _pageFlip.getPageCount();
+  int get pageCount => _attached?.getPageCount() ?? 0;
 
   /// Check if there is a next page available
   bool get hasNextPage {
+    if (!hasClients) return false;
     final orientation = _pageFlip.renderNullable?.getOrientation();
     final isPortrait = orientation != null
         ? orientation == BookOrientation.portrait
@@ -178,6 +211,7 @@ class PageFlipController {
   /// Register an event listener.
   /// [event] - The [PageFlipEvent] to listen to.
   /// [callback] - Callback function to execute when the event triggers.
+  /// Throws a [StateError] if the controller is not attached ([hasClients]).
   void addEventListener(PageFlipEvent event, EventCallback callback) {
     _pageFlip.on(event, callback);
   }
@@ -190,5 +224,5 @@ class PageFlipController {
   }
 
   /// Get the underlying [PageFlip] instance for advanced operations.
-  PageFlip? get pageFlipInstance => _pageFlip;
+  PageFlip? get pageFlipInstance => _attached;
 }

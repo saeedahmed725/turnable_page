@@ -2,8 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.0.0 - 2026-11-21
+### ⚠️ Breaking changes
+- `FlipSettings.startPageIndex` is now an **initial value only** (like `PageController.initialPage`). Changing it after the book is shown no longer navigates; use `PageFlipController.jumpToPage` / `animateToPage`.
+- `PageFlipEvent.flip` fires once per page change, **after** the turn completes, and its data is always the new page index as an `int`. It used to also fire at the start of `flipNext` / `flipPrev` / `flip` with a `Map`.
+- `PageFlipController` no longer throws `LateInitializationError` before a view is attached: check the new `hasClients`. Until then getters return neutral values and navigation returns `false`. `addEventListener` / `removeEventListener` throw a `StateError`.
+- Single-page back turns by drag now start at the spine and follow the finger's travel, so a short back drag is cancelled instead of turning the page.
+
 ### 🐛 Fixes
+- **A short back drag no longer turns the page** (single-page mode). The previous page used to jump in at the touch point (e.g. 150px on touch), and its release progress started at 50%, so every back drag passed the completion threshold. The release decision now uses the share of the page actually revealed, and a cancelled back turn returns to the spine instead of animating off screen.
 - **Old page flashing at the end of a turn**: the last frames of a completed turn produced zero-area clip polygons, which hid the incoming page so the old page showed for one frame. Degenerate frames are now dropped when the animation is built, the turn completes in the same tick as its final frame, and the painter never clips with a collapsed area. Applies to forward and backward turns, taps, drags and flings.
 - **`onPageChanged` fires once, with the new page, when the turn completes**. It used to fire twice per turn, and `flipNext` / `flipPrev` / `flip` reported the old page when the animation started. `PageFlipEvent.flip` now always carries the new page index as an `int`.
 - **`startPageIndex` is an initial value only** (like `PageController.initialPage`). The widget no longer mutates the caller's settings, and rebuilding with the original settings no longer jumps back to an old page.
@@ -13,12 +20,18 @@ All notable changes to this project will be documented in this file.
 - Replacing the `controller` on a live widget now attaches the new controller.
 - **Forward and back turns now look equally fast in single-page mode.** The edge of a back turn moves 1:1 with the corner, while forward turns only show the first half of the corner's path. Back turns get a bigger frame budget and `previousPage()` starts at the spine instead of off-screen. Completed forward turns use a gentler, near-linear curve, so the flap no longer shoots across the page in ~75 ms.
 - **Releasing a small corner fold returns smoothly** at both the top and bottom corners. The sag arc is scaled to the travel distance (a short return used to make the fold grow before shrinking), the return lasts at least 30% of `flippingTime`, and the bottom corner no longer pops on the last frame. That pop came from `FlipCalculation` only recognising the top corner's resting point.
-- The first drag release in a session no longer finishes instantly. The animation clock used to count the whole drag as elapsed time.
+- **Blank page after `jumpToPage` right after the first frame**: a page-change report deferred to a post-frame callback (the initial `startPageIndex`) could run after a newer jump. It moved the page window back to the old page, so the visible page was empty and `onPageChanged` reported the old page. Superseded reports are now dropped.
+- `PageFlipController.hasClients` tells whether a view is attached. Before that, getters return neutral values and navigation methods return `false` instead of throwing `LateInitializationError`. The controller detaches when its view is disposed.
+- **The page no longer slips out of the finger while dragging.** The checks that decide whether a drag may start (vertical scroll vs page turn, allowed direction) ran on every move. Steering the held page up or down, or moving back past the start point, aborted the turn. They now apply only before the drag starts.
+- **The grabbed spot stays under the finger** (new `FlipSettings.keepGrabOffset`, default `true`). The dragged corner keeps its vertical offset from the touch point instead of jumping to the finger. Mid-height grabs now curl naturally and follow the finger when steered. Set it to `false` for the old behaviour.
+- The first drag release in a session no longer finishes instantly.
+- The paper frame (`PaperBoundaryDecoration`) no longer overflows its parent: `TurnablePage` gives the book the space left after the frame. The animation clock used to count the whole drag as elapsed time.
 
 ### ✨ New options
 - `TurnablePage.pageCacheExtent` / `TurnablePageView.pageCacheExtent` (default 4): pages kept built on **each** side of the current page for books with more than 20 pages. The window is now symmetric (it used to be -4/+5).
 - `FlipSettings.directionFromDrag` (default `false`): in single-page mode, the drag direction decides forward or back instead of where the finger landed. RTL books are mirrored automatically.
 - `FlipSettings.pageBackgroundColor` (default white): the paper color under pages and on the back of a turning page, for example for dark mode.
+- `FlipSettings.pageBorderColor` (nullable): the 1px border around the back of a turning page and around blank filler pages. It used to be hard-coded light gray, which showed as a bright line along the curl on dark pages. When `null`, it is derived from `pageBackgroundColor`: 12% darker for light backgrounds (white still gives `0xFFE0E0E0`) and no border for dark backgrounds.
 
 ## 1.1.0 - 2026-09-14
 ### ✨ New Features & Unified API

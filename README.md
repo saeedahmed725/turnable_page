@@ -39,7 +39,7 @@ Add `turnable_page` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  turnable_page: ^1.1.0
+  turnable_page: ^2.0.0
 ```
 
 Then install dependencies:

@@ -15,16 +15,35 @@ class PaperWidget extends StatelessWidget {
     super.key,
     required this.child,
     required this.size,
-    this.padding = const EdgeInsetsDirectional.only(
-      start: 4.0,
-      end: 4.0,
-      top: 1.0,
-      bottom: 2.0,
-    ),
+    this.padding = defaultPadding,
     this.paperBoundaryDecoration = const PaperBoundaryDecoration(),
     this.isSinglePage = false,
     this.isEnabled = true,
   });
+
+  static const EdgeInsetsDirectional defaultPadding = EdgeInsetsDirectional.only(
+    start: 4.0,
+    end: 4.0,
+    top: 1.0,
+    bottom: 2.0,
+  );
+
+  /// Space the frame adds around the book with [defaultPadding] (it is
+  /// applied three times: outer, middle and inner layer). Zero when the
+  /// frame is not drawn. The book must be this much smaller than the space
+  /// it is given, or the frame overflows it.
+  static Size frameExtent({
+    required bool isEnabled,
+    required PaperBoundaryDecoration decoration,
+    required bool isSinglePage,
+  }) {
+    if (!isEnabled || decoration == PaperBoundaryDecoration.none) {
+      return Size.zero;
+    }
+    const p = defaultPadding;
+    final horizontal = (isSinglePage ? 0.0 : p.start) + p.end;
+    return Size(horizontal * 3, p.vertical * 3);
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -123,10 +123,37 @@ class FlipSettings {
   /// finger. Mirrored automatically for right-to-left books.
   final bool directionFromDrag;
 
+  /// Keep the grabbed spot of the page under the finger (default `true`).
+  ///
+  /// The curl is driven by a page corner. When `true`, the corner keeps the
+  /// vertical offset it had from the finger at the first touch, so grabbing
+  /// the page edge mid-height and pulling gives a natural curl and the page
+  /// follows when steered up or down. When `false` (legacy), the corner
+  /// itself jumps to the finger, which makes mid-height grabs start with a
+  /// large fold and lag behind the finger.
+  final bool keepGrabOffset;
+
   /// Paper color painted under pages, on the back side of a turning page and
   /// on blank filler pages. Defaults to white. Set it to your page background
   /// (e.g. a dark color in dark mode) to avoid light flashes at curl edges.
   final Color pageBackgroundColor;
+
+  /// 1px border drawn around the back side of a turning page and around
+  /// blank filler pages. When `null` (default) it is derived from
+  /// [pageBackgroundColor]: 12% darker for light backgrounds (white gives
+  /// the classic `0xFFE0E0E0`), and no border at all for dark backgrounds,
+  /// so no light line appears along the curl edge in dark mode.
+  final Color? pageBorderColor;
+
+  /// The border color actually painted, or `null` for no border.
+  /// See [pageBorderColor].
+  Color? get effectivePageBorderColor {
+    if (pageBorderColor != null) return pageBorderColor;
+    if (pageBackgroundColor.computeLuminance() < 0.5) return null;
+    final c = Color.lerp(pageBackgroundColor, const Color(0xFF000000), 0.12)!;
+    // Round to 8-bit channels (white -> exactly 0xFFE0E0E0).
+    return Color(c.toARGB32());
+  }
 
   FlipSettings({
     /// Initial page to display (0-based). Default: 0 (first page)
@@ -206,7 +233,9 @@ class FlipSettings {
     this.maxScale = 3.0,
     this.swipeAngleThreshold = 1.25,
     this.directionFromDrag = false,
+    this.keepGrabOffset = true,
     this.pageBackgroundColor = const Color(0xFFFFFFFF),
+    this.pageBorderColor,
   }) : pageViewMode = pageViewMode ??
             (usePortrait != null
                 ? (usePortrait ? PageViewMode.single : PageViewMode.double)
@@ -248,7 +277,9 @@ class FlipSettings {
     double? maxScale,
     double? swipeAngleThreshold,
     bool? directionFromDrag,
+    bool? keepGrabOffset,
     Color? pageBackgroundColor,
+    Color? pageBorderColor,
   }) {
     final resolvedMode = pageViewMode ??
         (usePortrait != null
@@ -294,7 +325,9 @@ class FlipSettings {
       maxScale: maxScale ?? this.maxScale,
       swipeAngleThreshold: swipeAngleThreshold ?? this.swipeAngleThreshold,
       directionFromDrag: directionFromDrag ?? this.directionFromDrag,
+      keepGrabOffset: keepGrabOffset ?? this.keepGrabOffset,
       pageBackgroundColor: pageBackgroundColor ?? this.pageBackgroundColor,
+      pageBorderColor: pageBorderColor ?? this.pageBorderColor,
     );
   }
 }

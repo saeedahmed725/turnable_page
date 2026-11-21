@@ -65,6 +65,9 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   /// frame after a page change so the turn's final frame is not slowed down
   /// by building/tearing down off-screen pages.
   late int _windowCenter;
+
+  /// Sequence number of the latest page-change report (see the flip handler).
+  int _pageReportSeq = 0;
   bool _windowUpdateScheduled = false;
 
   /// Built page widgets, reused across rebuilds caused by page changes or
@@ -102,6 +105,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     // content may have changed, so drop cached page widgets.
     _pageCache.clear();
     if (widget.controller != oldWidget.controller) {
+      oldWidget.controller?.detach(_pageFlip);
       widget.controller?.initializeController(pageFlip: _pageFlip);
       widget.controller?.attachZoom(
         resetZoom: _resetZoom,
@@ -186,6 +190,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
 
   @override
   void dispose() {
+    widget.controller?.detach(_pageFlip);
     _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     super.dispose();
@@ -215,8 +220,16 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       final left = newIndex;
       final right = (newIndex + 1 < widget.pageCount) ? newIndex + 1 : -1;
 
+      // Each report gets a sequence number. A report deferred to a post-frame
+      // callback may be overtaken by a newer one that is applied immediately
+      // (e.g. `jumpToPage` called from another post-frame callback right
+      // after the initial `show(startPageIndex)`). Applying the stale one
+      // afterwards moved the window back to the old page and left the visible
+      // page blank, so superseded reports are dropped.
+      final seq = ++_pageReportSeq;
+
       void applyPageChange() {
-        if (!mounted) return;
+        if (!mounted || seq != _pageReportSeq) return;
         _currentPageIndex = newIndex;
         _updateWindowFor(newIndex);
         if (isRtl && !_isSingleMode) {

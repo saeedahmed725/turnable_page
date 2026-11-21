@@ -765,14 +765,16 @@ class RenderTurnableBook extends RenderBox
       ..color = settings.pageBackgroundColor
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height), paint);
-    final borderPaint = Paint()
-      ..color = const Color(0xFFE0E0E0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
-      borderPaint,
-    );
+    final borderColor = settings.effectivePageBorderColor;
+    if (borderColor != null) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
     canvas.restore();
 
     // Subtle hairline boundary along curling white page perimeter
@@ -1089,7 +1091,10 @@ class RenderTurnableBook extends RenderBox
     // - Right page can ONLY drag to the LEFT (deltaX < 0) to turn forward.
     //   Dragging to the RIGHT (deltaX > 0) is an invalid reverse drag -> FORBIDDEN!
     //   Also, dragging to the left requires canFlipNext() -> if false, FORBIDDEN!
-    if (isLandscape && absDeltaX > 5.0) {
+    // These checks decide whether a drag may START. Once the page is in the
+    // user's hand (_isDragging) it must follow the finger anywhere: moving
+    // back past the start point just un-curls the page, it never drops it.
+    if (!_isDragging && isLandscape && absDeltaX > 5.0) {
       if (isTouchOnLeftSide) {
         if (deltaX < 0 || !pageFlip.canFlipPrev()) {
           _isInvalidDirectionLocked = true;
@@ -1108,7 +1113,7 @@ class RenderTurnableBook extends RenderBox
     // In Portrait (Single page):
     // - Dragging to the RIGHT (deltaX > 0) turns PREV -> disallowed if !canFlipPrev!
     // - Dragging to the LEFT (deltaX < 0) turns NEXT -> disallowed if !canFlipNext!
-    if (!isLandscape && absDeltaX > 5.0) {
+    if (!_isDragging && !isLandscape && absDeltaX > 5.0) {
       if (deltaX > 0 && !pageFlip.canFlipPrev()) {
         _isInvalidDirectionLocked = true;
         pageFlip.abortFlip();
@@ -1139,29 +1144,27 @@ class RenderTurnableBook extends RenderBox
             return;
           }
         }
-      } else {
+      } else if (!_isDragging) {
         if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
-          // Priority 1: Vertical movement intent -> lock to child scroll view completely
+          // Priority 1: Vertical movement intent -> lock to child scroll view
+          // completely. Only decided BEFORE the flip starts: once the user
+          // holds the page, steering it up/down (deltaY > deltaX measured
+          // from the first touch) used to abort the flip and drop the page
+          // out of the finger.
           if (!settings.onlyVerticalPageFlip && deltaY > absDeltaX) {
             _isVerticalScrollLocked = true;
             _arenaEntry?.resolve(GestureDisposition.rejected);
             _arenaEntry = null;
-            if (_isDragging) {
-              _isDragging = false;
-              pageFlip.abortFlip();
-            }
             return;
           }
 
           // Priority 2: Clear horizontal page flip intent
-          if (!_isDragging) {
-            if (absDeltaX > deltaY * settings.swipeAngleThreshold) {
-              _isDragging = true;
-              _arenaEntry?.resolve(GestureDisposition.accepted);
-              _beginUserDrag(deltaX, timeMs);
-            } else {
-              return; // Ambiguous or vertical motion, yield to child
-            }
+          if (absDeltaX > deltaY * settings.swipeAngleThreshold) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            _beginUserDrag(deltaX, timeMs);
+          } else {
+            return; // Ambiguous or vertical motion, yield to child
           }
         }
 
@@ -1261,8 +1264,26 @@ class RenderTurnableBook extends RenderBox
   /// re-anchors the curl to the page edge matching the drag direction.
   model.Point _dragShift = const model.Point(0, 0);
 
-  model.Point _shiftDrag(model.Point p) =>
-      model.Point(p.x + _dragShift.x, p.y + _dragShift.y);
+  /// With [FlipSettings.keepGrabOffset]: which corner is being dragged
+  /// (null = no clamping) and the minimum lift of that corner off its edge.
+  bool? _dragTopCorner;
+  double _dragMinLift = 0;
+
+  model.Point _shiftDrag(model.Point p) {
+    double y = p.y + _dragShift.y;
+    final top = _dragTopCorner;
+    if (top != null) {
+      // Keep the corner slightly off its edge: a corner exactly on the
+      // top/bottom edge makes the fold geometry collapse (zero-area clip).
+      final rect = getRect();
+      if (top) {
+        y = math.max(y, rect.top + _dragMinLift);
+      } else {
+        y = math.min(y, rect.top + rect.height - _dragMinLift);
+      }
+    }
+    return model.Point(p.x + _dragShift.x, y);
+  }
 
   /// Starts a user drag. Local coordinates are already mirrored for RTL
   /// books (the whole book is flipped with a Transform), so a negative
@@ -1270,6 +1291,22 @@ class RenderTurnableBook extends RenderBox
   void _beginUserDrag(double deltaX, double? timeMs) {
     final start = _initialTouchPoint!;
     _dragShift = const model.Point(0, 0);
+    _dragTopCorner = null;
+    double shiftY = 0;
+    if (settings.keepGrabOffset) {
+      // The flip is driven by the corner on the grabbed half of the page.
+      // Offset the finger so that corner starts at its resting place and
+      // then moves exactly with the finger: the grabbed spot stays under the
+      // finger instead of the corner jumping to it (and then being held back
+      // by the paper's reach when steered up or down).
+      final rect = getRect();
+      final top = start.y - rect.top < rect.height / 2;
+      _dragTopCorner = top;
+      _dragMinLift = math.max(4.0, rect.height * 0.02);
+      final restY = top ? rect.top : rect.top + rect.height;
+      shiftY = restY - start.y;
+    }
+    _dragShift = model.Point(0, shiftY);
     if (settings.directionFromDrag &&
         _orientation == BookOrientation.portrait &&
         deltaX != 0) {
@@ -1283,8 +1320,18 @@ class RenderTurnableBook extends RenderBox
         final anchorX = forward
             ? rect.left + rect.width - 2
             : rect.left + rect.pageWidth + 2;
-        _dragShift = model.Point(anchorX - start.x, 0);
+        _dragShift = model.Point(anchorX - start.x, shiftY);
       }
+    } else if (_orientation == BookOrientation.portrait &&
+        pageFlip.canFlipPrev() &&
+        pageFlip.flipProcess.getDirectionByPoint(convertToBook(start)) ==
+            FlipDirection.back) {
+      // Legacy direction-by-position back turn: the previous page enters at
+      // the spine. Without this anchor it jumped straight to the touch point
+      // (e.g. 150px of the page appeared on touch), and that head start made
+      // even a tiny drag complete the turn on release.
+      final rect = getRect();
+      _dragShift = model.Point(rect.left + rect.pageWidth + 2 - start.x, shiftY);
     }
     pageFlip.startUserTouch(_shiftDrag(start), timeMs);
     ensureAnimating();
@@ -1292,6 +1339,7 @@ class RenderTurnableBook extends RenderBox
 
   void _resetGestureState() {
     _dragShift = const model.Point(0, 0);
+    _dragTopCorner = null;
     _isDragging = false;
     _isVerticalScrollLocked = false;
     _isInvalidDirectionLocked = false;
@@ -1332,10 +1380,15 @@ class RenderTurnableBook extends RenderBox
       rect.height,
     );
     canvas.drawRect(whitePageRect, paint);
-    final borderPaint = Paint()
-      ..color = const Color(0xFFE0E0E0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRect(whitePageRect, borderPaint);
+    final borderColor = settings.effectivePageBorderColor;
+    if (borderColor != null) {
+      canvas.drawRect(
+        whitePageRect,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
   }
 }

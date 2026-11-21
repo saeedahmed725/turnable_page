@@ -21,3 +21,6 @@ StPageFlip/
 # Internal documentation / scratch files
 rodo.md
 TODO.md
+
+# Large / personal example assets (the example also has online PDF demos)
+example/assets/*.pdf

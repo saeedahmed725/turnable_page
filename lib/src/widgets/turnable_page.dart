@@ -4,6 +4,7 @@ import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
 import '../model/paper_boundary_decoration.dart';
 import 'page_flip_controller.dart';
+import 'paper_widget.dart';
 import 'turnable_page_view.dart';
 
 class TurnablePage extends StatelessWidget {
@@ -98,9 +99,16 @@ class TurnablePage extends StatelessWidget {
         final aspectRatio = _getAspectRatio(isMobile);
         FlipSettings adjustedSettings = _getAdjustedSetting(isMobile);
 
+        // The paper frame is drawn around the book, so the book gets the
+        // space left after it (otherwise the frame overflows the parent).
+        final frame = PaperWidget.frameExtent(
+          isEnabled: pagesBoundaryIsEnabled,
+          decoration: paperBoundaryDecoration,
+          isSinglePage: _resolveMode(isMobile) == PageViewMode.single,
+        );
         final bookSize = _calculateBookSize(
-          maxWidth: constraints.maxWidth,
-          maxHeight: constraints.maxHeight,
+          maxWidth: constraints.maxWidth - frame.width,
+          maxHeight: constraints.maxHeight - frame.height,
           aspectRatio: aspectRatio,
         );
         adjustedSettings = adjustedSettings.copyWith(

@@ -245,7 +245,7 @@ class FlipProcess {
 
     final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
 
-    final progress = calc!.getFlippingProgress() / 100.0;
+    final progress = _releaseProgress();
 
     // If user holds near bottom and releases with small horizontal movement but high progress,
     // force completion to avoid page freezing visually at bottom corner.
@@ -270,11 +270,34 @@ class FlipProcess {
     } else {
       animateFlippingTo(
         pos,
-        Point(rect.pageWidth.toDouble(), y.toDouble()),
+        Point(_cancelX(rect), y.toDouble()),
         false,
       );
     }
   }
+
+  bool get _isPortraitBack =>
+      render.getOrientation() == BookOrientation.portrait &&
+      calc?.getDirection() == FlipDirection.back;
+
+  /// Share (0..1) of the incoming page the user has revealed, used to decide
+  /// whether a released drag completes.
+  ///
+  /// For a back turn in single-page mode the corner starts at the spine,
+  /// which is already 50% of [FlipCalculation.getFlippingProgress]. Using the
+  /// raw value there made every back drag pass the completion threshold, so
+  /// even a tiny drag turned the page. The visible share is `-x / pageWidth`.
+  double _releaseProgress() {
+    final progress = calc!.getFlippingProgress() / 100.0;
+    if (!_isPortraitBack) return progress;
+    return (2 * progress - 1).clamp(0.0, 1.0).toDouble();
+  }
+
+  /// Where a cancelled drag returns the corner. For a back turn in
+  /// single-page mode the page leaves at the spine (x = 0): going on to
+  /// +pageWidth only animated an invisible page and rushed the visible part.
+  double _cancelX(PageRect rect) =>
+      _isPortraitBack ? 2.0 : rect.pageWidth.toDouble();
 
   /// Stop move with inertia consideration
   void stopMoveWithInertia(bool fastSwipe, double velocity) {
@@ -284,7 +307,7 @@ class FlipProcess {
     final rect = getBoundsRect();
     final y = calc!.getCorner() == FlipCorner.bottom ? rect.height : 0;
 
-    double progress = calc!.getFlippingProgress() / 100.0;
+    final progress = _releaseProgress();
     bool complete;
 
     final dirForward = calc!.getDirection() == FlipDirection.forward;
@@ -312,7 +335,7 @@ class FlipProcess {
     } else {
       animateFlippingTo(
         pos,
-        Point(rect.pageWidth.toDouble(), y.toDouble()),
+        Point(_cancelX(rect), y.toDouble()),
         false,
       );
     }
