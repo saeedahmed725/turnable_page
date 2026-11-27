@@ -1,6 +1,6 @@
 name: turnable_page
-description: "Realistic page-flipping widget for Flutter with smooth animations, interactive content, and smart gesture detection."
-version: 1.0.2
+description: "Realistic page flip and page curl widget for Flutter. Build interactive flipbooks, e-books, magazines and PDF viewers with single, double or RTL pages."
+version: 2.1.0
 homepage: https://saeed-flutter.vercel.app
 repository: https://github.com/saeedahmed725/turnable_page
 documentation: https://saeedahmed725.github.io/turnable_page/
