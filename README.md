@@ -1,350 +1,219 @@
-# Turnable Page
+# Turnable Page: realistic page flip for Flutter
 
-A Flutter package that provides a realistic page-flipping effect for digital books, magazines, catalogs, and other multi-page content in Flutter applications.
+[![pub package](https://img.shields.io/pub/v/turnable_page.svg)](https://pub.dev/packages/turnable_page)
+[![pub points](https://img.shields.io/pub/points/turnable_page)](https://pub.dev/packages/turnable_page/score)
+[![likes](https://img.shields.io/pub/likes/turnable_page)](https://pub.dev/packages/turnable_page)
+[![docs](https://img.shields.io/badge/docs-website-a4471c)](https://saeedahmed725.github.io/turnable_page/)
 
-## Migration Guide (v0.x → v1.0.0)
+A **page flip / page curl widget for Flutter**. Build flipbooks, e-books, magazines, catalogs, Quran and manga readers, and **PDF page-turn viewers**, where every page is a normal, fully interactive Flutter widget.
 
+📖 **[Read the full documentation →](https://saeedahmed725.github.io/turnable_page/)**
 
-### ✨ What's New
-
-- **Interactive content now works** - buttons, inputs, and other widgets inside pages are fully functional
-- **Smart gesture detection** - automatic differentiation between widget interaction and page flipping
-- **Better performance** - migrated from CustomPainter to Flutter's native RenderBox system
-
+| Two-page spread (desktop) | Single page (mobile) | Responsive `auto` mode |
+|:---:|:---:|:---:|
+| ![Flutter page flip animation in a two-page book spread](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/desktop-fliping.gif) | ![Flutter page curl animation on mobile, single page](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/mobile-fliping.gif) | ![Flutter flipbook switching between single and double page](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/responsiveness.gif) |
 
 ## Features
 
-✅ **Realistic Physics**: Advanced flip animations with proper physics and shadows  
-✅ **Interactive Content**: Full support for interactive widgets (buttons, inputs, etc.) within pages  
-✅ **Smart Gestures**: Automatic differentiation between drag (page flip) and tap (widget interaction)  
-✅ **Touch Support**: Full touch and gesture support for mobile devices  
-✅ **Multiple Orientations**: Automatic portrait/landscape orientation handling  
-✅ **Widget Support**: Use any Flutter widget as page content with full interactivity  
-✅ **Customizable**: Extensive configuration options for gestures and animations  
-✅ **Performance**: Hardware-accelerated rendering using Flutter's native RenderBox system  
-✅ **Events**: Rich event system for interaction handling  
-✅ **Responsive**: Auto-sizing and responsive layout support  
-✅ **Cross-Platform**: Supports Mobile, Web, and Windows
-
-> **NEW**: Widgets inside book pages are now fully interactive! The smart gesture system automatically detects when you're interacting with buttons or other widgets vs. when you want to flip pages.
-
-## Demo
-
-### Desktop flipping
-
-![Desktop flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/desktop-fliping.gif)
-
-### Mobile flipping
-
-![Mobile flipping](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/mobile-fliping.gif)
-
-### Responsiveness
-
-![Responsiveness](https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/responsiveness.gif)
+- **Realistic page curl**: bending paper, a white back side, and shadows on the fold, the spine and the page below.
+- **Interactive pages**: buttons, text fields and scroll views inside a page keep working. Pages are live widgets, not screenshots.
+- **Single, double or `auto` layout**: one page on phones, a two-page spread on tablets and desktop.
+- **PDF flipbook**: open a PDF from an asset, a URL or a file with `TurnablePdf`.
+- **Pinch-to-zoom** with an optional double-tap zoom.
+- **RTL books** for Arabic, Hebrew, Persian and Urdu, with mirrored page turns.
+- **Controller**: next, previous, animate or jump to any page, and listen to page events.
+- **Large books**: only the pages near the current one are built.
 
 ## Installation
 
-Add this to your package's `pubspec.yaml` file:
-
 ```yaml
 dependencies:
-  turnable_page: ^1.0.0
+  turnable_page: ^2.0.0
 ```
-
-Then run:
-
-```bash
-flutter pub get
-```
-
-## Basic Usage
-
-### Simple Widget-Based Book
 
 ```dart
-import 'package:flutter/material.dart';
 import 'package:turnable_page/turnable_page.dart';
+```
 
-class MyBook extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: TurnablePage(
-            pageCount: 6,
-            pageBuilder: (index, constraints) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: Center(
-                  child: Text(
-                    'Page ${index + 1}',
-                    style: TextStyle(fontSize: 24),
-                  ),
-                ),
-              );
-            },
-          ),
-      ),
+## Quick start
+
+```dart
+TurnablePage(
+  pageCount: 10,
+  pageViewMode: PageViewMode.auto,
+  builder: (context, pageIndex, constraints) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Center(child: Text('Page ${pageIndex + 1}')),
     );
-  }
-}
-```
-
-### Page Flip Controller
-
-Controller class for programmatic page manipulation.
-
-#### Methods
-
-- `nextPage()` - Turn to the next page (without animation)
-- `previousPage()` - Turn to the previous page (without animation)
-- `goToPage(int pageIndex)` - Jump to a specific page (without animation)
-- `flipNext([FlipCorner corner])` - Flip to next page with animation
-- `flipPrev([FlipCorner corner])` - Flip to previous page with animation
-- `flipToPage(int pageIndex, [FlipCorner corner])` - Flip to specific page with animation
-
-#### Properties
-
-- `currentPageIndex` - Get current page index (0-based)
-- `pageCount` - Get total number of pages
-- `hasNextPage` - Check if next page is available
-- `hasPreviousPage` - Check if previous page is available
-- `canFlipNext` - Check if can flip to next page
-- `canFlipPrev` - Check if can flip to previous page
-
-
-### Usage
-
-```dart
-PageFlipController _controller = PageFlipController;
-
-_controller.previousPage();
-_controller.nextPage();
-_controller.goToPage(5);
-_controller.flipPrev();
-_controller.flipNext();
-_controller.flipToPage(5);
-
-_controller.hasPreviousPage;
-_controller.hasNextPage;
-
-```
-
-
-## Gesture Behavior
-
-Page flip initiation is simplified: users flip pages by dragging or tapping near a page corner. Interactions on widgets (buttons, etc.) inside a page are still delivered to those widgets; a flip starts only when the gesture originates in a corner region or becomes a drag exceeding the movement threshold.
-
-Key tunables that remain:
-```dart
-FlipSettings(
-  cornerTriggerAreaSize: 0.15, // fraction of page diagonal for active corners
-  swipeDistance: 80.0,         // drag distance threshold
+  },
+  onPageChanged: (leftIndex, rightIndex) {
+    debugPrint('Showing $leftIndex / $rightIndex');
+  },
 )
 ```
-Removed flags: enableSmartGestures, disableFlipByClick, clickEventForward (behavior now automatic and consistent).
 
+Drag a page or tap it to turn it. The book sizes itself to fit its parent while keeping `aspectRatio`.
 
-#### Parameters
+## Page layout: single, double or auto
 
-- `controller` - Optional controller for programmatic page control
-- `itemBuilder` - Builder function that creates widget content for each page
-- `itemCount` - Total number of pages in the book
-- `onPageChanged` - Callback fired when page changes
-- `pageViewMode` - Display mode: single page or double page spread
-- `pixelRatio` - Rendering pixel ratio for quality
-- `autoResponseSize` - Whether to automatically adjust size to container
-- `aspectRatio` - Custom aspect ratio for the book
-- `paperBoundaryDecoration` - Visual style for page boundaries
-- `settings` - Detailed flip behavior configuration
+| `PageViewMode` | Behavior |
+|---|---|
+| `single` (default) | One page at a time. |
+| `double` | Two-page book spread. |
+| `auto` | One page under 600 px of width, two pages from 600 px. |
 
+Set `FlipSettings(showCover: true)` to show the first and last pages alone, like a hardcover book.
 
-
-### FlipSettings Configuration
-
-Configuration object for customizing flip behavior and appearance.
-
-#### Constructor Parameters
-
-| Parameter             | Type       | Default          | Description                                                |
-| --------------------- | ---------- | ---------------- | ---------------------------------------------------------- |
-| `startPageIndex`      | `int`      | `0`              | Initial page to display (0-based index)                    |
-| `size`                | `SizeType` | `SizeType.fixed` | Size calculation: fixed dimensions or stretch to fit       |
-| `width`               | `double`   | `0`              | Width of the book in pixels                                |
-| `height`              | `double`   | `0`              | Height of the book in pixels                               |
-| `drawShadow`          | `bool`     | `true`           | Whether to draw realistic shadow effects                   |
-| `flippingTime`        | `int`      | `700`            | Duration of flip animation in milliseconds                 |
-| `usePortrait`         | `bool`     | `true`           | Portrait mode (single page) vs landscape (two-page spread) |
-| `maxShadowOpacity`    | `double`   | `1.0`            | Maximum opacity for shadow effects (0.0 to 1.0)            |
-| `showCover`           | `bool`     | `false`          | Whether the book has a front/back cover                    |
-| `mobileScrollSupport` | `bool`     | `true`           | Enable touch scrolling on mobile devices                   |
-| `swipeDistance`       | `double`   | `100.0`          | Minimum distance in pixels for swipe gesture               |
-| `showPageCorners`     | `bool`     | `true`           | Show interactive corner highlighting on hover              |
-
-#### PageViewMode
-
-- `PageViewMode.single` - Single page view (portrait orientation)
-- `PageViewMode.double` - Double page spread (landscape orientation)
-
-#### SizeType
-
-- `SizeType.fixed` - Fixed dimensions specified by width/height
-- `SizeType.stretch` - Stretch to fit parent container
-
-#### FlipCorner
-
-- `FlipCorner.topLeft` - Flip from top-left corner
-- `FlipCorner.topRight` - Flip from top-right corner
-- `FlipCorner.bottomLeft` - Flip from bottom-left corner
-- `FlipCorner.bottomRight` - Flip from bottom-right corner
-
-#### PaperBoundaryDecoration
-
-- `PaperBoundaryDecoration.vintage` - Vintage paper styling
-- `PaperBoundaryDecoration.modern` - Modern clean styling
-- `PaperBoundaryDecoration.parchment` - Parchment-style textured paper with warm, aged tones
-
-
-### Responsive Design
+## Navigate with `PageFlipController`
 
 ```dart
-// Automatic responsive behavior
+final controller = PageFlipController();
+
+TurnablePage(controller: controller, pageCount: 20, builder: buildPage);
+
+await controller.nextPage();      // animated, completes when the turn ends
+await controller.previousPage();
+await controller.animateToPage(7);
+controller.jumpToPage(3);         // instant
+
+controller.currentPageIndex;      // 0-based
+controller.hasNextPage;
+controller.hasClients;            // true once the book is on screen
+```
+
+Every navigation method returns `false` when the page index is out of range or no book is attached. To react to events, use `controller.addEventListener(PageFlipEvent.flip, (e) => ...)`.
+
+## Interactive pages and taps
+
+By default, a tap on an empty part of a page turns it, and the page corners are reserved for turning. If your pages have their own tap targets (links, buttons, verses), turn that off:
+
+```dart
 TurnablePage(
-  autoResponseSize: true,      // Adapts to device size only in single mode
-  pageViewMode: PageViewMode.single, // Switches based on screen size
+  settings: FlipSettings(flipOnTap: false),
   // ...
 )
 ```
 
-### PDF Support (TurnablePdf)
+Taps then always reach the page, and pages turn only by dragging (corners included) or from the controller. Vertical scroll views inside a page scroll normally. A mostly horizontal drag turns the page.
 
-The package includes a helper wrapper `TurnablePdf` for quickly displaying PDF documents with the same flipping experience.
-
-#### Initialization
-
-Call once before runApp (e.g. in `main()`):
+## Pinch-to-zoom
 
 ```dart
-void main() async {
+TurnablePage(
+  enableZoom: true,
+  minScale: 1.0,
+  maxScale: 3.0,
+  // ...
+)
+```
+
+While a page is zoomed in, dragging pans the page instead of turning it. By default, a double tap zooms in and out. Set `enableDoubleTapZoom: false` to keep pinch-to-zoom and use double tap for your own gesture, such as toggling the reader UI. To reset the zoom from code, call `controller.resetZoom()`.
+
+## PDF page flip viewer
+
+Initialize the PDF engine once, before `runApp`:
+
+```dart
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  TurnablePdf.initPDFLoaders(); // prepare PDF loaders (network / asset / file)
+  await TurnablePdf.initPDFLoaders();
   runApp(const MyApp());
 }
 ```
 
-#### Basic Network PDF
+Then open the document:
 
 ```dart
-TurnablePdf.network(
-  'https://example.com/sample.pdf',
-  pageViewMode: PageViewMode.double,
-  paperBoundaryDecoration: PaperBoundaryDecoration.modern,
-  settings: FlipSettings(
-    flippingTime: 800,
-    swipeDistance: 60,
-    cornerTriggerAreaSize: 0.15,
-  ),
+TurnablePdf.asset('assets/catalog.pdf', pageViewMode: PageViewMode.auto);
+TurnablePdf.network('https://example.com/magazine.pdf', headers: {'Authorization': token});
+TurnablePdf.file('/path/to/book.pdf');
+```
+
+`TurnablePdf` accepts the same `controller`, `settings`, `onPageChanged` and `textDirection` as `TurnablePage`, plus `loadingBuilder` and `errorBuilder`. PDF rendering is provided by [pdfrx](https://pub.dev/packages/pdfrx).
+
+## Right-to-left books
+
+```dart
+TurnablePage(
+  textDirection: TextDirection.rtl, // or leave null to follow Directionality
+  // ...
 )
 ```
 
-#### From Assets
+Page 1 is on the right and pages turn from left to right.
+
+## Styling
+
+**Book frame**: `paperBoundaryDecoration` takes `PaperBoundaryDecoration.vintage` (default), `.modern`, `.parchment` or `.none`, or your own `PaperBoundaryDecoration(...)`.
+
+**Paper and shadows**:
 
 ```dart
-TurnablePdf.asset(
-  'assets/docs/book.pdf',
-  pageViewMode: PageViewMode.single,
+FlipSettings(
+  flippingTime: 600,                     // turn duration in ms
+  pageBackgroundColor: Color(0xFF1E1E1E), // match dark pages to avoid light edges
+  drawShadow: true,
+  showCenterShadow: true,                 // spine shadow in a two-page spread
+  centerShadowColor: Colors.black,
+  innerShadowColor: Colors.black,
+  outerShadowColor: Colors.black,
 )
 ```
 
-#### From File (e.g. file picker)
+## API reference
 
-```dart
-final file = File(pathFromPicker);
-TurnablePdf.file(
-  file,
-  pageViewMode: PageViewMode.double,
-)
-```
+### `TurnablePage`
 
-#### Custom Page Builder Hook
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `pageCount` | `int` | required | Number of pages. |
+| `builder` | `TurnableBuilder` | required | `(context, pageIndex, constraints)` → page widget. |
+| `pageViewMode` | `PageViewMode?` | `single` | `single`, `double` or `auto`. |
+| `controller` | `PageFlipController?` | `null` | Navigation and state. |
+| `onPageChanged` | `TurnablePageCallback?` | `null` | `(leftIndex, rightIndex)`, called once each turn completes. |
+| `settings` | `FlipSettings?` | `FlipSettings()` | Behavior and appearance (see below). |
+| `aspectRatio` | `double?` | `2/3` per page | Width ÷ height of one page. |
+| `textDirection` | `TextDirection?` | ambient | `ltr` or `rtl`. |
+| `paperBoundaryDecoration` | `PaperBoundaryDecoration` | `vintage` | Frame around the book. |
+| `pagesBoundaryIsEnabled` | `bool` | `true` | Show the frame. |
+| `pageCacheExtent` | `int` | `4` | Pages kept built on each side of the current page. |
+| `enableZoom` | `bool?` | `false` | Pinch-to-zoom. |
+| `enableDoubleTapZoom` | `bool?` | `true` | Double tap toggles zoom when `enableZoom` is on. |
+| `minScale` / `maxScale` | `double?` | `1.0` / `3.0` | Zoom limits. |
 
-You can wrap each rendered PDF page (which is provided as an `Image` / `Widget`) inside additional UI by using the standard `builder` of `TurnablePage` in combination with `TurnablePdf` if you expose the underlying controller. (Advanced usage; see source for details.)
+### `FlipSettings`
 
-#### Notes
+| Parameter | Default | Description |
+|---|---|---|
+| `startPageIndex` | `0` | First page shown. Initial value only: use the controller to navigate later. |
+| `flippingTime` | `700` | Turn animation duration in ms. |
+| `showCover` | `false` | Show the first and last pages alone, like covers. |
+| `flipOnTap` | `true` | Tap to turn and reserve the corners for turning. Set to `false` for tappable page content. |
+| `cornerTriggerAreaSize` | `0.2` | Size of the corner hot zone, as a fraction of the page diagonal. |
+| `enableInertia` | `true` | A fast fling finishes the turn. |
+| `enableEasing` | `true` | Eased turn animation. |
+| `onlyVerticalPageFlip` | `false` | Turn pages with vertical drags only. |
+| `drawShadow` | `true` | All turn shadows. |
+| `showCenterShadow` | `true` | Spine shadow in a two-page spread. |
+| `centerShadowColor`, `innerShadowColor`, `outerShadowColor` | `Colors.black` | Shadow colors. |
+| `maxShadowOpacity` | `1.0` | Shadow strength, from 0 to 1. |
+| `pageBackgroundColor` | white | Paper color behind and under pages. |
 
-- Pages are rasterized; large PDFs may take time to render on first load.
+The full list, including the bend and inertia tuning values, is in the [API docs](https://pub.dev/documentation/turnable_page/latest/turnable_page/FlipSettings-class.html).
 
-## Roadmap
+## Documentation
 
-- [x] Core page flipping logic
-- [x] Widget-based pages
-- [x] Touch/gesture handling
-- [x] Interactive content support
-- [x] Smart gesture detection
-- [x] Event system and callbacks
-- [x] Hardware-accelerated rendering with RenderBox
-- [x] Responsive design support
-- [x] Portrait/landscape orientation
-- [x] PDF document support
-- [ ] Enhanced accessibility features
-- [ ] Advanced animation customization
-- [ ] Bookmark and navigation features
+The [documentation website](https://saeedahmed725.github.io/turnable_page/) covers every feature in depth: gestures, events, PDF loading, styling, the full `FlipSettings` reference, recipes, migrating to 2.0, and troubleshooting.
 
+## Example app
 
-
+See [`example/`](https://github.com/saeedahmed725/turnable_page/tree/main/example) for a complete demo with all modes, PDF loading and controller usage.
 
 ## Contributing
 
-Contributions are welcome! Feel free to open issues and PRs to improve the package.
-
-### Development Setup
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/saeedahmed725/turnable_page.git
-cd turnable_page
-```
-
-2. Install dependencies:
-
-```bash
-flutter pub get
-```
-
-3. Run the example:
-
-```bash
-cd example
-flutter run
-```
-
-### Guidelines
-
-- Keep the public API stable when possible and document any changes
-- Follow Flutter development best practices
-- Include tests for new features
-- Update documentation for any API changes
-- Ensure backward compatibility
+Bug reports and feature requests are welcome on the [issue tracker](https://github.com/saeedahmed725/turnable_page/issues). Pull requests go through the official repository.
 
 ## License
 
-This project is distributed under the Turnable Page Proprietary License (TPPL). Usage, redistribution, and modification are not permitted except via approved pull requests in the official GitHub repository. See the [LICENSE](LICENSE) file for full terms.
-
-## Credits
-
-- Built with ❤️ for the Flutter community
-
-## Support
-
-If you find this package helpful, please:
-
-- ⭐ Star the repository on GitHub
-- 🐛 Report issues on GitHub Issues
-- 💡 Suggest features and improvements
-- 📖 Contribute to documentation
-
-For support and questions, please use GitHub Issues or start a discussion in the repository.
+Turnable Page Proprietary License (TPPL). See [LICENSE](LICENSE).

@@ -1,21 +1,20 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:turnable_page/turnable_page.dart';
 import '../collection/page_collection_impl.dart';
 import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
-import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
-import '../enums/flipping_state.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
-import '../flip/flip_settings.dart';
+import '../helpers/helper.dart';
 import '../model/page_rect.dart';
 import '../model/point.dart' as model;
 import '../model/rect_points.dart';
 import '../model/shadow.dart';
-import '../model/swipe_data.dart';
 import '../page/book_page.dart';
 import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
@@ -26,8 +25,7 @@ class RenderTurnableBook extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, TurnableParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, TurnableParentData>
-    implements RenderPage {
-  static const int _swipeTimeout = 250;
+    implements RenderPage, GestureArenaMember {
   static const double _minMoveThreshold = 10.0;
   bool get _needsWhitePage {
     if (settings.usePortrait) return false;
@@ -48,16 +46,21 @@ class RenderTurnableBook extends RenderBox
   BookPage? bottomPage;
   AnimationProcess? animation;
   Shadow? shadow;
+
+  /// Progress (0-100) of the current flip, as last reported by the flip
+  /// process. Used to decide how to paint a page whose clip area collapsed.
+  double _flipProgress = 0;
   bool _frameScheduled = false;
   double _timeMs = 0;
   double? _lastRawTickerMs;
   List<RenderBox?> _indexedChildren = <RenderBox?>[];
   bool _needsIndexRebuild = true;
-  SwipeData? _touchPoint;
-  double get _swipeDistance => settings.swipeDistance;
 
   // Auto gesture detection properties
   bool _isDragging = false;
+  bool _isVerticalScrollLocked = false;
+  bool _isInvalidDirectionLocked = false;
+  bool isZoomed = false;
   model.Point? _initialTouchPoint;
 
   RenderTurnableBook(this.settings, this.pageFlip) {
@@ -65,7 +68,18 @@ class RenderTurnableBook extends RenderBox
     collection = PageCollectionImpl(pageFlip, this, 0);
   }
 
+  // Always request compositing so Flutter allocates proper layers for children
+  // that push their own compositing layers (e.g. CachedNetworkImage, RepaintBoundary).
+  // Without this, canvas.save/restore pairs can reference a stale native canvas
+  // peer after a child switches the active PictureLayer.
+  @override
+  bool get alwaysNeedsCompositing => true;
+
   void updateSettings(FlipSettings s) {
+    // [FlipSettings.startPageIndex] is an initial value only (like
+    // PageController.initialPage). Re-applying it here made any rebuild with
+    // a stale settings object jump back to an old page, and re-showing the
+    // current page emitted a duplicate page-change event.
     settings = s;
     markNeedsLayout();
   }
@@ -78,6 +92,10 @@ class RenderTurnableBook extends RenderBox
 
   void _onFrame(Duration timestamp) {
     _frameScheduled = false;
+    // Guard: the render object may have been disposed (e.g. after hot reload or
+    // widget removal) while a frame callback was still pending. Calling
+    // markNeedsPaint() on a disposed render object triggers !_debugDisposed.
+    if (!attached) return;
     final rawMs = timestamp.inMilliseconds.toDouble();
     _updateTimestamp(rawMs);
     if (animation != null) {
@@ -102,8 +120,7 @@ class RenderTurnableBook extends RenderBox
   bool get _hasActiveVisualElements =>
       flippingPage != null || shadow != null || bottomPage != null;
 
-  bool get _shouldContinueAnimating =>
-      animation != null || _hasActiveVisualElements;
+  bool get _shouldContinueAnimating => animation != null;
 
   void _updateTimestamp(double rawMs) {
     if (_lastRawTickerMs == null || rawMs < _lastRawTickerMs!) {
@@ -124,7 +141,9 @@ class RenderTurnableBook extends RenderBox
         ? constraints.maxHeight
         : settings.height;
     size = Size(maxWidth, maxHeight);
+    final oldOrientation = _orientation;
     calculateBoundsRect();
+    final newOrientation = _orientation;
     final pageWidth = _boundsRect!.pageWidth;
     final pageHeight = _boundsRect!.height;
     RenderBox? child = firstChild;
@@ -143,10 +162,16 @@ class RenderTurnableBook extends RenderBox
     if (!_initialized) {
       final totalPages = _needsWhitePage ? childCount + 1 : childCount;
       collection = PageCollectionImpl(pageFlip, this, totalPages);
+      pageFlip.pages = collection;
       collection.loadBookPages();
       collection.show(settings.startPageIndex);
       _initialized = true;
-      pageFlip.pages = collection;
+    } else if (oldOrientation != null && oldOrientation != newOrientation) {
+      finishAnimation();
+      flippingPage = null;
+      bottomPage = null;
+      shadow = null;
+      collection.show(collection.getCurrentPageIndex());
     }
   }
 
@@ -230,15 +255,24 @@ class RenderTurnableBook extends RenderBox
   @override
   void render(double timer) {
     if (animation != null) {
-      double elapsed = _timeMs - animation!.startedAt;
+      final anim = animation!;
+      double elapsed = _timeMs - anim.startedAt;
       if (elapsed < 0) elapsed = 0;
-      final frameIndex = (elapsed / animation!.durationFrame).floor();
-      if (frameIndex < animation!.frames.length) {
-        animation!.frames[frameIndex]();
+      final lastIndex = anim.frames.length - 1;
+      final frameIndex = anim.durationFrame > 0
+          ? (elapsed / anim.durationFrame).floor()
+          : lastIndex;
+      if (frameIndex < lastIndex) {
+        anim.frames[frameIndex]();
       } else {
-        animation!.onAnimateEnd();
-        pageFlip.trigger('animationComplete', pageFlip, null);
+        // Reached the final frame: apply it and complete the turn in the SAME
+        // tick. Previously the last frame was painted on its own and the page
+        // swap happened one vsync later, leaving a frame on screen where the
+        // incoming page was (almost) fully clipped away.
+        if (lastIndex >= 0) anim.frames[lastIndex]();
         animation = null;
+        anim.onAnimateEnd();
+        pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
       }
       markNeedsPaint();
     }
@@ -256,7 +290,10 @@ class RenderTurnableBook extends RenderBox
       duration: duration,
       durationFrame: duration / (frames.isEmpty ? 1 : frames.length),
       onAnimateEnd: onAnimateEnd,
-      startedAt: _timeMs > 0 ? -1 : 0,
+      // Always take the start time from the first animation tick. Using 0
+      // when no tick had advanced the clock yet made the first tick add the
+      // whole preceding drag time as "elapsed", so the turn finished at once.
+      startedAt: -1,
     );
     _scheduleFrame();
   }
@@ -264,48 +301,59 @@ class RenderTurnableBook extends RenderBox
   @override
   void finishAnimation() {
     if (animation != null) {
-      if (animation!.frames.isNotEmpty) {
-        animation!.frames.last();
-      }
-      animation!.onAnimateEnd();
-      pageFlip.trigger('animationComplete', pageFlip, null);
+      final anim = animation!;
+      // Clear first so callbacks that start a new animation are not wiped.
       animation = null;
+      if (anim.frames.isNotEmpty) {
+        anim.frames.last();
+      }
+      anim.onAnimateEnd();
+      pageFlip.trigger(PageFlipEvent.animationComplete, pageFlip, null);
     }
   }
 
   @override
   BookOrientation calculateBoundsRect() {
-    BookOrientation orientation = BookOrientation.landscape;
     final blockWidth = size.width;
     final middlePoint = model.Point(blockWidth / 2, size.height / 2);
-    final ratio = settings.width / settings.height;
-    double pageWidth = settings.width;
-    double pageHeight = settings.height;
+    final ratio = (settings.height > 0) ? settings.width / settings.height : 1.0;
+    double pageWidth = settings.width > 0 ? settings.width : blockWidth;
+    double pageHeight = settings.height > 0 ? settings.height : size.height;
+
+    final isSingle = settings.pageViewMode == PageViewMode.single ||
+        (settings.pageViewMode == PageViewMode.auto &&
+            blockWidth < (settings.width > 0 ? settings.width * 2 : 600));
+
+    final BookOrientation orientation =
+        isSingle ? BookOrientation.portrait : BookOrientation.landscape;
+
     double left = middlePoint.x - pageWidth;
+
     if (settings.size == SizeType.stretch) {
-      if (blockWidth < settings.width * 2 && settings.usePortrait) {
-        orientation = BookOrientation.portrait;
-      }
       pageWidth = orientation == BookOrientation.portrait
           ? blockWidth
           : blockWidth / 2;
-      if (pageWidth > settings.width) pageWidth = settings.width;
-      pageHeight = pageWidth / ratio;
+      if (settings.width > 0 && pageWidth > settings.width) {
+        pageWidth = settings.width;
+      }
+      if (ratio.isFinite && ratio > 0) {
+        pageHeight = pageWidth / ratio;
+      }
       if (pageHeight > size.height) {
         pageHeight = size.height;
-        pageWidth = pageHeight * ratio;
+        if (ratio.isFinite && ratio > 0) {
+          pageWidth = pageHeight * ratio;
+        }
       }
       left = orientation == BookOrientation.portrait
           ? middlePoint.x - pageWidth / 2 - pageWidth
           : middlePoint.x - pageWidth;
     } else {
-      if (blockWidth < pageWidth * 2) {
-        if (settings.usePortrait) {
-          orientation = BookOrientation.portrait;
-          left = middlePoint.x - pageWidth / 2 - pageWidth;
-        }
-      }
+      left = orientation == BookOrientation.portrait
+          ? middlePoint.x - pageWidth / 2 - pageWidth
+          : middlePoint.x - pageWidth;
     }
+
     _boundsRect = PageRect(
       left: left,
       top: middlePoint.y - pageHeight / 2,
@@ -324,6 +372,7 @@ class RenderTurnableBook extends RenderBox
     double progress,
     FlipDirection direction,
   ) {
+    _flipProgress = progress;
     if (!settings.drawShadow) return;
     final maxShadowOpacity = 100 * settings.maxShadowOpacity;
     shadow = Shadow(
@@ -334,12 +383,13 @@ class RenderTurnableBook extends RenderBox
       direction: direction,
       progress: progress * 2,
     );
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
   void clearShadow() {
     shadow = null;
+    _flipProgress = 0;
   }
 
   @override
@@ -379,14 +429,14 @@ class RenderTurnableBook extends RenderBox
   void setRightPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.right);
     rightPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
   void setLeftPage(BookPage? page) {
     if (page != null) page.setOrientation(PageOrientation.left);
     leftPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -399,7 +449,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     bottomPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -413,7 +463,7 @@ class RenderTurnableBook extends RenderBox
       );
     }
     flippingPage = page;
-    markNeedsPaint();
+    if (attached) markNeedsPaint();
   }
 
   @override
@@ -460,27 +510,31 @@ class RenderTurnableBook extends RenderBox
   @override
   void paint(PaintingContext context, Offset offset) {
     final rect = getRect();
-    final canvas = context.canvas;
-    canvas.save();
-    // Background fill to avoid transparent flashes/flicker when switching spreads
-    // Especially noticeable when returning to the first spread or showing a white trailing page.
-    canvas.drawRect(
+
+    // Background fill — safe: pure canvas draw with no compositing children around it.
+    context.canvas.drawRect(
       Rect.fromLTWH(
         rect.left + offset.dx,
         rect.top + offset.dy,
         rect.width,
         rect.height,
       ),
-      Paint()..color = const ui.Color(0xFFFFFFFF),
+      Paint()..color = settings.pageBackgroundColor,
     );
+
+    // Nested helper: paint a static (non-flipping) page child.
+    // We do NOT wrap context.paintChild() in canvas.save/restore because compositing
+    // children (e.g. CachedNetworkImage, RepaintBoundary) push their own PictureLayer,
+    // which invalidates any previously captured canvas reference and causes a native
+    // peer crash on canvas.restore(). The child is placed at its absolute screen offset.
     void paintStatic(BookPage? page, bool isLeft) {
       if (page == null) return;
       final lp = page as BookPageImpl;
-      final child = _childByIndex(lp.index);
       if (_isWhitePageIndex(lp.index)) {
-        _drawWhitePageStatic(canvas, rect, offset, isLeft);
+        _drawWhitePageStatic(context.canvas, rect, offset, isLeft);
         return;
       }
+      final child = _childByIndex(lp.index);
       if (child == null) return;
       final pageOffset = Offset(
         (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx,
@@ -491,85 +545,194 @@ class RenderTurnableBook extends RenderBox
 
     if (_orientation != BookOrientation.portrait) {
       paintStatic(leftPage, true);
+      // In two-page mode, do not double-paint rightPage if it is already being flipped
+      if (flippingPage is! BookPageImpl ||
+          (flippingPage as BookPageImpl).index !=
+              (rightPage as BookPageImpl?)?.index) {
+        paintStatic(rightPage, false);
+      }
+    } else {
+      // In portrait mode, rightPage is the static base page (Page N) currently visible.
+      // It must always be painted so the unturned content remains visible while curling.
+      paintStatic(rightPage, false);
     }
-    // Always paint static right page so front content remains visible under flipping layer.
-    paintStatic(rightPage, false);
+
     if (bottomPage is BookPageImpl) {
       _paintDynamicPage(
         context,
-        canvas,
         offset,
         bottomPage as BookPageImpl,
         isBottom: true,
       );
     }
-    if (settings.drawShadow && !settings.hideLeftShadow) {
-      _drawBookShadow(canvas, rect, offset);
+
+    // Shadow drawing uses context.canvas directly (accessed AFTER all compositing children
+    // have been painted, so it is always the current active canvas).
+    final bool shouldDrawCenterShadow = _orientation != BookOrientation.portrait
+        ? settings.showCenterShadow
+        : !settings.hideLeftShadow;
+    if (settings.drawShadow && shouldDrawCenterShadow) {
+      _drawBookShadow(context.canvas, rect, offset);
     }
+
     if (flippingPage is BookPageImpl) {
-      _paintDynamicPage(context, canvas, offset, flippingPage as BookPageImpl);
-    }
-    if (shadow != null && settings.drawShadow) {
-      _drawOuterShadow(canvas, rect, offset);
-      if (pageRect != null) {
-        _drawInnerShadow(canvas, rect, offset);
+      if (_orientation == BookOrientation.portrait &&
+          direction == FlipDirection.forward) {
+        // In portrait mode forward flip, the curled flap being folded over is the
+        // physical backside of the current sheet. The backside is white paper.
+        _paintDynamicWhitePage(
+          context.canvas,
+          offset,
+          flippingPage as BookPageImpl,
+        );
+      } else {
+        _paintDynamicPage(context, offset, flippingPage as BookPageImpl);
       }
     }
-    if (_orientation == BookOrientation.portrait) {
-      canvas.clipRect(
-        Rect.fromLTWH(
-          rect.left + rect.pageWidth + offset.dx,
-          rect.top + offset.dy,
-          rect.pageWidth,
-          rect.height,
-        ),
-      );
+
+    if (shadow != null && settings.drawShadow) {
+      _drawOuterShadow(context.canvas, rect, offset);
+      if (pageRect != null) {
+        _drawInnerShadow(context.canvas, rect, offset);
+      }
     }
-    canvas.restore();
   }
 
   void _paintDynamicPage(
     PaintingContext context,
-    Canvas canvas,
     Offset rootOffset,
     BookPageImpl page, {
     bool isBottom = false,
   }) {
     if (_isWhitePageIndex(page.index)) {
-      _paintDynamicWhitePage(canvas, rootOffset, page);
+      _paintDynamicWhitePage(context.canvas, rootOffset, page);
       return;
     }
     final child = _childByIndex(page.index);
     if (child == null) return;
+
+    // A collapsed (zero-area) clip must never be used: clipping with it hides
+    // the page entirely. For the incoming bottom page late in a turn it means
+    // the page is fully revealed, so paint it unclipped; otherwise skip it.
+    final bool degenerate = Helper.isDegenerateArea(page.state.area);
+    if (degenerate && (!isBottom || _flipProgress < 50)) return;
+
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
-    canvas.save();
-    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
-    final origin = convertToGlobal(position);
-    final path = page.buildOrGetClipPath(
-      origin,
-      (model.Point p) => convertToGlobal(p)!,
-    );
-    if (path != null) canvas.clipPath(path);
+    final rect = getRect();
     final angle = page.state.angle;
-    if (angle.abs() > 0.001) {
-      canvas.rotate(angle);
-    }
-    // Fill background to avoid flicker caused by transparent widgets revealing previous frame
-    try {
-      final rect = getRect();
-      final bgPaint = Paint()
-        ..color = const Color(0xFFFFFFFF)
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
-        bgPaint,
+
+    // The clip path is built relative to globalOrigin (page-anchor-local).
+    // See BookPageImpl.buildOrGetClipPath: path(0,0) = top-left of page at globalPos.
+    final origin = convertToGlobal(position);
+    final clipPath = degenerate
+        ? null
+        : page.buildOrGetClipPath(
+            origin,
+            (model.Point p) => convertToGlobal(p)!,
+          );
+
+    // Page anchor position in world/screen space.
+    final Offset pageAnchor = Offset(
+      globalPos.x + rootOffset.dx,
+      globalPos.y + rootOffset.dy,
+    );
+
+    // -------------------------------------------------------------------------
+    // WHY THE ORDER MATTERS
+    // -------------------------------------------------------------------------
+    // Original canvas sequence:
+    //   canvas.translate(pageAnchor)  → move origin to page fold-anchor
+    //   canvas.clipPath(path)         → clip is FIXED in world space (pre-rotate)
+    //   canvas.rotate(angle)          → only the CONTENT rotates, not the clip
+    //   context.paintChild(child, 0)  → child drawn inside clip
+    //
+    // Naïve pushTransform(translate+rotate) → pushClipPath INSIDE would rotate
+    // the clip too, producing the coloured artifact line seen on the fold edge.
+    //
+    // Correct order: pushClipPath (world-space) FIRST, then pushTransform
+    // (translate+rotate) for the child content INSIDE the clip.
+    // -------------------------------------------------------------------------
+
+    // Transform for the child content: translate to page anchor + rotate.
+    // Replicates canvas.translate(pageAnchor) + canvas.rotate(angle).
+    // We use Offset.zero for the push* calls so effectiveTransform = childTransform.
+    final Matrix4 childTransform = Matrix4.translationValues(
+      pageAnchor.dx, pageAnchor.dy, 0.0,
+    )..rotateZ(angle);
+
+    // Inner painter: background fill (prevents transparent-widget flicker) + child.
+    // `off` = Offset.zero throughout; after childTransform the child lands at
+    // pageAnchor on screen, rotated by `angle`.
+    void paintPageChild(PaintingContext ctx, Offset off) {
+      ctx.canvas.drawRect(
+        Rect.fromLTWH(off.dx, off.dy, rect.pageWidth, rect.height),
+        Paint()
+          ..color = settings.pageBackgroundColor
+          ..style = PaintingStyle.fill,
       );
-    } catch (_) {
-      // Safe fail: background fill is an optimization
+      ctx.paintChild(child, off);
     }
-    context.paintChild(child, Offset.zero);
-    canvas.restore();
+
+    if (clipPath != null) {
+      // Shift the page-anchor-relative clip path to world/screen coordinates so
+      // that it clips at the correct screen position WITHOUT any rotation applied.
+      // path(0,0) is at the page anchor → shift by pageAnchor.
+      final Path worldClipPath = clipPath.shift(pageAnchor);
+
+      // Step 1 ── apply clip in world space (no rotation).
+      //   pushClipPath with Offset.zero: Flutter internally does
+      //   clipPath.shift(Offset.zero) = worldClipPath unchanged. ✓
+      //
+      //   IMPORTANT: childPaintBounds must be the FULL render-box size, NOT
+      //   worldClipPath.getBounds(). The clip starts as a tiny triangle at the
+      //   beginning of a flip. If we use getBounds() here, Flutter computes a
+      //   tiny estimatedBounds for the nested TransformLayer via
+      //   inverseTransformRect(), which causes the PictureLayer inside it to
+      //   allocate an undersized canvas — the child widget (full page size)
+      //   gets cropped and the bottom page appears invisible, showing only the
+      //   static page through. Using the full render box guarantees the inner
+      //   canvas is always large enough; the ClipPathLayer still clips the
+      //   VISIBLE output to worldClipPath. ✓
+      context.pushClipPath(
+        needsCompositing,
+        Offset.zero,
+        Offset.zero & size,          // ← full render-box area, NOT clip bounds
+        worldClipPath,
+        (PaintingContext clipCtx, Offset clipOff) {
+          // Step 2 ── apply translate + rotate for the child content only.
+          clipCtx.pushTransform(
+            needsCompositing,
+            clipOff,
+            childTransform,
+            paintPageChild,
+          );
+        },
+      );
+
+      // Subtle hairline boundary along curling page perimeter
+      if (!isBottom && settings.drawShadow) {
+        final borderColor = settings.perimeterBorderColor.withValues(
+          alpha: (settings.perimeterBorderColor.a * settings.maxShadowOpacity)
+              .clamp(0.0, 1.0),
+        );
+        context.canvas.drawPath(
+          worldClipPath,
+          Paint()
+            ..color = borderColor
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.5,
+        );
+      }
+    } else {
+      // No clip (bottom page fully revealed at the end of a turn).
+      context.pushTransform(
+        needsCompositing,
+        Offset.zero,
+        childTransform,
+        paintPageChild,
+      );
+    }
   }
 
   void _paintDynamicWhitePage(
@@ -577,38 +740,71 @@ class RenderTurnableBook extends RenderBox
     Offset rootOffset,
     BookPageImpl page,
   ) {
+    // Without a drawable clip area there is nothing sensible to paint: an
+    // unclipped full-page rect here would flash a white sheet over the book.
+    if (Helper.isDegenerateArea(page.state.area)) return;
+
     final position = page.state.position;
     final globalPos = convertToGlobal(position) ?? model.Point(0, 0);
     final rect = getRect();
-    canvas.save();
-    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
     final origin = convertToGlobal(position);
     final path = page.buildOrGetClipPath(
       origin,
       (model.Point p) => convertToGlobal(p)!,
     );
-    if (path != null) canvas.clipPath(path);
+    if (path == null) return;
+
+    canvas.save();
+    canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+    canvas.clipPath(path);
     final angle = page.state.angle;
     if (angle.abs() > 0.001) {
       canvas.rotate(angle);
     }
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = settings.pageBackgroundColor
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height), paint);
-    final borderPaint = Paint()
-      ..color = const Color(0xFFE0E0E0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
-      borderPaint,
-    );
+    final borderColor = settings.effectivePageBorderColor;
+    if (borderColor != null) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, rect.pageWidth, rect.height),
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
     canvas.restore();
+
+    // Subtle hairline boundary along curling white page perimeter
+    if (settings.drawShadow) {
+      final borderColor = settings.perimeterBorderColor.withValues(
+        alpha: (settings.perimeterBorderColor.a * settings.maxShadowOpacity)
+            .clamp(0.0, 1.0),
+      );
+      canvas.save();
+      canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5,
+      );
+      canvas.restore();
+    }
   }
 
   void _drawBookShadow(Canvas canvas, PageRect rect, Offset root) {
     if (!settings.drawShadow) return;
+    if (_orientation != BookOrientation.portrait && !settings.showCenterShadow) {
+      return;
+    }
+    if (_orientation == BookOrientation.portrait && settings.hideLeftShadow) {
+      return;
+    }
+
     final shadowSize = rect.width / 20;
     canvas.save();
     canvas.clipRect(
@@ -622,16 +818,19 @@ class RenderTurnableBook extends RenderBox
     final shadowPosX = rect.left + rect.width / 2 - shadowSize / 2 + root.dx;
     final shadowPosY = 0 + root.dy;
     canvas.translate(shadowPosX, shadowPosY);
+    final baseColor = settings.centerShadowColor;
+    final baseAlpha = (baseColor.a * settings.maxShadowOpacity).clamp(0.0, 1.0);
+
     final gradient = ui.Gradient.linear(
       const Offset(0, 0),
       Offset(shadowSize, 0),
       [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((0.2 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.1 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.5 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((0.4 * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        baseColor.withValues(alpha: 0.0),
+        baseColor.withValues(alpha: (0.2 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.1 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.5 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.4 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: 0.0),
       ],
       [0.0, 0.4, 0.49, 0.5, 0.51, 1.0],
     );
@@ -659,18 +858,23 @@ class RenderTurnableBook extends RenderBox
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
+
+    final outerColor = settings.outerShadowColor;
+    final targetAlpha = (s.opacity * outerColor.a * settings.maxShadowOpacity)
+        .clamp(0.0, 1.0);
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(0, -100);
       colors = [
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        outerColor.withValues(alpha: targetAlpha),
+        outerColor.withValues(alpha: 0.0),
       ];
       stops = [0.0, 1.0];
     } else {
       canvas.translate(-s.width, -100);
       colors = [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
+        outerColor.withValues(alpha: 0.0),
+        outerColor.withValues(alpha: targetAlpha),
       ];
       stops = [0.0, 1.0];
     }
@@ -705,22 +909,27 @@ class RenderTurnableBook extends RenderBox
     final paint = Paint();
     late final List<Color> colors;
     late final List<double> stops;
+
+    final innerColor = settings.innerShadowColor;
+    final baseAlpha = (s.opacity * innerColor.a * settings.maxShadowOpacity)
+        .clamp(0.0, 1.0);
+
     if (s.direction == FlipDirection.forward) {
       canvas.translate(-isw, -100);
       colors = [
-        const ui.Color.fromARGB(0, 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 0.05 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
+        innerColor.withValues(alpha: 0.0),
+        innerColor.withValues(alpha: (baseAlpha * 0.05).clamp(0.0, 1.0)),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: baseAlpha),
       ];
       stops = [0.0, 0.7, 0.9, 1.0];
     } else {
       canvas.translate(0, -100);
       colors = [
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 0.05 * 255).round(), 0, 0, 0),
-        ui.Color.fromARGB((s.opacity * 255).round(), 0, 0, 0),
-        const ui.Color.fromARGB(0, 0, 0, 0),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: (baseAlpha * 0.05).clamp(0.0, 1.0)),
+        innerColor.withValues(alpha: baseAlpha),
+        innerColor.withValues(alpha: 0.0),
       ];
       stops = [0.0, 0.1, 0.3, 1.0];
     }
@@ -742,6 +951,15 @@ class RenderTurnableBook extends RenderBox
     // Reset child consumed hit state for each new hit test
     _childConsumedHit = false;
 
+    // Touches on turnable page corners are reserved for book page flipping.
+    // Do not route them to child scroll views or child buttons on the corner.
+    // Not with tap-to-flip off: the page's widgets there must stay tappable
+    // (a drag from a corner still turns the page, see _handlePointerMove).
+    final point = model.Point(position.dx, position.dy);
+    if (settings.flipOnTap && pageFlip.isPointOnCorners(point)) {
+      return false;
+    }
+
     final rect = getRect();
 
     // Test visible static pages for interactive widgets
@@ -750,13 +968,21 @@ class RenderTurnableBook extends RenderBox
       if (leftChild != null &&
           !_isWhitePageIndex((leftPage as BookPageImpl).index)) {
         final leftOffset = Offset(rect.left, rect.top);
-        final adjustedPosition = position - leftOffset;
-        if (_isPositionInChildBounds(
-              adjustedPosition,
+        final bool isHit = result.addWithPaintOffset(
+          offset: leftOffset,
+          position: position,
+          hitTest: (BoxHitTestResult result, Offset transformed) {
+            if (_isPositionInChildBounds(
+              transformed,
               rect.pageWidth,
               rect.height,
-            ) &&
-            leftChild.hitTest(result, position: adjustedPosition)) {
+            )) {
+              return leftChild.hitTest(result, position: transformed);
+            }
+            return false;
+          },
+        );
+        if (isHit) {
           _childConsumedHit = true;
           return true;
         }
@@ -768,13 +994,21 @@ class RenderTurnableBook extends RenderBox
       if (rightChild != null &&
           !_isWhitePageIndex((rightPage as BookPageImpl).index)) {
         final rightOffset = Offset(rect.left + rect.pageWidth, rect.top);
-        final adjustedPosition = position - rightOffset;
-        if (_isPositionInChildBounds(
-              adjustedPosition,
+        final bool isHit = result.addWithPaintOffset(
+          offset: rightOffset,
+          position: position,
+          hitTest: (BoxHitTestResult result, Offset transformed) {
+            if (_isPositionInChildBounds(
+              transformed,
               rect.pageWidth,
               rect.height,
-            ) &&
-            rightChild.hitTest(result, position: adjustedPosition)) {
+            )) {
+              return rightChild.hitTest(result, position: transformed);
+            }
+            return false;
+          },
+        );
+        if (isHit) {
           _childConsumedHit = true;
           return true;
         }
@@ -803,134 +1037,332 @@ class RenderTurnableBook extends RenderBox
         : event.localPosition;
   }
 
+  GestureArenaEntry? _arenaEntry;
+
+  @override
+  void acceptGesture(int pointer) {}
+
+  @override
+  void rejectGesture(int pointer) {}
+
   @override
   void handleEvent(PointerEvent event, HitTestEntry entry) {
+    final timeMs = event.timeStamp.inMicroseconds / 1000.0;
     if (event is PointerDownEvent) {
-      _handlePointerDown(getPointerOffset(event: event));
+      _arenaEntry = GestureBinding.instance.gestureArena.add(event.pointer, this);
+      _handlePointerDown(getPointerOffset(event: event), timeMs);
     } else if (event is PointerMoveEvent) {
-      _handlePointerMove(getPointerOffset(event: event));
+      _handlePointerMove(getPointerOffset(event: event), timeMs);
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
-      _handlePointerUp(getPointerOffset(event: event));
+      _handlePointerUp(getPointerOffset(event: event), timeMs);
     }
   }
 
-  void _handlePointerDown(Offset position) {
+  void _handlePointerDown(Offset position, [double? timeMs]) {
+    if (isZoomed) return;
+
     final point = model.Point(position.dx, position.dy);
 
-    // Reset only dragging state, keep _childConsumedHit as set by hitTestChildren
+    // Reset dragging & scroll lock state
     _isDragging = false;
+    _isVerticalScrollLocked = false;
+    _isInvalidDirectionLocked = false;
     _initialTouchPoint = point;
-
-    _touchPoint = SwipeData(
-      point: point,
-      time: DateTime.now().millisecondsSinceEpoch,
-    );
-
-    // If a child widget consumed the hit and this is just a tap, don't start page flip immediately
-    // We'll check again during movement or up event
-    if (!_childConsumedHit) {
-      // Start page flip interaction for dragging
-      pageFlip.startUserTouch(point);
-      ensureAnimating();
-    }
   }
 
-  void _handlePointerMove(Offset position) {
+  void _handlePointerMove(Offset position, [double? timeMs]) {
+    if (isZoomed || _isInvalidDirectionLocked) return;
+
     final point = model.Point(position.dx, position.dy);
+    if (_initialTouchPoint == null) return;
 
-    if (_initialTouchPoint != null) {
-      final deltaX = (point.x - _initialTouchPoint!.x).abs();
-      final deltaY = (point.y - _initialTouchPoint!.y).abs();
+    final deltaX = point.x - _initialTouchPoint!.x; // signed delta
+    final deltaY = (point.y - _initialTouchPoint!.y).abs();
+    final absDeltaX = deltaX.abs();
 
-      // Check if user is dragging (moved more than threshold)
-      if (deltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+    final rect = getRect();
+    final isLandscape = _orientation == BookOrientation.landscape;
+    final spineX = isLandscape ? rect.left + rect.pageWidth : rect.left;
+    final isTouchOnLeftSide = _initialTouchPoint!.x < spineX;
+
+    // ── Direction & Boundary validation ──────────────────────────────
+    // In Landscape (Two-page spread):
+    // - Left page can ONLY drag to the RIGHT (deltaX > 0) to turn backward.
+    //   Dragging to the LEFT (deltaX < 0) is an invalid reverse drag -> FORBIDDEN!
+    //   Also, dragging to the right requires canFlipPrev() -> if false, FORBIDDEN!
+    // - Right page can ONLY drag to the LEFT (deltaX < 0) to turn forward.
+    //   Dragging to the RIGHT (deltaX > 0) is an invalid reverse drag -> FORBIDDEN!
+    //   Also, dragging to the left requires canFlipNext() -> if false, FORBIDDEN!
+    // These checks decide whether a drag may START. Once the page is in the
+    // user's hand (_isDragging) it must follow the finger anywhere: moving
+    // back past the start point just un-curls the page, it never drops it.
+    if (!_isDragging && isLandscape && absDeltaX > 5.0) {
+      if (isTouchOnLeftSide) {
+        if (deltaX < 0 || !pageFlip.canFlipPrev()) {
+          _isInvalidDirectionLocked = true;
+          pageFlip.abortFlip();
+          return;
+        }
+      } else {
+        if (deltaX > 0 || !pageFlip.canFlipNext()) {
+          _isInvalidDirectionLocked = true;
+          pageFlip.abortFlip();
+          return;
+        }
+      }
+    }
+
+    // In Portrait (Single page):
+    // - Dragging to the RIGHT (deltaX > 0) turns PREV -> disallowed if !canFlipPrev!
+    // - Dragging to the LEFT (deltaX < 0) turns NEXT -> disallowed if !canFlipNext!
+    if (!_isDragging && !isLandscape && absDeltaX > 5.0) {
+      if (deltaX > 0 && !pageFlip.canFlipPrev()) {
+        _isInvalidDirectionLocked = true;
+        pageFlip.abortFlip();
+        return;
+      }
+      if (deltaX < 0 && !pageFlip.canFlipNext()) {
+        _isInvalidDirectionLocked = true;
+        pageFlip.abortFlip();
+        return;
+      }
+    }
+
+    final isOnCorner = pageFlip.isPointOnCorners(_initialTouchPoint!);
+
+    // ── Child widget / Scroll conflict resolution ───────────────────
+    if (_childConsumedHit) {
+      if (_isVerticalScrollLocked) return;
+
+      if (isOnCorner) {
+        // Corner touches are dedicated page flips; resolve arena as accepted immediately
+        // and do not lock to vertical scroll even if movement has a vertical component.
         if (!_isDragging) {
-          _isDragging = true;
+          if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            _beginUserDrag(deltaX, timeMs);
+          } else {
+            return;
+          }
+        }
+      } else if (!_isDragging) {
+        if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+          // Priority 1: Vertical movement intent -> lock to child scroll view
+          // completely. Only decided BEFORE the flip starts: once the user
+          // holds the page, steering it up/down (deltaY > deltaX measured
+          // from the first touch) used to abort the flip and drop the page
+          // out of the finger.
+          if (!settings.onlyVerticalPageFlip && deltaY > absDeltaX) {
+            _isVerticalScrollLocked = true;
+            _arenaEntry?.resolve(GestureDisposition.rejected);
+            _arenaEntry = null;
+            return;
+          }
 
-          // If we didn't start pageFlip before because of child hit, start it now for dragging
-          if (_childConsumedHit) {
-            pageFlip.startUserTouch(_initialTouchPoint!);
+          // Priority 2: Clear horizontal page flip intent
+          if (absDeltaX > deltaY * settings.swipeAngleThreshold) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            _beginUserDrag(deltaX, timeMs);
+          } else {
+            return; // Ambiguous or vertical motion, yield to child
           }
         }
 
-        // Ensure animation continues during dragging
-        ensureAnimating();
+        if (!_isDragging) return;
       }
-    }
-
-    // Process move if we're dragging or no child consumed the initial hit
-    if (_isDragging || !_childConsumedHit) {
-      if (settings.mobileScrollSupport && _touchPoint != null) {
-        final deltaX = (_touchPoint!.point.x - point.x).abs();
-        if (deltaX > _minMoveThreshold ||
-            pageFlip.getState() != FlippingState.read) {
-          pageFlip.userMove(point, true);
+    } else {
+      // Normal drag (no interactive child consumed hit):
+      if (!_isDragging) {
+        if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
+          if (!settings.onlyVerticalPageFlip && !isOnCorner && deltaY > absDeltaX) {
+            _isVerticalScrollLocked = true;
+            _arenaEntry?.resolve(GestureDisposition.rejected);
+            _arenaEntry = null;
+            return;
+          }
+          if (absDeltaX >= _minMoveThreshold || (isOnCorner && deltaY >= _minMoveThreshold)) {
+            _isDragging = true;
+            _arenaEntry?.resolve(GestureDisposition.accepted);
+            _beginUserDrag(deltaX, timeMs);
+          } else {
+            return;
+          }
+        } else {
+          return;
         }
-      } else {
-        pageFlip.userMove(point, true);
       }
-
-      // Mark for repaint during interaction
-      markNeedsPaint();
     }
+
+    // Now actively dragging in a valid direction:
+    pageFlip.userMove(_shiftDrag(point), true, timeMs);
+    markNeedsPaint();
   }
 
-  void _handlePointerUp(Offset position) {
+  void _handlePointerUp(Offset position, [double? timeMs]) {
+    if (isZoomed || _isVerticalScrollLocked || _isInvalidDirectionLocked) {
+      pageFlip.abortFlip();
+      _resetGestureState();
+      return;
+    }
+
     final point = model.Point(position.dx, position.dy);
 
-    // If child consumed the hit and user didn't drag, let the child handle it
+    // If child consumed the hit and user didn't drag horizontally, let the child handle it
     if (_childConsumedHit && !_isDragging) {
+      pageFlip.abortFlip();
+      _resetGestureState();
+      return;
+    }
+
+    // A tap (no drag) turns nothing when tap-to-flip is off.
+    if (!_isDragging && !settings.flipOnTap) {
+      pageFlip.abortFlip();
       _resetGestureState();
       return;
     }
 
     // Process page flip gesture
-    if (_touchPoint != null && _isValidSwipe(point)) {
-      _processSwipeGesture(point);
-      _touchPoint = null;
+    if (_isDragging) {
+      pageFlip.userStop(_shiftDrag(point), false, timeMs);
+      ensureAnimating();
     } else {
-      _touchPoint = null;
-      // Only trigger flip on tap if user didn't interact with a child widget
-      if (!_childConsumedHit || _isDragging) {
-        pageFlip.userStop(point, false);
-        // Ensure animation continues for completion
-        ensureAnimating();
+      // Pure tap on book canvas (not on interactive child):
+      final rect = getRect();
+      final isLandscape = _orientation == BookOrientation.landscape;
+      final spineX = isLandscape ? rect.left + rect.pageWidth : rect.left;
+      final isTouchOnLeftSide = point.x < spineX;
+
+      if (isLandscape) {
+        if (isTouchOnLeftSide) {
+          if (pageFlip.canFlipPrev()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipPrev(corner);
+            ensureAnimating();
+          }
+        } else {
+          if (pageFlip.canFlipNext()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipNext(corner);
+            ensureAnimating();
+          }
+        }
+      } else {
+        final halfWidth = rect.left + rect.pageWidth * 0.5;
+        if (point.x < halfWidth) {
+          if (pageFlip.canFlipPrev()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipPrev(corner);
+            ensureAnimating();
+          }
+        } else {
+          if (pageFlip.canFlipNext()) {
+            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            pageFlip.flipNext(corner);
+            ensureAnimating();
+          }
+        }
       }
     }
 
     _resetGestureState();
   }
 
+  /// Shift applied to drag points when [FlipSettings.directionFromDrag]
+  /// re-anchors the curl to the page edge matching the drag direction.
+  model.Point _dragShift = const model.Point(0, 0);
+
+  /// With [FlipSettings.keepGrabOffset]: which corner is being dragged
+  /// (null = no clamping) and the minimum lift of that corner off its edge.
+  bool? _dragTopCorner;
+  double _dragMinLift = 0;
+
+  model.Point _shiftDrag(model.Point p) {
+    double y = p.y + _dragShift.y;
+    final top = _dragTopCorner;
+    if (top != null) {
+      // Keep the corner slightly off its edge: a corner exactly on the
+      // top/bottom edge makes the fold geometry collapse (zero-area clip).
+      final rect = getRect();
+      if (top) {
+        y = math.max(y, rect.top + _dragMinLift);
+      } else {
+        y = math.min(y, rect.top + rect.height - _dragMinLift);
+      }
+    }
+    return model.Point(p.x + _dragShift.x, y);
+  }
+
+  /// Starts a user drag. Local coordinates are already mirrored for RTL
+  /// books (the whole book is flipped with a Transform), so a negative
+  /// [deltaX] always means "towards the next page".
+  void _beginUserDrag(double deltaX, double? timeMs) {
+    final start = _initialTouchPoint!;
+    _dragShift = const model.Point(0, 0);
+    _dragTopCorner = null;
+    double shiftY = 0;
+    if (settings.keepGrabOffset) {
+      // The flip is driven by the corner on the grabbed half of the page.
+      // Offset the finger so that corner starts at its resting place and
+      // then moves exactly with the finger: the grabbed spot stays under the
+      // finger instead of the corner jumping to it (and then being held back
+      // by the paper's reach when steered up or down).
+      final rect = getRect();
+      final top = start.y - rect.top < rect.height / 2;
+      _dragTopCorner = top;
+      _dragMinLift = math.max(4.0, rect.height * 0.02);
+      final restY = top ? rect.top : rect.top + rect.height;
+      shiftY = restY - start.y;
+    }
+    _dragShift = model.Point(0, shiftY);
+    if (settings.directionFromDrag &&
+        _orientation == BookOrientation.portrait &&
+        deltaX != 0) {
+      final rect = getRect();
+      final forward = deltaX < 0;
+      if (forward ? pageFlip.canFlipNext() : pageFlip.canFlipPrev()) {
+        // Forward: curl from the outer (right) edge. Back: the previous page
+        // enters from the inner (left) edge. The finger's movement is then
+        // applied relative to that anchor, so the curl follows the drag
+        // without jumping.
+        final anchorX = forward
+            ? rect.left + rect.width - 2
+            : rect.left + rect.pageWidth + 2;
+        _dragShift = model.Point(anchorX - start.x, shiftY);
+      }
+    } else if (_orientation == BookOrientation.portrait &&
+        pageFlip.canFlipPrev() &&
+        pageFlip.flipProcess.getDirectionByPoint(convertToBook(start)) ==
+            FlipDirection.back) {
+      // Legacy direction-by-position back turn: the previous page enters at
+      // the spine. Without this anchor it jumped straight to the touch point
+      // (e.g. 150px of the page appeared on touch), and that head start made
+      // even a tiny drag complete the turn on release.
+      final rect = getRect();
+      _dragShift = model.Point(rect.left + rect.pageWidth + 2 - start.x, shiftY);
+    }
+    pageFlip.startUserTouch(_shiftDrag(start), timeMs);
+    ensureAnimating();
+  }
+
   void _resetGestureState() {
+    _dragShift = const model.Point(0, 0);
+    _dragTopCorner = null;
     _isDragging = false;
+    _isVerticalScrollLocked = false;
+    _isInvalidDirectionLocked = false;
     _initialTouchPoint = null;
+    _arenaEntry?.resolve(GestureDisposition.rejected);
+    _arenaEntry = null;
     // Note: _childConsumedHit is reset in hitTestChildren for each new gesture
   }
 
-  bool _isValidSwipe(model.Point point) {
-    if (_touchPoint == null) return false;
-    final dx = point.x - _touchPoint!.point.x;
-    final distY = (point.y - _touchPoint!.point.y).abs();
-    final timeDelta = DateTime.now().millisecondsSinceEpoch - _touchPoint!.time;
-    return dx.abs() > _swipeDistance &&
-        distY < _swipeDistance * 2 &&
-        timeDelta < _swipeTimeout;
-  }
-
-  void _processSwipeGesture(model.Point point) {
-    final dx = point.x - _touchPoint!.point.x;
-    final rect = getRect();
-    final halfHeight = rect.height * 0.5;
-    final corner = _touchPoint!.point.y < halfHeight
-        ? FlipCorner.top
-        : FlipCorner.bottom;
-    if (dx > 0) {
-      pageFlip.flipPrev(corner);
-    } else {
-      pageFlip.flipNext(corner);
-    }
-    // Ensure animation continues for swipe gesture
-    ensureAnimating();
+  @override
+  void detach() {
+    _arenaEntry?.resolve(GestureDisposition.rejected);
+    _arenaEntry = null;
+    super.detach();
   }
 
   void ensureAnimating() => _scheduleFrame();
@@ -946,7 +1378,7 @@ class RenderTurnableBook extends RenderBox
     bool isLeft,
   ) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF)
+      ..color = settings.pageBackgroundColor
       ..style = PaintingStyle.fill;
     final pageX = (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx;
     final pageY = rect.top + offset.dy;
@@ -957,10 +1389,15 @@ class RenderTurnableBook extends RenderBox
       rect.height,
     );
     canvas.drawRect(whitePageRect, paint);
-    final borderPaint = Paint()
-      ..color = const Color(0xFFE0E0E0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawRect(whitePageRect, borderPaint);
+    final borderColor = settings.effectivePageBorderColor;
+    if (borderColor != null) {
+      canvas.drawRect(
+        whitePageRect,
+        Paint()
+          ..color = borderColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+    }
   }
 }

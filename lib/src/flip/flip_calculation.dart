@@ -42,6 +42,19 @@ class FlipCalculation {
     }
   }
 
+  /// Whether the last successful [calc] produced drawable clip areas for both
+  /// the flipping page and the page below it.
+  ///
+  /// Near the end of a turn (fold line collinear with the page edges) the
+  /// intersection points become null and both areas collapse to zero-area
+  /// lines. Rendering such a frame hides the incoming page and briefly shows
+  /// the old one (flicker), so animation frames with degenerate geometry must
+  /// be skipped.
+  bool hasDrawableClipAreas() {
+    return !Helper.isDegenerateArea(getFlippingClipArea()) &&
+        !Helper.isDegenerateArea(getBottomClipArea());
+  }
+
   /// Get the crop area for the flipping page
   List<Point> getFlippingClipArea() {
     final result = <Point>[];
@@ -75,38 +88,63 @@ class FlipCalculation {
   List<Point> getBottomClipArea() {
     final result = <Point>[];
 
-    if (topIntersectPoint != null) {
-      result.add(topIntersectPoint!);
-    }
-
     if (corner == FlipCorner.top) {
-      result.add(Point(pageWidth, 0));
-    } else {
       if (topIntersectPoint != null) {
-        result.add(Point(pageWidth, 0));
+        result.add(topIntersectPoint!);
       }
-      result.add(Point(pageWidth, pageHeight));
-    }
 
-    if (sideIntersectPoint != null && topIntersectPoint != null) {
-      if (Helper.getDistanceBetweenTwoPoint(
-            sideIntersectPoint!,
-            topIntersectPoint!,
-          ) >=
-          10) {
-        result.add(sideIntersectPoint!);
-      }
-    } else {
-      if (corner == FlipCorner.top) {
+      result.add(Point(pageWidth, 0));
+
+      if (sideIntersectPoint != null && topIntersectPoint != null) {
+        if (Helper.getDistanceBetweenTwoPoint(
+              sideIntersectPoint!,
+              topIntersectPoint!,
+            ) >=
+            10) {
+          result.add(sideIntersectPoint!);
+        }
+      } else {
         result.add(Point(pageWidth, pageHeight));
       }
-    }
 
-    if (bottomIntersectPoint != null) {
-      result.add(bottomIntersectPoint!);
-    }
-    if (topIntersectPoint != null) {
-      result.add(topIntersectPoint!);
+      if (bottomIntersectPoint != null) {
+        if (!result.contains(Point(pageWidth, pageHeight))) {
+          result.add(Point(pageWidth, pageHeight));
+        }
+        result.add(bottomIntersectPoint!);
+      }
+      if (topIntersectPoint != null) {
+        result.add(topIntersectPoint!);
+      }
+    } else {
+      // FlipCorner.bottom
+      if (bottomIntersectPoint != null) {
+        result.add(bottomIntersectPoint!);
+      }
+
+      result.add(Point(pageWidth, pageHeight));
+
+      if (sideIntersectPoint != null && bottomIntersectPoint != null) {
+        if (Helper.getDistanceBetweenTwoPoint(
+              sideIntersectPoint!,
+              bottomIntersectPoint!,
+            ) >=
+            10) {
+          result.add(sideIntersectPoint!);
+        }
+      } else {
+        result.add(Point(pageWidth, 0));
+      }
+
+      if (topIntersectPoint != null) {
+        if (!result.contains(Point(pageWidth, 0))) {
+          result.add(Point(pageWidth, 0));
+        }
+        result.add(topIntersectPoint!);
+      }
+      if (bottomIntersectPoint != null) {
+        result.add(bottomIntersectPoint!);
+      }
     }
 
     return result;
@@ -208,7 +246,12 @@ class FlipCalculation {
       );
     }
 
-    if ((result.x - pageWidth).abs() < 1 && result.y.abs() < 1) {
+    // The corner is back at its resting place: no fold to draw. This used to
+    // check only y == 0 (top corner), so at the bottom corner the resting
+    // point produced garbage geometry and the fold "popped" at the end of a
+    // cancelled drag.
+    final restingY = corner == FlipCorner.top ? 0.0 : pageHeight;
+    if ((result.x - pageWidth).abs() < 1 && (result.y - restingY).abs() < 1) {
       throw Exception('Point is too small');
     }
 

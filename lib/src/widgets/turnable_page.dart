@@ -4,6 +4,7 @@ import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
 import '../model/paper_boundary_decoration.dart';
 import 'page_flip_controller.dart';
+import 'paper_widget.dart';
 import 'turnable_page_view.dart';
 
 class TurnablePage extends StatelessWidget {
@@ -17,6 +18,11 @@ class TurnablePage extends StatelessWidget {
   final PaperBoundaryDecoration paperBoundaryDecoration;
   final double? aspectRatio;
   final bool pagesBoundaryIsEnabled;
+  final TextDirection? textDirection;
+
+  /// Pages kept built on each side of the current page for large books.
+  /// See [TurnablePageView.pageCacheExtent].
+  final int pageCacheExtent;
 
   TurnablePage({
     super.key,
@@ -25,22 +31,33 @@ class TurnablePage extends StatelessWidget {
     required this.builder,
     required this.pageCount,
     this.onPageChanged,
-    this.pageViewMode = PageViewMode.single,
+    PageViewMode? pageViewMode,
     this.autoResponseSize = true,
     this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
     FlipSettings? settings,
     this.pagesBoundaryIsEnabled = true,
-  }) : settings = settings ?? FlipSettings() {
-    if (settings != null) {
-      assert(
-        this.settings.startPageIndex >= 0,
-        'Page count must be greater than 0',
-      );
-      assert(
-        this.settings.startPageIndex < pageCount,
-        'Start page index must be less than page count',
-      );
-    }
+    this.textDirection,
+    this.pageCacheExtent = 4,
+    bool? enableZoom,
+    bool? enableDoubleTapZoom,
+    double? minScale,
+    double? maxScale,
+  })  : pageViewMode = pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+        settings = (settings ?? FlipSettings()).copyWith(
+          pageViewMode: pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+          enableZoom: enableZoom,
+          enableDoubleTapZoom: enableDoubleTapZoom,
+          minScale: minScale,
+          maxScale: maxScale,
+        ) {
+    assert(
+      this.settings.startPageIndex >= 0,
+      'Page count must be greater than 0',
+    );
+    assert(
+      this.settings.startPageIndex < pageCount,
+      'Start page index must be less than page count',
+    );
   }
 
   Size _calculateBookSize({
@@ -56,22 +73,24 @@ class TurnablePage extends StatelessWidget {
     return Size(maxWidth, height);
   }
 
-  double _getAspectRatio(bool isMobile) {
-    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
-      return aspectRatio ?? 2 / 3;
+  PageViewMode _resolveMode(bool isMobile) {
+    if (pageViewMode == PageViewMode.auto) {
+      return isMobile ? PageViewMode.single : PageViewMode.double;
     }
-    if (pageViewMode == PageViewMode.single) {
-      return aspectRatio ?? 2 / 3 * (isMobile ? 1 : 2);
+    return pageViewMode;
+  }
+
+  double _getAspectRatio(bool isMobile) {
+    final mode = _resolveMode(isMobile);
+    if (mode == PageViewMode.single) {
+      return aspectRatio ?? 2 / 3;
     }
     return aspectRatio ?? (2 / 3) * 2;
   }
 
   FlipSettings _getAdjustedSetting(bool isMobile) {
-    if (!autoResponseSize && pageViewMode == PageViewMode.single) {
-      return settings.copyWith(usePortrait: true);
-    }
-    final usePortrait = pageViewMode == PageViewMode.single && isMobile;
-    return settings.copyWith(usePortrait: usePortrait);
+    final mode = _resolveMode(isMobile);
+    return settings.copyWith(pageViewMode: mode);
   }
 
   @override
@@ -82,9 +101,16 @@ class TurnablePage extends StatelessWidget {
         final aspectRatio = _getAspectRatio(isMobile);
         FlipSettings adjustedSettings = _getAdjustedSetting(isMobile);
 
+        // The paper frame is drawn around the book, so the book gets the
+        // space left after it (otherwise the frame overflows the parent).
+        final frame = PaperWidget.frameExtent(
+          isEnabled: pagesBoundaryIsEnabled,
+          decoration: paperBoundaryDecoration,
+          isSinglePage: _resolveMode(isMobile) == PageViewMode.single,
+        );
         final bookSize = _calculateBookSize(
-          maxWidth: constraints.maxWidth,
-          maxHeight: constraints.maxHeight,
+          maxWidth: constraints.maxWidth - frame.width,
+          maxHeight: constraints.maxHeight - frame.height,
           aspectRatio: aspectRatio,
         );
         adjustedSettings = adjustedSettings.copyWith(
@@ -102,6 +128,8 @@ class TurnablePage extends StatelessWidget {
           onPageChanged: onPageChanged,
           pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
           paperBoundaryDecoration: paperBoundaryDecoration,
+          textDirection: textDirection,
+          pageCacheExtent: pageCacheExtent,
         );
       },
     );

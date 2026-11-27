@@ -11,7 +11,7 @@ class PageCollectionImpl extends PageCollection {
   final int pageCount;
   late final PageFlip app;
   late final RenderPage render;
-  late final bool isShowCover;
+  bool get isShowCover => app.getSettings.showCover;
 
   final List<BookPage> pages = [];
   int currentPageIndex = 0;
@@ -19,9 +19,7 @@ class PageCollectionImpl extends PageCollection {
   final List<NumberArray> landscapeSpread = [];
   final List<NumberArray> portraitSpread = [];
 
-  PageCollectionImpl(this.app, this.render, this.pageCount) {
-    isShowCover = app.getSettings.showCover;
-  }
+  PageCollectionImpl(this.app, this.render, this.pageCount);
 
   @override
   void loadBookPages() {
@@ -104,18 +102,28 @@ class PageCollectionImpl extends PageCollection {
   @override
   BookPage? getFlippingPage(FlipDirection direction) {
     final current = currentSpreadIndex;
+    final spreads = getSpread();
+    if (spreads.isEmpty) return null;
+
     if (render.getOrientation() == BookOrientation.portrait) {
       if (direction == FlipDirection.forward) {
-        // Use detached temporary copy so original static page stays intact
+        if (current < 0 || current >= pages.length) return null;
         final original = pages[current] as BookPageImpl;
         return original.createDetachedCopy();
       } else {
-        return pages[current - 1];
+        if (current <= 0 || current - 1 >= pages.length) return null;
+        // Detached copy: the flip writes area/position/angle into the page
+        // state; doing that on the shared page would leave stale geometry
+        // on it after the turn.
+        return (pages[current - 1] as BookPageImpl).createDetachedCopy();
       }
     } else {
-      final spread = direction == FlipDirection.forward
-          ? getSpread()[current + 1]
-          : getSpread()[current - 1];
+      final targetSpread = direction == FlipDirection.forward
+          ? current + 1
+          : current - 1;
+      if (targetSpread < 0 || targetSpread >= spreads.length) return null;
+      final spread = spreads[targetSpread];
+      if (spread.isEmpty) return null;
       if (spread.length == 1) return pages[spread[0]];
       return direction == FlipDirection.forward
           ? pages[spread[0]]
@@ -126,14 +134,23 @@ class PageCollectionImpl extends PageCollection {
   @override
   BookPage? getBottomPage(FlipDirection direction) {
     final current = currentSpreadIndex;
+    final spreads = getSpread();
+    if (spreads.isEmpty) return null;
+
     if (render.getOrientation() == BookOrientation.portrait) {
-      return direction == FlipDirection.forward
-          ? pages[current + 1]
-          : pages[current - 1];
+      if (direction == FlipDirection.forward) {
+        if (current + 1 >= pages.length) return null;
+        return (pages[current + 1] as BookPageImpl).createDetachedCopy();
+      } else {
+        return null;
+      }
     } else {
-      final spread = direction == FlipDirection.forward
-          ? getSpread()[current + 1]
-          : getSpread()[current - 1];
+      final targetSpread = direction == FlipDirection.forward
+          ? current + 1
+          : current - 1;
+      if (targetSpread < 0 || targetSpread >= spreads.length) return null;
+      final spread = spreads[targetSpread];
+      if (spread.isEmpty) return null;
       if (spread.length == 1) return pages[spread[0]];
       return direction == FlipDirection.forward
           ? pages[spread[1]]
@@ -185,7 +202,15 @@ class PageCollectionImpl extends PageCollection {
 
   @override
   void showSpread() {
-    final spread = getSpread()[currentSpreadIndex];
+    final spreads = getSpread();
+    if (spreads.isEmpty) return;
+    if (currentSpreadIndex < 0 || currentSpreadIndex >= spreads.length) {
+      final spreadIndex = getSpreadIndexByPage(currentPageIndex);
+      currentSpreadIndex = (spreadIndex != null && spreadIndex < spreads.length)
+          ? spreadIndex
+          : 0;
+    }
+    final spread = spreads[currentSpreadIndex];
     if (spread.length == 2) {
       render.setLeftPage(pages[spread[0]]);
       render.setRightPage(pages[spread[1]]);

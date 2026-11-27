@@ -4,6 +4,7 @@ import '../collection/page_collection.dart';
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../event/event_object.dart';
 import '../flip/flip_process.dart';
 import '../flip/flip_settings.dart';
@@ -39,6 +40,8 @@ class PageFlip extends EventObject {
   bool _flipProcessInitialized = false;
 
   // Render getter/setter with lazy FlipProcess initialization
+  bool get hasRender => _render != null;
+  RenderPage? get renderNullable => _render;
   RenderPage get render => _render!; // safe after injection by TurnableBook
   set render(RenderPage r) {
     _render = r;
@@ -58,7 +61,7 @@ class PageFlip extends EventObject {
     if (_flipProcessInitialized) {
       flipProcess.updateApp(this, render);
     }
-    trigger('updateSettings', this, {
+    trigger(PageFlipEvent.updateSettings, this, {
       'settings': setting,
       'mode': _render?.getOrientation(),
     });
@@ -67,7 +70,7 @@ class PageFlip extends EventObject {
   /// Clear all pages
   void clear() {
     pages?.destroy();
-    trigger('clear', this, {});
+    trigger(PageFlipEvent.clear, this, {});
   }
 
   /// Turn to previous page without animation
@@ -93,9 +96,8 @@ class PageFlip extends EventObject {
   /// @param {String} corner - Corner to flip from ('top' or 'bottom')
   void showPage(int pageNum, [String? corner]) {
     if (pages != null) {
+      // [PageCollection.show] reports the page change itself.
       pages!.show(pageNum);
-
-      trigger('flip', this, {'page': pageNum, 'mode': render.getOrientation()});
     }
   }
 
@@ -109,8 +111,9 @@ class PageFlip extends EventObject {
     final totalPages = getPageCount();
 
     if (currentIndex < totalPages - 1) {
+      // The flip event is emitted once the turn completes (see
+      // [updatePageIndex]), not when the animation starts.
       flipProcess.flipNext(corner);
-      trigger('flip', this, {'page': currentIndex + 1, 'direction': 'next'});
     }
   }
 
@@ -122,7 +125,6 @@ class PageFlip extends EventObject {
 
     if (currentIndex > 0) {
       flipProcess.flipPrev(corner);
-      trigger('flip', this, {'page': currentIndex - 1, 'direction': 'prev'});
     }
   }
 
@@ -133,25 +135,26 @@ class PageFlip extends EventObject {
     final totalPages = getPageCount();
 
     if (page >= 0 && page < totalPages) {
-      final currentIndex = getCurrentPageIndex();
-
       flipProcess.flipToPage(page, corner);
-
-      trigger('flip', this, {
-        'page': page,
-        'direction': page > currentIndex ? 'next' : 'prev',
-      });
     }
   }
 
   /// Update flipping state
   void updateState(FlippingState newState) {
-    trigger('changeState', this, newState);
+    trigger(PageFlipEvent.changeState, this, newState);
   }
 
-  /// Update current page index
+  int? _lastReportedPage;
+
+  /// Called by the page collection whenever the visible spread is (re)shown.
+  ///
+  /// Emits [PageFlipEvent.flip] with the new page index (an `int`) exactly
+  /// once per actual page change, after the turn has completed. Re-showing
+  /// the same page (orientation change, settings update) is not reported.
   void updatePageIndex(int newPage) {
-    trigger('flip', this, newPage);
+    if (_lastReportedPage == newPage) return;
+    _lastReportedPage = newPage;
+    trigger(PageFlipEvent.flip, this, newPage);
   }
 
   /// Get total page count
@@ -201,6 +204,27 @@ class PageFlip extends EventObject {
     return pages;
   }
 
+  /// Check if next spread/page is available
+  bool canFlipNext() {
+    final col = pages;
+    if (col == null) return false;
+    final spreads = col.getSpread();
+    if (spreads.isEmpty) return false;
+    return col.getCurrentSpreadIndex() < spreads.length - 1;
+  }
+
+  /// Check if previous spread/page is available
+  bool canFlipPrev() {
+    final col = pages;
+    if (col == null) return false;
+    return col.getCurrentSpreadIndex() > 0;
+  }
+
+  /// Check if a given global point is on the turnable page corners
+  bool isPointOnCorners(Point pos) {
+    return flipProcess.isPointOnCorners(pos);
+  }
+
   /// Calculate distance between two points
   double _getDistanceBetweenPoints(Point point1, Point point2) {
     final dx = point1.x - point2.x;
@@ -209,34 +233,34 @@ class PageFlip extends EventObject {
   }
 
   /// Start user touch interaction
-  void startUserTouch(Point pos) {
+  void startUserTouch(Point pos, [double? timeMs]) {
     isUserTouch = true;
     isUserMove = false;
     mousePosition = pos;
     _samples.clear();
-    _recordSample(pos);
+    _recordSample(pos, timeMs);
     flipProcess.fold(pos);
   }
 
   /// Handle user move
-  void userMove(Point pos, bool isTouch) {
+  void userMove(Point pos, bool isTouch, [double? timeMs]) {
     if (isUserTouch) {
       if (mousePosition != null &&
           _getDistanceBetweenPoints(mousePosition!, pos) > 5) {
         isUserMove = true;
         flipProcess.fold(pos);
-        _recordSample(pos);
+        _recordSample(pos, timeMs);
       }
     }
   }
 
   /// Handle user stop interaction
-  void userStop(Point pos, [bool isSwipe = false]) {
+  void userStop(Point pos, [bool isSwipe = false, double? timeMs]) {
     if (isUserTouch) {
       isUserTouch = false;
 
       if (!isSwipe) {
-        final velocity = _computeVelocity();
+        final velocity = _computeVelocity(timeMs);
         final settings = getSettings;
         final fastSwipe =
             settings.enableInertia &&
@@ -250,20 +274,41 @@ class PageFlip extends EventObject {
     }
   }
 
-  void _recordSample(Point p) {
-    final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+  /// Abort and clean up any in-progress user touch or flip
+  void abortFlip() {
+    isUserTouch = false;
+    isUserMove = false;
+    mousePosition = null;
+    _samples.clear();
+    flipProcess.abortFlip();
+  }
+
+  void _recordSample(Point p, [double? timeMs]) {
+    final now = timeMs ?? DateTime.now().millisecondsSinceEpoch.toDouble();
     _samples.add(_MotionSample(now, p));
     if (_samples.length > _maxSamples) {
       _samples.removeAt(0);
     }
   }
 
-  double _computeVelocity() {
+  double _computeVelocity([double? timeMs]) {
     if (_samples.length < 2) return 0;
-    final a = _samples.first;
+    final now = timeMs ?? DateTime.now().millisecondsSinceEpoch.toDouble();
     final b = _samples.last;
+    if (now - b.t > 200.0) return 0;
+
+    int firstRecentIndex = _samples.length - 1;
+    for (int i = _samples.length - 2; i >= 0; i--) {
+      if (now - _samples[i].t <= 200.0) {
+        firstRecentIndex = i;
+      } else {
+        break;
+      }
+    }
+
+    final a = _samples[firstRecentIndex];
     final dt = (b.t - a.t) / 1000.0;
-    if (dt <= 0) return 0;
+    if (dt <= 0.001) return 0;
     final dx = b.p.x - a.p.x;
     return dx / dt;
   }

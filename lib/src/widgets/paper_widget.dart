@@ -15,20 +15,39 @@ class PaperWidget extends StatelessWidget {
     super.key,
     required this.child,
     required this.size,
-    this.padding = const EdgeInsetsDirectional.only(
-      start: 4.0,
-      end: 4.0,
-      top: 1.0,
-      bottom: 2.0,
-    ),
+    this.padding = defaultPadding,
     this.paperBoundaryDecoration = const PaperBoundaryDecoration(),
     this.isSinglePage = false,
     this.isEnabled = true,
   });
 
+  static const EdgeInsetsDirectional defaultPadding = EdgeInsetsDirectional.only(
+    start: 4.0,
+    end: 4.0,
+    top: 1.0,
+    bottom: 2.0,
+  );
+
+  /// Space the frame adds around the book with [defaultPadding] (it is
+  /// applied three times: outer, middle and inner layer). Zero when the
+  /// frame is not drawn. The book must be this much smaller than the space
+  /// it is given, or the frame overflows it.
+  static Size frameExtent({
+    required bool isEnabled,
+    required PaperBoundaryDecoration decoration,
+    required bool isSinglePage,
+  }) {
+    if (!isEnabled || decoration == PaperBoundaryDecoration.none) {
+      return Size.zero;
+    }
+    const p = defaultPadding;
+    final horizontal = (isSinglePage ? 0.0 : p.start) + p.end;
+    return Size(horizontal * 3, p.vertical * 3);
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!isEnabled) {
+    if (!isEnabled || paperBoundaryDecoration == PaperBoundaryDecoration.none) {
       return child;
     }
 
@@ -183,68 +202,3 @@ class PaperWidget extends StatelessWidget {
   }
 }
 
-/// Extension methods for PaperModel to create variations
-extension PaperModelExtensions on PaperBoundaryDecoration {
-  /// Create a copy of this PaperModel with modified properties
-  PaperBoundaryDecoration copyWith({
-    Color? baseColor,
-    Color? shadowColor,
-    Color? borderColor,
-    Color? innerBorderColor,
-    Color? glowColor,
-    Color? gradientStartColor,
-    Color? gradientMiddleColor,
-    Color? gradientEndColor,
-    Color? finalBorderColor,
-    Color? finalShadowColor,
-    double? outerAlpha,
-    double? middleAlpha,
-    double? innerAlpha,
-    double? gradientStartAlpha,
-    double? gradientMiddleAlpha,
-    double? gradientEndAlpha,
-    double? borderRadius,
-    double? outerBorderWidth,
-    double? middleBorderWidth,
-    double? innerBorderWidth,
-    double? finalBorderWidth,
-    double? shadowBlurRadius,
-    double? glowBlurRadius,
-    double? glowSpreadRadius,
-    double? finalShadowBlurRadius,
-    double? finalShadowSpreadRadius,
-    Offset? finalShadowOffset,
-  }) {
-    return PaperBoundaryDecoration(
-      baseColor: baseColor ?? this.baseColor,
-      shadowColor: shadowColor ?? this.shadowColor,
-      borderColor: borderColor ?? this.borderColor,
-      innerBorderColor: innerBorderColor ?? this.innerBorderColor,
-      glowColor: glowColor ?? this.glowColor,
-      gradientStartColor: gradientStartColor ?? this.gradientStartColor,
-      gradientMiddleColor: gradientMiddleColor ?? this.gradientMiddleColor,
-      gradientEndColor: gradientEndColor ?? this.gradientEndColor,
-      finalBorderColor: finalBorderColor ?? this.finalBorderColor,
-      finalShadowColor: finalShadowColor ?? this.finalShadowColor,
-      outerAlpha: outerAlpha ?? this.outerAlpha,
-      middleAlpha: middleAlpha ?? this.middleAlpha,
-      innerAlpha: innerAlpha ?? this.innerAlpha,
-      gradientStartAlpha: gradientStartAlpha ?? this.gradientStartAlpha,
-      gradientMiddleAlpha: gradientMiddleAlpha ?? this.gradientMiddleAlpha,
-      gradientEndAlpha: gradientEndAlpha ?? this.gradientEndAlpha,
-      borderRadius: borderRadius ?? this.borderRadius,
-      outerBorderWidth: outerBorderWidth ?? this.outerBorderWidth,
-      middleBorderWidth: middleBorderWidth ?? this.middleBorderWidth,
-      innerBorderWidth: innerBorderWidth ?? this.innerBorderWidth,
-      finalBorderWidth: finalBorderWidth ?? this.finalBorderWidth,
-      shadowBlurRadius: shadowBlurRadius ?? this.shadowBlurRadius,
-      glowBlurRadius: glowBlurRadius ?? this.glowBlurRadius,
-      glowSpreadRadius: glowSpreadRadius ?? this.glowSpreadRadius,
-      finalShadowBlurRadius:
-          finalShadowBlurRadius ?? this.finalShadowBlurRadius,
-      finalShadowSpreadRadius:
-          finalShadowSpreadRadius ?? this.finalShadowSpreadRadius,
-      finalShadowOffset: finalShadowOffset ?? this.finalShadowOffset,
-    );
-  }
-}

@@ -3,6 +3,15 @@ description: "Realistic page-flipping widget for Flutter with smooth animations,
 version: 1.0.2
 homepage: https://saeed-flutter.vercel.app
 repository: https://github.com/saeedahmed725/turnable_page
+documentation: https://saeedahmed725.github.io/turnable_page/
+issue_tracker: https://github.com/saeedahmed725/turnable_page/issues
+
+topics:
+  - page-flip
+  - book
+  - pdf
+  - animation
+  - widget
 
 environment:
   sdk: ">=3.8.0 <4.0.0"
