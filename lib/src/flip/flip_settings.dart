@@ -101,8 +101,14 @@ class FlipSettings {
   /// Bend strength multiplier (0-1) influencing hardAngle easing
   final double bendStrength;
 
-  /// Whether pinch-to-zoom is enabled
+  /// Whether zooming is enabled (pinch-to-zoom, plus double-tap zoom when
+  /// [enableDoubleTapZoom] is true)
   final bool enableZoom;
+
+  /// Whether a double tap toggles zoom. Only applies when [enableZoom] is
+  /// true. Set to false to keep pinch-to-zoom while leaving double tap free
+  /// for your own gestures.
+  final bool enableDoubleTapZoom;
 
   /// Minimum zoom scale
   final double minScale;
@@ -132,6 +138,15 @@ class FlipSettings {
   /// itself jumps to the finger, which makes mid-height grabs start with a
   /// large fold and lag behind the finger.
   final bool keepGrabOffset;
+
+  /// Turn the page when the book is tapped (default `true`).
+  ///
+  /// When `true`, a tap on an empty part of a page turns it, and the page
+  /// corners are reserved for turning (taps there never reach the page's
+  /// widgets). Set it to `false` when the pages have their own tappable
+  /// content: taps then always go to the page, and pages turn only by
+  /// dragging (from anywhere, corners included) or from the controller.
+  final bool flipOnTap;
 
   /// Paper color painted under pages, on the back side of a turning page and
   /// on blank filler pages. Defaults to white. Set it to your page background
@@ -229,11 +244,13 @@ class FlipSettings {
     this.onlyVerticalPageFlip = false,
     this.hideLeftShadow = false,
     this.enableZoom = false,
+    this.enableDoubleTapZoom = true,
     this.minScale = 1.0,
     this.maxScale = 3.0,
     this.swipeAngleThreshold = 1.25,
     this.directionFromDrag = false,
     this.keepGrabOffset = true,
+    this.flipOnTap = true,
     this.pageBackgroundColor = const Color(0xFFFFFFFF),
     this.pageBorderColor,
   }) : pageViewMode = pageViewMode ??
@@ -273,11 +290,13 @@ class FlipSettings {
     bool? onlyVerticalPageFlip,
     bool? hideLeftShadow,
     bool? enableZoom,
+    bool? enableDoubleTapZoom,
     double? minScale,
     double? maxScale,
     double? swipeAngleThreshold,
     bool? directionFromDrag,
     bool? keepGrabOffset,
+    bool? flipOnTap,
     Color? pageBackgroundColor,
     Color? pageBorderColor,
   }) {
@@ -321,11 +340,13 @@ class FlipSettings {
       hideLeftShadow: hideLeftShadow ?? this.hideLeftShadow,
       onlyVerticalPageFlip: onlyVerticalPageFlip ?? this.onlyVerticalPageFlip,
       enableZoom: enableZoom ?? this.enableZoom,
+      enableDoubleTapZoom: enableDoubleTapZoom ?? this.enableDoubleTapZoom,
       minScale: minScale ?? this.minScale,
       maxScale: maxScale ?? this.maxScale,
       swipeAngleThreshold: swipeAngleThreshold ?? this.swipeAngleThreshold,
       directionFromDrag: directionFromDrag ?? this.directionFromDrag,
       keepGrabOffset: keepGrabOffset ?? this.keepGrabOffset,
+      flipOnTap: flipOnTap ?? this.flipOnTap,
       pageBackgroundColor: pageBackgroundColor ?? this.pageBackgroundColor,
       pageBorderColor: pageBorderColor ?? this.pageBorderColor,
     );

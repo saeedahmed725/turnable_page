@@ -39,12 +39,14 @@ class TurnablePage extends StatelessWidget {
     this.textDirection,
     this.pageCacheExtent = 4,
     bool? enableZoom,
+    bool? enableDoubleTapZoom,
     double? minScale,
     double? maxScale,
   })  : pageViewMode = pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
         settings = (settings ?? FlipSettings()).copyWith(
           pageViewMode: pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
           enableZoom: enableZoom,
+          enableDoubleTapZoom: enableDoubleTapZoom,
           minScale: minScale,
           maxScale: maxScale,
         ) {

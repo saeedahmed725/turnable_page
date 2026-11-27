@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turnable Page Docs</title>
+<meta name="description" content="Documentation for turnable_page, a realistic page flip and page curl widget for Flutter. Build flipbooks, e-books, magazines and PDF viewers with single, double, RTL and zoomable pages.">
+<link rel="canonical" href="https://saeedahmed725.github.io/turnable_page/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Turnable Page: Flutter page flip widget docs">
+<meta property="og:description" content="Realistic page curl for Flutter flipbooks, e-books, magazines and PDF viewers.">
+<meta property="og:url" content="https://saeedahmed725.github.io/turnable_page/">
+<meta property="og:image" content="https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/mobile-fliping.gif">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "turnable_page",
+  "description": "Realistic page flip and page curl widget for Flutter.",
+  "programmingLanguage": "Dart",
+  "runtimePlatform": "Flutter",
+  "codeRepository": "https://github.com/saeedahmed725/turnable_page",
+  "url": "https://pub.dev/packages/turnable_page"
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbf9f5;
+  --surface: #ffffff;
+  --surface-2: #f3efe7;
+  --text: #1d1b18;
+  --muted: #625c52;
+  --border: #e4ddd0;
+  --accent: #a4471c;
+  --accent-soft: #f6e6dc;
+  --code-bg: #1f1c19;
+  --code-text: #ede6da;
+  --code-kw: #f0a571;
+  --code-str: #a9d18e;
+  --code-com: #8d857a;
+  --code-num: #e7c07a;
+  --code-type: #8cc4e8;
+  --shadow: 0 1px 2px rgba(40,30,20,.06), 0 8px 24px rgba(40,30,20,.06);
+  --sidebar-w: 260px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151311;
+    --surface: #1d1a17;
+    --surface-2: #26221e;
+    --text: #ece6dc;
+    --muted: #a69d90;
+    --border: #35302a;
+    --accent: #f0915c;
+    --accent-soft: #3a261b;
+    --code-bg: #0f0d0c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151311;
+  --surface: #1d1a17;
+  --surface-2: #26221e;
+  --text: #ece6dc;
+  --muted: #a69d90;
+  --border: #35302a;
+  --accent: #f0915c;
+  --accent-soft: #3a261b;
+  --code-bg: #0f0d0c;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.65 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+code { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .86em; }
+:not(pre) > code { background: var(--surface-2); border: 1px solid var(--border); padding: .08em .38em; border-radius: 5px; overflow-wrap: anywhere; }
+
+/* Top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 20; height: 60px;
+  display: flex; align-items: center; gap: 16px; padding: 0 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand small { font-weight: 500; color: var(--muted); }
+.topbar .spacer { flex: 1; }
+.topbar nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 18px; }
+.topbar nav a:hover { color: var(--text); }
+.icon-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  width: 36px; height: 36px; border-radius: 8px; cursor: pointer; display: grid; place-items: center;
+}
+.menu-btn { display: none; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+.sidebar {
+  position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto;
+  padding: 28px 16px 40px 20px; border-right: 1px solid var(--border); font-size: 14px;
+}
+.sidebar h4 { margin: 22px 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.sidebar h4:first-child { margin-top: 0; }
+.sidebar a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.sidebar a:hover { background: var(--surface-2); }
+.sidebar a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+main { padding: 40px 48px 96px; min-width: 0; max-width: 880px; }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1fr 230px; gap: 40px; align-items: center; margin-bottom: 56px; }
+.hero h1 { font-family: "Source Serif 4", Georgia, serif; font-size: 44px; line-height: 1.1; margin: 0 0 14px; letter-spacing: -.01em; }
+.hero p.lead { font-size: 18px; color: var(--muted); margin: 0 0 22px; }
+.install {
+  display: flex; align-items: center; gap: 10px; background: var(--code-bg); color: var(--code-text);
+  padding: 10px 10px 10px 16px; border-radius: 10px; width: fit-content; max-width: 100%;
+}
+.install code { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Animated book */
+.book { perspective: 1100px; width: 230px; height: 300px; position: relative; justify-self: center; }
+.book .sheet {
+  position: absolute; inset: 0 0 0 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 2px 8px 8px 2px; box-shadow: var(--shadow); padding: 26px 22px; overflow: hidden;
+}
+.book .sheet .ln { height: 7px; border-radius: 4px; background: var(--surface-2); margin: 0 0 11px; }
+.book .sheet .ttl { height: 12px; width: 60%; background: var(--accent-soft); border-radius: 4px; margin-bottom: 20px; }
+.book .flip {
+  transform-origin: left center; animation: turn 4.2s cubic-bezier(.55,.05,.35,1) infinite;
+  backface-visibility: hidden;
+  background: linear-gradient(90deg, var(--surface) 70%, var(--surface-2));
+}
+.book .num { position: absolute; bottom: 14px; right: 18px; font-size: 12px; color: var(--muted); }
+@keyframes turn {
+  0%, 18% { transform: rotateY(0); box-shadow: var(--shadow); }
+  62%, 100% { transform: rotateY(-178deg); box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) { .book .flip { animation: none; } }
+
+/* Content */
+section { margin-bottom: 64px; }
+h2 { font-family: "Source Serif 4", Georgia, serif; font-size: 30px; line-height: 1.2; margin: 0 0 14px; padding-top: 6px; }
+h3 { font-size: 18px; margin: 32px 0 8px; }
+p { margin: 0 0 14px; }
+ul { padding-left: 22px; margin: 0 0 14px; }
+li { margin: 4px 0; }
+.anchor { color: var(--border); text-decoration: none; margin-left: 8px; font-weight: 400; opacity: 0; transition: opacity .15s; }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+.features { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin: 18px 0 0; }
+.feature { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.feature b { display: block; margin-bottom: 4px; }
+.feature span { color: var(--muted); font-size: 14px; }
+.feature a { color: inherit; text-decoration: none; }
+.feature:hover { border-color: var(--accent); }
+
+pre {
+  position: relative; background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+  padding: 18px 20px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; margin: 0 0 18px;
+}
+pre code { font-size: inherit; }
+.copy {
+  position: absolute; top: 8px; right: 8px; font: 500 12px Inter, sans-serif; color: var(--code-text);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 6px;
+  padding: 4px 9px; cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+pre:hover .copy, .copy:focus { opacity: 1; }
+.tok-k { color: var(--code-kw); } .tok-s { color: var(--code-str); } .tok-c { color: var(--code-com); font-style: italic; }
+.tok-n { color: var(--code-num); } .tok-t { color: var(--code-type); }
+
+.callout { border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--surface); border-radius: 8px; padding: 12px 16px; margin: 0 0 18px; font-size: 15px; }
+.callout b { color: var(--accent); }
+
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+td code { white-space: nowrap; }
+
+.demos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 0 18px; }
+.demos figure { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.demos img { width: 100%; display: block; aspect-ratio: 4 / 3; object-fit: cover; background: var(--surface-2); }
+.demos figcaption { font-size: 13px; color: var(--muted); padding: 8px 12px; }
+
+footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--muted); font-size: 14px; }
+
+/* Mobile */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; top: 60px; left: 0; bottom: 0; width: 280px; height: auto; z-index: 15;
+    background: var(--bg); transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow);
+  }
+  body.nav-open .sidebar { transform: none; }
+  .menu-btn { display: grid; }
+  .topbar nav { display: none; }
+  main { padding: 28px 16px 80px; }
+  .hero { grid-template-columns: 1fr; gap: 28px; }
+  .hero h1 { font-size: 34px; }
+  .book { width: 190px; height: 250px; }
+  .demos { grid-template-columns: 1fr; }
+  h2 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open navigation">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="brand" href="#top">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 7c-3-2-7-3-12-2v20c5-1 9 0 12 2V7z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 7c3-2 7-3 12-2v20c-5-1-9 0-12 2V7z" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    Turnable Page <small>v2.0</small>
+  </a>
+  <div class="spacer"></div>
+  <nav>
+    <a href="https://pub.dev/packages/turnable_page">pub.dev</a>
+    <a href="https://github.com/saeedahmed725/turnable_page">GitHub</a>
+    <a href="https://pub.dev/documentation/turnable_page/latest/">API docs</a>
+  </nav>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</header>
+
+<div class="layout" id="top">
+<aside class="sidebar" id="sidebar">
+  <h4>Getting started</h4>
+  <a href="#overview">Overview</a>
+  <a href="#installation">Installation</a>
+  <a href="#quick-start">Quick start</a>
+  <h4>Guides</h4>
+  <a href="#layout">Page layout</a>
+  <a href="#controller">Controller</a>
+  <a href="#events">Events</a>
+  <a href="#gestures">Gestures and taps</a>
+  <a href="#scrolling">Scrolling inside pages</a>
+  <a href="#zoom">Pinch-to-zoom</a>
+  <a href="#pdf">PDF viewer</a>
+  <a href="#rtl">Right-to-left books</a>
+  <a href="#frames">Book frames</a>
+  <a href="#shadows">Shadows and paper</a>
+  <a href="#curl">Curl shape and feel</a>
+  <a href="#performance">Large books</a>
+  <h4>Reference</h4>
+  <a href="#api-turnable-page">TurnablePage</a>
+  <a href="#api-flip-settings">FlipSettings</a>
+  <a href="#api-controller">PageFlipController</a>
+  <a href="#api-pdf">TurnablePdf</a>
+  <h4>More</h4>
+  <a href="#recipes">Recipes</a>
+  <a href="#migration">Migrating to 2.0</a>
+  <a href="#faq">Troubleshooting</a>
+</aside>
+
+<main>
+
+<section id="overview">
+  <div class="hero">
+    <div>
+      <h1>Realistic page flip for Flutter</h1>
+      <p class="lead">Turnable Page is a page curl widget for flipbooks, e-books, magazines, catalogs, Quran and manga readers, and PDF viewers. Every page is a normal Flutter widget, so buttons, text fields and lists keep working.</p>
+      <div class="install"><code>flutter pub add turnable_page</code><button class="copy" style="position:static;opacity:1" data-copy="flutter pub add turnable_page">Copy</button></div>
+      <div class="cta">
+        <a class="btn primary" href="#quick-start">Quick start</a>
+        <a class="btn" href="https://github.com/saeedahmed725/turnable_page/tree/main/example">Example app</a>
+      </div>
+    </div>
+    <div class="book" aria-hidden="true">
+      <div class="sheet"><div class="ttl"></div><div class="ln"></div><div class="ln" style="width:85%"></div><div class="ln"></div><div class="ln" style="width:70%"></div><div class="ln"></div><div class="ln" style="width:90%"></div><span class="num">2</span></div>
+      <div class="sheet flip"><div class="ttl" style="width:45%"></div><div class="ln"></div><div class="ln"></div><div class="ln" style="width:75%"></div><div class="ln"></div><div class="ln" style="width:60%"></div><div class="ln"></div><span class="num">1</span></div>
+    </div>
+  </div>
+
+  <div class="demos">
+    <figure><img loading="lazy" src="https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/desktop-fliping.gif" alt="Flutter page flip animation in a two-page book spread"><figcaption>Two-page spread</figcaption></figure>
+    <figure><img loading="lazy" src="https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/mobile-fliping.gif" alt="Flutter page curl animation on a phone, one page at a time"><figcaption>Single page on mobile</figcaption></figure>
+    <figure><img loading="lazy" src="https://raw.githubusercontent.com/saeedahmed725/turnable_page/main/demo/responsiveness.gif" alt="Flutter flipbook switching between one and two pages as the window resizes"><figcaption>Responsive auto mode</figcaption></figure>
+  </div>
+
+  <div class="features">
+    <a class="feature" href="#shadows"><b>Realistic page curl</b><span>Bending paper, a back side, and shadows on the fold, the spine and the page below.</span></a>
+    <a class="feature" href="#gestures"><b>Interactive pages</b><span>Pages are live widgets, not screenshots. Taps can go to your content.</span></a>
+    <a class="feature" href="#layout"><b>Single, double, auto</b><span>One page on phones, a book spread on tablets and desktop.</span></a>
+    <a class="feature" href="#pdf"><b>PDF flipbook</b><span>Open a PDF from an asset, a URL or a file.</span></a>
+    <a class="feature" href="#zoom"><b>Pinch-to-zoom</b><span>With an optional double-tap zoom and pan while zoomed.</span></a>
+    <a class="feature" href="#rtl"><b>RTL books</b><span>Arabic, Hebrew, Persian and Urdu, with mirrored turns.</span></a>
+    <a class="feature" href="#controller"><b>Controller and events</b><span>Animate or jump to any page and listen to turns.</span></a>
+    <a class="feature" href="#performance"><b>Large books</b><span>Only pages near the current one are built.</span></a>
+  </div>
+</section>
+
+<section id="installation">
+  <h2>Installation</h2>
+  <p>Add the package to <code>pubspec.yaml</code>:</p>
+<pre><code class="lang-yaml">dependencies:
+  turnable_page: ^2.0.0</code></pre>
+  <p>Then import it:</p>
+<pre><code>import 'package:turnable_page/turnable_page.dart';</code></pre>
+  <p>Turnable Page needs Dart 3.8 or later. It works on Android, iOS, web, Windows, macOS and Linux.</p>
+</section>
+
+<section id="quick-start">
+  <h2>Quick start</h2>
+  <p>Give <code>TurnablePage</code> a page count and a builder. The builder is called with the page index and the size available for one page.</p>
+<pre><code>class BookScreen extends StatelessWidget {
+  const BookScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TurnablePage(
+          pageCount: 10,
+          pageViewMode: PageViewMode.auto,
+          builder: (context, pageIndex, constraints) {
+            return ColoredBox(
+              color: Colors.white,
+              child: Center(child: Text('Page ${pageIndex + 1}')),
+            );
+          },
+          onPageChanged: (leftIndex, rightIndex) {
+            debugPrint('Showing $leftIndex / $rightIndex');
+          },
+        ),
+      ),
+    );
+  }
+}</code></pre>
+  <p>Drag a page or tap it to turn it. The book fills its parent as far as it can while keeping its <code>aspectRatio</code>, and stays centered.</p>
+</section>
+
+<section id="layout">
+  <h2>Page layout</h2>
+  <p><code>pageViewMode</code> picks how many pages are visible at once.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Mode</th><th>Behavior</th></tr>
+    <tr><td><code>PageViewMode.single</code></td><td>One page at a time. This is the default.</td></tr>
+    <tr><td><code>PageViewMode.double</code></td><td>A two-page book spread, with a spine in the middle.</td></tr>
+    <tr><td><code>PageViewMode.auto</code></td><td>One page when the book is under 600 px wide, two pages from 600 px. It switches live when the window is resized.</td></tr>
+  </table></div>
+  <h3>Covers</h3>
+  <p>In a spread, <code>FlipSettings(showCover: true)</code> shows the first and last pages alone, like the covers of a hardcover book.</p>
+<pre><code>TurnablePage(
+  pageViewMode: PageViewMode.double,
+  settings: FlipSettings(showCover: true),
+  pageCount: 12,
+  builder: buildPage,
+)</code></pre>
+  <h3>Size</h3>
+  <p><code>aspectRatio</code> is the width divided by the height of <b>one page</b>. It defaults to <code>2/3</code>. In a spread, the book is twice as wide.</p>
+</section>
+
+<section id="controller">
+  <h2>Controller</h2>
+  <p>A <code>PageFlipController</code> turns pages from code and reads the book's state.</p>
+<pre><code>final controller = PageFlipController();
+
+TurnablePage(controller: controller, pageCount: 20, builder: buildPage);
+
+// Animated: completes when the turn ends.
+await controller.nextPage();
+await controller.previousPage();
+await controller.animateToPage(7);
+await controller.animateToFirstPage();
+
+// Instant.
+controller.jumpToPage(3);
+controller.jumpToLastPage();
+
+// State.
+controller.currentPageIndex; // 0-based
+controller.pageCount;
+controller.hasNextPage;
+controller.hasPreviousPage;
+controller.hasClients;       // true once a book is on screen</code></pre>
+  <p>Before a book is attached (<code>hasClients</code> is <code>false</code>), getters return neutral values and navigation returns <code>false</code> instead of throwing. You can pass a new controller to a book that is already on screen.</p>
+  <p><code>nextPage</code>, <code>previousPage</code> and <code>animateToPage</code> take an optional <code>FlipCorner.top</code> or <code>FlipCorner.bottom</code> to choose which corner the page is lifted from.</p>
+</section>
+
+<section id="events">
+  <h2>Events</h2>
+  <p>For page changes, <code>onPageChanged</code> is usually enough: it is called once with the new pages when a turn completes. For more detail, listen to the controller once the book is attached.</p>
+<pre><code>controller.addEventListener(PageFlipEvent.flip, (event) {
+  final newPage = event.data as int;
+});
+
+controller.removeEventListener(PageFlipEvent.flip);</code></pre>
+  <div class="table-wrap"><table>
+    <tr><th>Event</th><th>When</th><th><code>event.data</code></th></tr>
+    <tr><td><code>flip</code></td><td>Once per page change, after the turn completes or after a jump.</td><td>New page index (<code>int</code>)</td></tr>
+    <tr><td><code>changeState</code></td><td>The turn state changes: reading, dragging, flipping, corner fold.</td><td>The new state</td></tr>
+    <tr><td><code>changeOrientation</code></td><td>The book switches between one and two pages.</td><td>The new orientation</td></tr>
+    <tr><td><code>animationComplete</code></td><td>A turn animation ends.</td><td></td></tr>
+    <tr><td><code>updateSettings</code></td><td>Settings change.</td><td></td></tr>
+    <tr><td><code>clear</code></td><td>Pages are cleared.</td><td></td></tr>
+  </table></div>
+  <div class="callout"><b>Note.</b> <code>addEventListener</code> throws a <code>StateError</code> if no book is attached yet. Add listeners after the first frame, or check <code>hasClients</code>.</div>
+</section>
+
+<section id="gestures">
+  <h2>Gestures and taps</h2>
+  <p>Pages turn by dragging, by flinging, or by tapping. These settings control how the book reacts to the user's finger.</p>
+  <h3>Tappable page content</h3>
+  <p>By default, a tap on an empty part of a page turns it, and the corners are reserved for turning, so taps there never reach your widgets. If your pages have links, buttons or verses near the edges, turn tap-to-flip off:</p>
+<pre><code>TurnablePage(
+  settings: FlipSettings(flipOnTap: false),
+  pageCount: 604,
+  builder: buildPage,
+)</code></pre>
+  <p>Taps then always go to the page. Pages still turn by dragging, from anywhere including the corners, and from the controller.</p>
+  <h3>Drag direction</h3>
+  <p>In single-page mode, the turn direction normally depends on where the finger lands: the left 40% of the page means "previous". With <code>directionFromDrag: true</code>, the direction comes from the drag instead. Dragging right to left turns forward and left to right turns back, wherever the finger landed. This is mirrored for RTL books.</p>
+  <h3>Grabbing the page</h3>
+  <p><code>keepGrabOffset</code> (on by default) keeps the spot you grabbed under your finger, so pulling a page from the middle of its edge gives a natural curl. Turn it off to have the page corner jump to the finger, as in 1.x.</p>
+  <h3>Flings and thresholds</h3>
+  <ul>
+    <li><code>enableInertia</code>: a fast fling finishes the turn even before the page passes the middle. Tune it with <code>inertiaVelocityThreshold</code> (px/s) and <code>inertiaProgressBoost</code>.</li>
+    <li><code>swipeDistance</code>: how far, in px, a quick swipe must travel to turn a page.</li>
+    <li><code>cornerTriggerAreaSize</code>: the size of the corner hot zone, as a fraction of the page diagonal.</li>
+    <li><code>showPageCorners</code>: on desktop, a corner lifts slightly when the mouse hovers it.</li>
+    <li><code>onlyVerticalPageFlip</code>: turn pages with vertical drags only.</li>
+  </ul>
+  <p>A short drag that does not reveal enough of the next page is cancelled, and the page falls back into place.</p>
+</section>
+
+<section id="scrolling">
+  <h2>Scrolling inside pages</h2>
+  <p>A page can contain a <code>ListView</code> or <code>SingleChildScrollView</code>. The book decides from the first movement of the finger: a mostly vertical drag scrolls the page, and a mostly horizontal one turns it. <code>swipeAngleThreshold</code> sets how much more horizontal than vertical the drag must be to turn the page (default <code>1.25</code>). <code>mobileScrollSupport</code> turns this behavior on or off.</p>
+</section>
+
+<section id="zoom">
+  <h2>Pinch-to-zoom</h2>
+<pre><code>TurnablePage(
+  enableZoom: true,
+  minScale: 1.0,
+  maxScale: 3.0,
+  pageCount: 10,
+  builder: buildPage,
+)</code></pre>
+  <p>While a page is zoomed in, dragging pans it instead of turning it. Zoom back out to turn pages again.</p>
+  <h3>Double tap</h3>
+  <p>By default, a double tap zooms in to 2x, and a second double tap zooms back out. To use double tap for your own gesture, such as showing the reader's toolbar, turn it off and keep pinch-to-zoom:</p>
+<pre><code>GestureDetector(
+  onDoubleTap: toggleToolbar,
+  child: TurnablePage(
+    enableZoom: true,
+    enableDoubleTapZoom: false,
+    pageCount: 10,
+    builder: buildPage,
+  ),
+)</code></pre>
+  <p>From code, <code>controller.isZoomed</code> tells whether the page is zoomed in, and <code>controller.resetZoom()</code> zooms out.</p>
+</section>
+
+<section id="pdf">
+  <h2>PDF viewer</h2>
+  <p><code>TurnablePdf</code> opens a PDF document as a flipbook. Initialize the PDF engine once, before <code>runApp</code>:</p>
+<pre><code>Future&lt;void&gt; main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await TurnablePdf.initPDFLoaders();
+  runApp(const MyApp());
+}</code></pre>
+  <p>Then pick a source:</p>
+<pre><code>// Bundled asset (declare it under flutter/assets in pubspec.yaml)
+TurnablePdf.asset('assets/catalog.pdf', pageViewMode: PageViewMode.auto);
+
+// Network, with optional HTTP headers
+TurnablePdf.network(
+  'https://example.com/magazine.pdf',
+  headers: {'Authorization': 'Bearer $token'},
+);
+
+// Local file path
+TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
+  <h3>Loading and errors</h3>
+<pre><code>TurnablePdf.network(
+  url,
+  loadingBuilder: (context, source) =&gt; const Center(child: CircularProgressIndicator()),
+  errorBuilder: (context, title, message, onRetry) =&gt; Center(
+    child: TextButton(onPressed: onRetry, child: Text('$title. Retry')),
+  ),
+);</code></pre>
+  <p>Without builders, a shimmer is shown while loading and an error card with a retry button on failure. PDF rendering uses <a href="https://pub.dev/packages/pdfrx">pdfrx</a>.</p>
+</section>
+
+<section id="rtl">
+  <h2>Right-to-left books</h2>
+<pre><code>TurnablePage(
+  textDirection: TextDirection.rtl,
+  pageCount: 604,
+  builder: buildPage,
+)</code></pre>
+  <p>Page 1 is on the right and pages turn from left to right, like an Arabic or Hebrew book. Leave <code>textDirection</code> as <code>null</code> to follow the ambient <code>Directionality</code>. Gesture settings such as <code>directionFromDrag</code> are mirrored automatically.</p>
+</section>
+
+<section id="frames">
+  <h2>Book frames</h2>
+  <p><code>paperBoundaryDecoration</code> draws a frame around the book. Use a preset:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Preset</th><th>Look</th></tr>
+    <tr><td><code>PaperBoundaryDecoration.vintage</code></td><td>Layered warm borders. Default for <code>TurnablePage</code>.</td></tr>
+    <tr><td><code>PaperBoundaryDecoration.modern</code></td><td>A clean border with a soft shadow. Default for <code>TurnablePdf</code>.</td></tr>
+    <tr><td><code>PaperBoundaryDecoration.parchment</code></td><td>Aged paper tones.</td></tr>
+    <tr><td><code>PaperBoundaryDecoration.none</code></td><td>No frame.</td></tr>
+  </table></div>
+  <p>Or build your own from a few high-level values:</p>
+<pre><code>TurnablePage(
+  paperBoundaryDecoration: PaperBoundaryDecoration.custom(
+    baseColor: const Color(0xFFF4EBDD),
+    shadowColor: Colors.brown,
+    borderRadius: 6,
+    borderWidth: 0.8,
+    shadowOpacity: 0.25,
+  ),
+  // ...
+)</code></pre>
+  <p>Set <code>pagesBoundaryIsEnabled: false</code> to hide the frame without changing the decoration.</p>
+</section>
+
+<section id="shadows">
+  <h2>Shadows and paper</h2>
+<pre><code>FlipSettings(
+  drawShadow: true,
+  showCenterShadow: true,          // spine shadow in a spread
+  centerShadowColor: Colors.black,
+  innerShadowColor: Colors.black,  // inside the fold
+  outerShadowColor: Colors.black,  // cast on the page below
+  perimeterShadowColor: const Color(0x3D000000),
+  perimeterBorderColor: const Color(0x1F000000),
+  maxShadowOpacity: 0.8,
+  hideLeftShadow: false,
+)</code></pre>
+  <h3>Dark mode</h3>
+  <p><code>pageBackgroundColor</code> is the paper painted under pages, on the back of a turning page, and on blank filler pages. It is white by default. If your pages are dark, set it to their color, or light edges flash during a turn:</p>
+<pre><code>FlipSettings(pageBackgroundColor: const Color(0xFF1E1E1E))</code></pre>
+  <p>The thin border around the back of a turning page (<code>pageBorderColor</code>) is derived from it: slightly darker for light paper, and no border for dark paper.</p>
+</section>
+
+<section id="curl">
+  <h2>Curl shape and feel</h2>
+  <ul>
+    <li><code>flippingTime</code>: turn duration in ms (default <code>700</code>).</li>
+    <li><code>enableEasing</code>: eased motion for turns started from code or a tap.</li>
+    <li><code>sagAmplitude</code>: how much the fold line sags, as a fraction of the page height. <code>0</code> gives a straight fold.</li>
+    <li><code>bendStrength</code>: how strongly the paper bends, from <code>0</code> to <code>1</code>.</li>
+  </ul>
+</section>
+
+<section id="performance">
+  <h2>Large books</h2>
+  <p>Only the pages near the current one are built. <code>pageCacheExtent</code> (default <code>4</code>) sets how many pages are kept on each side. Pages that are already built are reused when you turn, so a 600-page book costs about the same as a 10-page one. Raise the value if your pages are expensive to build and users flip fast. Lower it to save memory.</p>
+</section>
+
+<section id="api-turnable-page">
+  <h2>TurnablePage</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>pageCount</code></td><td><code>int</code></td><td>required</td><td>Number of pages.</td></tr>
+    <tr><td><code>builder</code></td><td><code>TurnableBuilder</code></td><td>required</td><td><code>(context, pageIndex, constraints)</code> returns the page widget.</td></tr>
+    <tr><td><code>pageViewMode</code></td><td><code>PageViewMode?</code></td><td><code>single</code></td><td><code>single</code>, <code>double</code> or <code>auto</code>.</td></tr>
+    <tr><td><code>controller</code></td><td><code>PageFlipController?</code></td><td><code>null</code></td><td>Navigation and state.</td></tr>
+    <tr><td><code>onPageChanged</code></td><td><code>TurnablePageCallback?</code></td><td><code>null</code></td><td><code>(leftIndex, rightIndex)</code>, called once each turn completes.</td></tr>
+    <tr><td><code>settings</code></td><td><code>FlipSettings?</code></td><td><code>FlipSettings()</code></td><td>Behavior and appearance.</td></tr>
+    <tr><td><code>aspectRatio</code></td><td><code>double?</code></td><td><code>2/3</code></td><td>Width ÷ height of one page.</td></tr>
+    <tr><td><code>autoResponseSize</code></td><td><code>bool</code></td><td><code>true</code></td><td>Fit the book to its parent's size.</td></tr>
+    <tr><td><code>textDirection</code></td><td><code>TextDirection?</code></td><td>ambient</td><td><code>ltr</code> or <code>rtl</code>.</td></tr>
+    <tr><td><code>paperBoundaryDecoration</code></td><td><code>PaperBoundaryDecoration</code></td><td><code>vintage</code></td><td>Frame around the book.</td></tr>
+    <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>bool</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
+    <tr><td><code>pageCacheExtent</code></td><td><code>int</code></td><td><code>4</code></td><td>Pages kept built on each side of the current page.</td></tr>
+    <tr><td><code>enableZoom</code></td><td><code>bool?</code></td><td><code>false</code></td><td>Pinch-to-zoom.</td></tr>
+    <tr><td><code>enableDoubleTapZoom</code></td><td><code>bool?</code></td><td><code>true</code></td><td>Double tap toggles zoom when zoom is on.</td></tr>
+    <tr><td><code>minScale</code> / <code>maxScale</code></td><td><code>double?</code></td><td><code>1.0</code> / <code>3.0</code></td><td>Zoom limits.</td></tr>
+  </table></div>
+  <p>The zoom parameters can also be set in <code>FlipSettings</code>. Values passed to <code>TurnablePage</code> win.</p>
+</section>
+
+<section id="api-flip-settings">
+  <h2>FlipSettings</h2>
+  <p>Every value is optional. Use <code>copyWith</code> to change a few values of an existing settings object.</p>
+  <h3>Layout and behavior</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>startPageIndex</code></td><td><code>0</code></td><td>First page shown. Read once, like <code>PageController.initialPage</code>. Navigate later with the controller.</td></tr>
+    <tr><td><code>pageViewMode</code></td><td><code>single</code></td><td>Same as on <code>TurnablePage</code>.</td></tr>
+    <tr><td><code>showCover</code></td><td><code>false</code></td><td>Show the first and last pages alone in a spread.</td></tr>
+    <tr><td><code>flippingTime</code></td><td><code>700</code></td><td>Turn duration in ms.</td></tr>
+    <tr><td><code>enableEasing</code></td><td><code>true</code></td><td>Eased turn animation.</td></tr>
+  </table></div>
+  <h3>Gestures</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>flipOnTap</code></td><td><code>true</code></td><td>Tap to turn, with the corners reserved for turning. Set <code>false</code> for tappable page content.</td></tr>
+    <tr><td><code>directionFromDrag</code></td><td><code>false</code></td><td>Single-page mode: the turn direction follows the drag, not the touch position.</td></tr>
+    <tr><td><code>keepGrabOffset</code></td><td><code>true</code></td><td>Keep the grabbed spot under the finger.</td></tr>
+    <tr><td><code>swipeDistance</code></td><td><code>100.0</code></td><td>Quick swipe distance in px that turns a page.</td></tr>
+    <tr><td><code>cornerTriggerAreaSize</code></td><td><code>0.2</code></td><td>Corner hot zone, as a fraction of the page diagonal.</td></tr>
+    <tr><td><code>showPageCorners</code></td><td><code>true</code></td><td>Lift a corner on mouse hover.</td></tr>
+    <tr><td><code>enableInertia</code></td><td><code>true</code></td><td>A fast fling finishes the turn.</td></tr>
+    <tr><td><code>inertiaVelocityThreshold</code></td><td><code>900.0</code></td><td>Release speed in px/s that counts as a fling.</td></tr>
+    <tr><td><code>inertiaProgressBoost</code></td><td><code>0.15</code></td><td>Extra progress a fling adds, from 0 to 1.</td></tr>
+    <tr><td><code>onlyVerticalPageFlip</code></td><td><code>false</code></td><td>Turn with vertical drags only.</td></tr>
+    <tr><td><code>mobileScrollSupport</code></td><td><code>true</code></td><td>Let vertical drags scroll the page's content.</td></tr>
+    <tr><td><code>swipeAngleThreshold</code></td><td><code>1.25</code></td><td>Horizontal ÷ vertical movement needed to turn instead of scroll.</td></tr>
+  </table></div>
+  <h3>Zoom</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>enableZoom</code></td><td><code>false</code></td><td>Pinch-to-zoom.</td></tr>
+    <tr><td><code>enableDoubleTapZoom</code></td><td><code>true</code></td><td>Double tap toggles zoom.</td></tr>
+    <tr><td><code>minScale</code></td><td><code>1.0</code></td><td>Smallest zoom.</td></tr>
+    <tr><td><code>maxScale</code></td><td><code>3.0</code></td><td>Largest zoom.</td></tr>
+  </table></div>
+  <h3>Appearance</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>drawShadow</code></td><td><code>true</code></td><td>All turn shadows.</td></tr>
+    <tr><td><code>showCenterShadow</code></td><td><code>true</code></td><td>Spine shadow in a spread.</td></tr>
+    <tr><td><code>centerShadowColor</code></td><td><code>Colors.black</code></td><td>Spine shadow color.</td></tr>
+    <tr><td><code>innerShadowColor</code></td><td><code>Colors.black</code></td><td>Shadow inside the fold.</td></tr>
+    <tr><td><code>outerShadowColor</code></td><td><code>Colors.black</code></td><td>Shadow cast on the page below.</td></tr>
+    <tr><td><code>perimeterShadowColor</code></td><td><code>0x3D000000</code></td><td>Elevation shadow around the lifted page.</td></tr>
+    <tr><td><code>perimeterBorderColor</code></td><td><code>0x1F000000</code></td><td>Hairline along the curled edge.</td></tr>
+    <tr><td><code>maxShadowOpacity</code></td><td><code>1.0</code></td><td>Shadow strength, from 0 to 1.</td></tr>
+    <tr><td><code>hideLeftShadow</code></td><td><code>false</code></td><td>Hide the left-side shadow in single-page mode.</td></tr>
+    <tr><td><code>pageBackgroundColor</code></td><td>white</td><td>Paper color under and behind pages.</td></tr>
+    <tr><td><code>pageBorderColor</code></td><td>derived</td><td>Border around the back of a turning page. <code>null</code> derives it from the paper color.</td></tr>
+    <tr><td><code>sagAmplitude</code></td><td><code>0.08</code></td><td>Fold line sag, as a fraction of page height.</td></tr>
+    <tr><td><code>bendStrength</code></td><td><code>0.6</code></td><td>Paper bend, from 0 to 1.</td></tr>
+  </table></div>
+</section>
+
+<section id="api-controller">
+  <h2>PageFlipController</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Member</th><th>Returns</th><th>Description</th></tr>
+    <tr><td><code>nextPage([corner])</code></td><td><code>Future&lt;bool&gt;</code></td><td>Animate to the next page.</td></tr>
+    <tr><td><code>previousPage([corner])</code></td><td><code>Future&lt;bool&gt;</code></td><td>Animate to the previous page.</td></tr>
+    <tr><td><code>animateToPage(index, [corner])</code></td><td><code>Future&lt;bool&gt;</code></td><td>Animate to any page.</td></tr>
+    <tr><td><code>animateToFirstPage()</code> / <code>animateToLastPage()</code></td><td><code>Future&lt;bool&gt;</code></td><td>Animate to the first or last page.</td></tr>
+    <tr><td><code>jumpToPage(index)</code></td><td><code>bool</code></td><td>Go to a page without animation.</td></tr>
+    <tr><td><code>jumpToFirstPage()</code> / <code>jumpToLastPage()</code></td><td><code>bool</code></td><td>Jump to the first or last page.</td></tr>
+    <tr><td><code>currentPageIndex</code></td><td><code>int</code></td><td>Current page, 0-based.</td></tr>
+    <tr><td><code>pageCount</code></td><td><code>int</code></td><td>Total pages.</td></tr>
+    <tr><td><code>hasNextPage</code> / <code>hasPreviousPage</code></td><td><code>bool</code></td><td>Whether a turn is possible.</td></tr>
+    <tr><td><code>hasClients</code></td><td><code>bool</code></td><td>Whether a book is attached.</td></tr>
+    <tr><td><code>isZoomed</code></td><td><code>bool</code></td><td>Whether the page is zoomed in.</td></tr>
+    <tr><td><code>resetZoom()</code></td><td><code>void</code></td><td>Zoom back out.</td></tr>
+    <tr><td><code>addEventListener(event, callback)</code></td><td><code>void</code></td><td>Listen to a <a href="#events">PageFlipEvent</a>.</td></tr>
+    <tr><td><code>removeEventListener(event, [callback])</code></td><td><code>void</code></td><td>Stop listening.</td></tr>
+  </table></div>
+</section>
+
+<section id="api-pdf">
+  <h2>TurnablePdf</h2>
+  <p>Constructors: <code>TurnablePdf.asset(path)</code>, <code>TurnablePdf.network(url)</code> and <code>TurnablePdf.file(path)</code>. Call <code>TurnablePdf.initPDFLoaders()</code> once at startup.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>pageViewMode</code></td><td><code>single</code></td><td>Page layout.</td></tr>
+    <tr><td><code>controller</code></td><td><code>null</code></td><td>Navigation and state.</td></tr>
+    <tr><td><code>settings</code></td><td><code>null</code></td><td><code>FlipSettings</code> for the book.</td></tr>
+    <tr><td><code>onPageChanged</code></td><td><code>null</code></td><td><code>(leftIndex, rightIndex)</code>.</td></tr>
+    <tr><td><code>headers</code></td><td><code>null</code></td><td>HTTP headers (network only).</td></tr>
+    <tr><td><code>loadingBuilder</code></td><td>shimmer</td><td>Shown while the document loads.</td></tr>
+    <tr><td><code>errorBuilder</code></td><td>error card</td><td>Shown when loading fails, with a retry callback.</td></tr>
+    <tr><td><code>aspectRatio</code></td><td>from PDF</td><td>Override the page ratio.</td></tr>
+    <tr><td><code>pagePadding</code></td><td><code>EdgeInsets.zero</code></td><td>Padding around each rendered page.</td></tr>
+    <tr><td><code>boxDecoration</code></td><td><code>null</code></td><td>Decoration behind each page.</td></tr>
+    <tr><td><code>paperBoundaryDecoration</code></td><td><code>modern</code></td><td>Frame around the book.</td></tr>
+    <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
+    <tr><td><code>textDirection</code></td><td>ambient</td><td>Reading direction.</td></tr>
+  </table></div>
+</section>
+
+<section id="recipes">
+  <h2>Recipes</h2>
+  <h3>Previous and next buttons</h3>
+<pre><code>Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    IconButton(
+      icon: const Icon(Icons.chevron_left),
+      onPressed: controller.previousPage,
+    ),
+    IconButton(
+      icon: const Icon(Icons.chevron_right),
+      onPressed: controller.nextPage,
+    ),
+  ],
+)</code></pre>
+  <h3>Page indicator</h3>
+<pre><code>int page = 0;
+
+TurnablePage(
+  pageCount: pages.length,
+  onPageChanged: (left, right) =&gt; setState(() =&gt; page = left),
+  builder: (context, i, _) =&gt; pages[i],
+);
+
+Text('${page + 1} / ${pages.length}');</code></pre>
+  <h3>Reader with tappable verses and a toolbar on double tap</h3>
+<pre><code>GestureDetector(
+  onDoubleTap: () =&gt; setState(() =&gt; showToolbar = !showToolbar),
+  child: TurnablePage(
+    textDirection: TextDirection.rtl,
+    enableZoom: true,
+    enableDoubleTapZoom: false,
+    settings: FlipSettings(flipOnTap: false, directionFromDrag: true),
+    pageCount: 604,
+    builder: (context, i, _) =&gt; MushafPage(index: i),
+  ),
+)</code></pre>
+  <h3>Open on a saved page</h3>
+<pre><code>TurnablePage(
+  settings: FlipSettings(startPageIndex: savedPage),
+  onPageChanged: (left, _) =&gt; prefs.setInt('page', left),
+  // ...
+)</code></pre>
+</section>
+
+<section id="migration">
+  <h2>Migrating to 2.0</h2>
+  <ul>
+    <li><b><code>startPageIndex</code> is read once.</b> Changing it after the book is shown no longer navigates. Use <code>jumpToPage</code> or <code>animateToPage</code>.</li>
+    <li><b><code>PageFlipEvent.flip</code> fires once per page change, after the turn completes.</b> Its data is always the new page index as an <code>int</code>. It no longer fires at the start of <code>nextPage</code> with a <code>Map</code>.</li>
+    <li><b><code>onPageChanged</code> fires once, with the new page.</b> It used to fire twice per turn.</li>
+    <li><b>The controller no longer throws before a book is attached.</b> Check <code>hasClients</code>. Getters return neutral values and navigation returns <code>false</code>.</li>
+    <li><b>Short back drags are cancelled</b> in single-page mode instead of turning the page.</li>
+    <li><b><code>usePortrait</code> is deprecated.</b> Use <code>pageViewMode</code>.</li>
+  </ul>
+  <p>The full list is in the <a href="https://github.com/saeedahmed725/turnable_page/blob/main/CHANGELOG.md">changelog</a>.</p>
+</section>
+
+<section id="faq">
+  <h2>Troubleshooting</h2>
+  <h3>A button near a page corner doesn't respond</h3>
+  <p>Corners are reserved for turning while <code>flipOnTap</code> is on. Set <code>FlipSettings(flipOnTap: false)</code>.</p>
+  <h3>Tapping a page turns it, but I only want drags</h3>
+  <p>Same setting: <code>flipOnTap: false</code>.</p>
+  <h3>My own <code>onDoubleTap</code> never fires</h3>
+  <p>With zoom on, the book's double-tap zoom takes the gesture. Pass <code>enableDoubleTapZoom: false</code>.</p>
+  <h3>White edges flash when turning dark pages</h3>
+  <p>Set <code>pageBackgroundColor</code> to your page color.</p>
+  <h3>The page doesn't move to <code>startPageIndex</code> after I change it</h3>
+  <p>It is an initial value only. Use <code>controller.jumpToPage</code>.</p>
+  <h3>A vertical list inside a page turns the page instead of scrolling</h3>
+  <p>Raise <code>swipeAngleThreshold</code> so a drag must be more clearly horizontal to turn the page, and check that <code>mobileScrollSupport</code> is on.</p>
+  <h3>The PDF doesn't load</h3>
+  <p>Make sure <code>TurnablePdf.initPDFLoaders()</code> runs before <code>runApp</code>, that asset PDFs are listed in <code>pubspec.yaml</code>, and that network URLs allow your app's origin on the web (CORS).</p>
+</section>
+
+<footer>
+  <p>Found a bug or need a feature? Open an issue on <a href="https://github.com/saeedahmed725/turnable_page/issues">GitHub</a>. Turnable Page is distributed under the <a href="https://github.com/saeedahmed725/turnable_page/blob/main/LICENSE">Turnable Page Proprietary License</a>.</p>
+</footer>
+
+</main>
+</div>
+
+<script>
+(function () {
+  // Theme toggle (remembered per browser when storage is available).
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem('tp-theme'); if (saved) root.dataset.theme = saved; } catch (e) {}
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var dark = root.dataset.theme ? root.dataset.theme === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tp-theme', root.dataset.theme); } catch (e) {}
+  });
+
+  // Mobile navigation.
+  var body = document.body;
+  document.getElementById('menuBtn').addEventListener('click', function () { body.classList.toggle('nav-open'); });
+  document.querySelectorAll('.sidebar a').forEach(function (a) {
+    a.addEventListener('click', function () { body.classList.remove('nav-open'); });
+  });
+
+  // Light Dart/YAML highlighting.
+  var KW = /\b(abstract|async|await|class|const|else|extends|final|for|Future|if|import|int|bool|double|late|new|null|return|static|super|this|true|false|var|void|dependencies)\b/g;
+  document.querySelectorAll('pre code').forEach(function (el) {
+    var src = el.textContent;
+    var out = '', i = 0;
+    var re = /(\/\/[^\n]*|#[^\n]*$)|('(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|(\b[A-Z][A-Za-z0-9_]*\b)|(\b[a-z_][A-Za-z0-9_]*\b)/gm;
+    var esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    var m;
+    while ((m = re.exec(src))) {
+      out += esc(src.slice(i, m.index));
+      var t = m[0];
+      if (m[1] && !(t[0] === '#' && el.className.indexOf('yaml') < 0)) out += '<span class="tok-c">' + esc(t) + '</span>';
+      else if (m[2]) out += '<span class="tok-s">' + esc(t) + '</span>';
+      else if (m[3]) out += '<span class="tok-n">' + t + '</span>';
+      else if (m[4]) out += (KW.test(t) ? '<span class="tok-k">' : '<span class="tok-t">') + t + '</span>';
+      else if (m[5] && (KW.lastIndex = 0, KW.test(t))) out += '<span class="tok-k">' + t + '</span>';
+      else out += esc(t);
+      KW.lastIndex = 0;
+      i = re.lastIndex;
+    }
+    el.innerHTML = out + esc(src.slice(i));
+  });
+
+  // Copy buttons.
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var b = document.createElement('button');
+    b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+    pre.appendChild(b);
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.copy'); if (!b) return;
+    var text = b.dataset.copy || b.parentElement.querySelector('code').textContent;
+    navigator.clipboard && navigator.clipboard.writeText(text).then(function () {
+      b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1400);
+    });
+  });
+
+  // Heading anchors.
+  document.querySelectorAll('main section[id] > h2').forEach(function (h) {
+    var a = document.createElement('a'); a.className = 'anchor'; a.href = '#' + h.parentElement.id; a.textContent = '#';
+    a.setAttribute('aria-label', 'Link to this section'); h.appendChild(a);
+  });
+
+  // Highlight the current section in the sidebar.
+  var links = {};
+  document.querySelectorAll('.sidebar a').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting && links[en.target.id]) {
+        Object.values(links).forEach(function (l) { l.classList.remove('active'); });
+        links[en.target.id].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-80px 0px -70% 0px' });
+  document.querySelectorAll('main section[id]').forEach(function (s) { obs.observe(s); });
+})();
+</script>
+</body>
+</html>

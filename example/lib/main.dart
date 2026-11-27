@@ -344,6 +344,8 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
             cornerTriggerAreaSize: 0.2,
             enableEasing: true,
             enableInertia: true,
+            enableZoom: true,
+            enableDoubleTapZoom: false
           ),
           onPageChanged: (left, right) {
             _currentPage.value = left;

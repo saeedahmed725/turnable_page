@@ -953,8 +953,10 @@ class RenderTurnableBook extends RenderBox
 
     // Touches on turnable page corners are reserved for book page flipping.
     // Do not route them to child scroll views or child buttons on the corner.
+    // Not with tap-to-flip off: the page's widgets there must stay tappable
+    // (a drag from a corner still turns the page, see _handlePointerMove).
     final point = model.Point(position.dx, position.dy);
-    if (pageFlip.isPointOnCorners(point)) {
+    if (settings.flipOnTap && pageFlip.isPointOnCorners(point)) {
       return false;
     }
 
@@ -1209,6 +1211,13 @@ class RenderTurnableBook extends RenderBox
 
     // If child consumed the hit and user didn't drag horizontally, let the child handle it
     if (_childConsumedHit && !_isDragging) {
+      pageFlip.abortFlip();
+      _resetGestureState();
+      return;
+    }
+
+    // A tap (no drag) turns nothing when tap-to-flip is off.
+    if (!_isDragging && !settings.flipOnTap) {
       pageFlip.abortFlip();
       _resetGestureState();
       return;

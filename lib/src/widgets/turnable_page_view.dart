@@ -371,14 +371,16 @@ class _TurnablePageViewState extends State<TurnablePageView> {
 
     if (_settings.enableZoom) {
       content = GestureDetector(
-        onDoubleTap: () {
-          if (_isZoomed) {
-            _resetZoom();
-          } else {
-            _transformationController.value =
-                Matrix4.diagonal3Values(2.0, 2.0, 1.0);
-          }
-        },
+        onDoubleTap: _settings.enableDoubleTapZoom
+            ? () {
+                if (_isZoomed) {
+                  _resetZoom();
+                } else {
+                  _transformationController.value =
+                      Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+                }
+              }
+            : null,
         child: InteractiveViewer(
           transformationController: _transformationController,
           minScale: _settings.minScale,

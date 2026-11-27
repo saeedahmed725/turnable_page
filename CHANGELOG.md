@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### ✨ Features
+- **`enableDoubleTapZoom`** on `TurnablePage` and `FlipSettings` (default `true`): set it to `false` to turn off double-tap zoom while keeping pinch-to-zoom, so double tap is free for your own gestures ([#13](https://github.com/saeedahmed725/turnable_page/issues/13)).
+
 ## 2.0.0 - 2026-11-21
 ### ⚠️ Breaking changes
 - `FlipSettings.startPageIndex` is now an **initial value only** (like `PageController.initialPage`). Changing it after the book is shown no longer navigates; use `PageFlipController.jumpToPage` / `animateToPage`.
