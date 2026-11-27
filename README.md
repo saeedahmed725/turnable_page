@@ -63,7 +63,18 @@ Drag a page or tap it to turn it. The book sizes itself to fit its parent while 
 | `double` | Two-page book spread. |
 | `auto` | One page under 600 px of width, two pages from 600 px. |
 
-Set `FlipSettings(showCover: true)` to show the first and last pages alone, like a hardcover book.
+Set `FlipSettings(showCover: true)` to show the first and last pages alone, like a hardcover book. The sides next to them are empty: fill them with `coverSideBuilder`, for example with endpapers or a logo.
+
+```dart
+TurnablePage(
+  pageViewMode: PageViewMode.double,
+  settings: FlipSettings(showCover: true),
+  coverSideBuilder: (context, side, constraints) => side == CoverSide.front
+      ? const Endpaper(text: 'This book belongs to…')
+      : const Endpaper(text: 'The End'),
+  // ...
+)
+```
 
 ## Navigate with `PageFlipController`
 
@@ -178,6 +189,7 @@ FlipSettings(
 | `paperBoundaryDecoration` | `PaperBoundaryDecoration` | `vintage` | Frame around the book. |
 | `pagesBoundaryIsEnabled` | `bool` | `true` | Show the frame. |
 | `pageCacheExtent` | `int` | `4` | Pages kept built on each side of the current page. |
+| `coverSideBuilder` | `CoverSideBuilder?` | `null` | `(context, side, constraints)` → widget for the empty side next to a cover (`showCover` in a spread). |
 | `enableZoom` | `bool?` | `false` | Pinch-to-zoom. |
 | `enableDoubleTapZoom` | `bool?` | `true` | Double tap toggles zoom when `enableZoom` is on. |
 | `minScale` / `maxScale` | `double?` | `1.0` / `3.0` | Zoom limits. |

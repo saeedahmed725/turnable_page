@@ -151,7 +151,17 @@ class PageCollectionImpl extends PageCollection {
       if (targetSpread < 0 || targetSpread >= spreads.length) return null;
       final spread = spreads[targetSpread];
       if (spread.isEmpty) return null;
-      if (spread.length == 1) return pages[spread[0]];
+      // A one-page spread (the cover, or a last page alone) has an empty
+      // side where the bottom page would be. Returning its only page here
+      // made it both the flipping and the bottom page, so the empty side
+      // showed the page being turned away instead of blank paper.
+      if (spread.length == 1) {
+        return BookPageImpl.blank(
+          direction == FlipDirection.back
+              ? BookPageImpl.frontCoverSideIndex
+              : BookPageImpl.backCoverSideIndex,
+        );
+      }
       return direction == FlipDirection.forward
           ? pages[spread[1]]
           : pages[spread[0]];

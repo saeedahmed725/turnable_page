@@ -16,6 +16,19 @@ class BookPageImpl extends BookPage {
   BookPageImpl({required this.index, this.createdDensity = PageDensity.hard})
     : drawingDensity = createdDensity;
 
+  /// Index of the empty side next to the front cover ([CoverSide.front]).
+  static const int frontCoverSideIndex = -1;
+
+  /// Index of the empty side next to the back cover ([CoverSide.back]).
+  static const int backCoverSideIndex = -2;
+
+  /// An empty side of a spread (e.g. left of the cover when
+  /// `FlipSettings.showCover` is on). It shows the cover side widget if one
+  /// is given, or plain paper otherwise.
+  BookPageImpl.blank(int index) : this(index: index);
+
+  bool get isBlank => index < 0;
+
   @override
   void setDensity(PageDensity density) => createdDensity = density;
 

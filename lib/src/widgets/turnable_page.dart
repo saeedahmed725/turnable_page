@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../enums/cover_side.dart';
 import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
 import '../model/paper_boundary_decoration.dart';
@@ -24,6 +25,13 @@ class TurnablePage extends StatelessWidget {
   /// See [TurnablePageView.pageCacheExtent].
   final int pageCacheExtent;
 
+  /// Builds the widgets shown on the empty sides next to the covers, when
+  /// `FlipSettings.showCover` is on and two pages are shown: left of the
+  /// front cover ([CoverSide.front]) and right of the last page when it is
+  /// alone ([CoverSide.back]). Use it for endpapers, a logo or a table of
+  /// contents. Without it, these sides are plain paper.
+  final CoverSideBuilder? coverSideBuilder;
+
   TurnablePage({
     super.key,
     this.controller,
@@ -38,6 +46,7 @@ class TurnablePage extends StatelessWidget {
     this.pagesBoundaryIsEnabled = true,
     this.textDirection,
     this.pageCacheExtent = 4,
+    this.coverSideBuilder,
     bool? enableZoom,
     bool? enableDoubleTapZoom,
     double? minScale,
@@ -130,6 +139,9 @@ class TurnablePage extends StatelessWidget {
           paperBoundaryDecoration: paperBoundaryDecoration,
           textDirection: textDirection,
           pageCacheExtent: pageCacheExtent,
+          coverSideBuilder: coverSideBuilder == null
+              ? null
+              : (context, side) => coverSideBuilder!(context, side, constraints),
         );
       },
     );
@@ -144,4 +156,10 @@ typedef TurnableBuilder =
     );
 typedef TurnablePageCallback =
     void Function(int leftPageIndex, int rightPageIndex);
+typedef CoverSideBuilder =
+    Widget Function(
+      BuildContext context,
+      CoverSide side,
+      BoxConstraints constraints,
+    );
 typedef PageWidgetBuilder = Widget Function(BuildContext context, int index);

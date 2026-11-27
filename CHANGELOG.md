@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### ✨ Features
+- **`coverSideBuilder`** on `TurnablePage`: fill the empty sides next to the covers (with `showCover` in a two-page spread) with your own widgets, such as endpapers or a logo. `CoverSide.front` is the side left of the front cover, `CoverSide.back` the side right of a lone last page. The widgets are interactive and turn with the pages.
+
+### 🐛 Fixes
+- **With `showCover`, the empty side of the cover spread showed a copy of the page being turned** while turning back to the front cover (or forward to a lone last page), then turned blank when the turn ended. It now shows plain paper (or the `coverSideBuilder` widget) during the whole turn.
+- **The spine shadow no longer pops onto the new page at the end of a turn** in a two-page spread. It now belongs to the turning sheet, on its spine edge, and grows as the sheet lands.
+
 ## 2.1.0 - 2026-11-27
 ### ✨ Features
 - **`enableDoubleTapZoom`** on `TurnablePage` and `FlipSettings` (default `true`): set it to `false` to turn off double-tap zoom while keeping pinch-to-zoom, so double tap is free for your own gestures ([#13](https://github.com/saeedahmed725/turnable_page/issues/13)).
