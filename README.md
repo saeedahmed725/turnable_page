@@ -187,7 +187,6 @@ FlipSettings(
 | `flippingTime` | `700` | Turn animation duration in ms. |
 | `showCover` | `false` | Show the first and last pages alone, like covers. |
 | `flipOnTap` | `true` | Tap to turn and reserve the corners for turning. Set to `false` for tappable page content. |
-| `swipeDistance` | `100.0` | Fling distance in px that turns a page. |
 | `cornerTriggerAreaSize` | `0.2` | Size of the corner hot zone, as a fraction of the page diagonal. |
 | `enableInertia` | `true` | A fast fling finishes the turn. |
 | `enableEasing` | `true` | Eased turn animation. |

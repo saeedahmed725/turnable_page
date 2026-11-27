@@ -430,10 +430,8 @@ controller.removeEventListener(PageFlipEvent.flip);</code></pre>
   <p><code>keepGrabOffset</code> (on by default) keeps the spot you grabbed under your finger, so pulling a page from the middle of its edge gives a natural curl. Turn it off to have the page corner jump to the finger, as in 1.x.</p>
   <h3>Flings and thresholds</h3>
   <ul>
-    <li><code>enableInertia</code>: a fast fling finishes the turn even before the page passes the middle. Tune it with <code>inertiaVelocityThreshold</code> (px/s) and <code>inertiaProgressBoost</code>.</li>
-    <li><code>swipeDistance</code>: how far, in px, a quick swipe must travel to turn a page.</li>
+    <li><code>enableInertia</code>: a fast fling finishes the turn even before the page passes the middle. <code>inertiaVelocityThreshold</code> sets the release speed, in px/s, that counts as a fling.</li>
     <li><code>cornerTriggerAreaSize</code>: the size of the corner hot zone, as a fraction of the page diagonal.</li>
-    <li><code>showPageCorners</code>: on desktop, a corner lifts slightly when the mouse hovers it.</li>
     <li><code>onlyVerticalPageFlip</code>: turn pages with vertical drags only.</li>
   </ul>
   <p>A short drag that does not reveal enough of the next page is cancelled, and the page falls back into place.</p>
@@ -441,7 +439,7 @@ controller.removeEventListener(PageFlipEvent.flip);</code></pre>
 
 <section id="scrolling">
   <h2>Scrolling inside pages</h2>
-  <p>A page can contain a <code>ListView</code> or <code>SingleChildScrollView</code>. The book decides from the first movement of the finger: a mostly vertical drag scrolls the page, and a mostly horizontal one turns it. <code>swipeAngleThreshold</code> sets how much more horizontal than vertical the drag must be to turn the page (default <code>1.25</code>). <code>mobileScrollSupport</code> turns this behavior on or off.</p>
+  <p>A page can contain a <code>ListView</code> or <code>SingleChildScrollView</code>. The book decides from the first movement of the finger: a mostly vertical drag scrolls the page, and a mostly horizontal one turns it. <code>swipeAngleThreshold</code> sets how much more horizontal than vertical the drag must be to turn the page (default <code>1.25</code>).</p>
 </section>
 
 <section id="zoom">
@@ -578,7 +576,6 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>onPageChanged</code></td><td><code>TurnablePageCallback?</code></td><td><code>null</code></td><td><code>(leftIndex, rightIndex)</code>, called once each turn completes.</td></tr>
     <tr><td><code>settings</code></td><td><code>FlipSettings?</code></td><td><code>FlipSettings()</code></td><td>Behavior and appearance.</td></tr>
     <tr><td><code>aspectRatio</code></td><td><code>double?</code></td><td><code>2/3</code></td><td>Width ÷ height of one page.</td></tr>
-    <tr><td><code>autoResponseSize</code></td><td><code>bool</code></td><td><code>true</code></td><td>Fit the book to its parent's size.</td></tr>
     <tr><td><code>textDirection</code></td><td><code>TextDirection?</code></td><td>ambient</td><td><code>ltr</code> or <code>rtl</code>.</td></tr>
     <tr><td><code>paperBoundaryDecoration</code></td><td><code>PaperBoundaryDecoration</code></td><td><code>vintage</code></td><td>Frame around the book.</td></tr>
     <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>bool</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
@@ -608,14 +605,10 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>flipOnTap</code></td><td><code>true</code></td><td>Tap to turn, with the corners reserved for turning. Set <code>false</code> for tappable page content.</td></tr>
     <tr><td><code>directionFromDrag</code></td><td><code>false</code></td><td>Single-page mode: the turn direction follows the drag, not the touch position.</td></tr>
     <tr><td><code>keepGrabOffset</code></td><td><code>true</code></td><td>Keep the grabbed spot under the finger.</td></tr>
-    <tr><td><code>swipeDistance</code></td><td><code>100.0</code></td><td>Quick swipe distance in px that turns a page.</td></tr>
     <tr><td><code>cornerTriggerAreaSize</code></td><td><code>0.2</code></td><td>Corner hot zone, as a fraction of the page diagonal.</td></tr>
-    <tr><td><code>showPageCorners</code></td><td><code>true</code></td><td>Lift a corner on mouse hover.</td></tr>
     <tr><td><code>enableInertia</code></td><td><code>true</code></td><td>A fast fling finishes the turn.</td></tr>
     <tr><td><code>inertiaVelocityThreshold</code></td><td><code>900.0</code></td><td>Release speed in px/s that counts as a fling.</td></tr>
-    <tr><td><code>inertiaProgressBoost</code></td><td><code>0.15</code></td><td>Extra progress a fling adds, from 0 to 1.</td></tr>
     <tr><td><code>onlyVerticalPageFlip</code></td><td><code>false</code></td><td>Turn with vertical drags only.</td></tr>
-    <tr><td><code>mobileScrollSupport</code></td><td><code>true</code></td><td>Let vertical drags scroll the page's content.</td></tr>
     <tr><td><code>swipeAngleThreshold</code></td><td><code>1.25</code></td><td>Horizontal ÷ vertical movement needed to turn instead of scroll.</td></tr>
   </table></div>
   <h3>Zoom</h3>
@@ -678,7 +671,7 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>headers</code></td><td><code>null</code></td><td>HTTP headers (network only).</td></tr>
     <tr><td><code>loadingBuilder</code></td><td>shimmer</td><td>Shown while the document loads.</td></tr>
     <tr><td><code>errorBuilder</code></td><td>error card</td><td>Shown when loading fails, with a retry callback.</td></tr>
-    <tr><td><code>aspectRatio</code></td><td>from PDF</td><td>Override the page ratio.</td></tr>
+    <tr><td><code>aspectRatio</code></td><td><code>2/3</code></td><td>Override the page ratio.</td></tr>
     <tr><td><code>pagePadding</code></td><td><code>EdgeInsets.zero</code></td><td>Padding around each rendered page.</td></tr>
     <tr><td><code>boxDecoration</code></td><td><code>null</code></td><td>Decoration behind each page.</td></tr>
     <tr><td><code>paperBoundaryDecoration</code></td><td><code>modern</code></td><td>Frame around the book.</td></tr>
@@ -759,7 +752,7 @@ Text('${page + 1} / ${pages.length}');</code></pre>
   <h3>The page doesn't move to <code>startPageIndex</code> after I change it</h3>
   <p>It is an initial value only. Use <code>controller.jumpToPage</code>.</p>
   <h3>A vertical list inside a page turns the page instead of scrolling</h3>
-  <p>Raise <code>swipeAngleThreshold</code> so a drag must be more clearly horizontal to turn the page, and check that <code>mobileScrollSupport</code> is on.</p>
+  <p>Raise <code>swipeAngleThreshold</code> so a drag must be more clearly horizontal to turn the page.</p>
   <h3>The PDF doesn't load</h3>
   <p>Make sure <code>TurnablePdf.initPDFLoaders()</code> runs before <code>runApp</code>, that asset PDFs are listed in <code>pubspec.yaml</code>, and that network URLs allow your app's origin on the web (CORS).</p>
 </section>
