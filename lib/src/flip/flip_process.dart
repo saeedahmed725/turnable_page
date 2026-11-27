@@ -4,6 +4,7 @@ import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
 import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../enums/page_density.dart';
 import '../helpers/helper.dart';
 import '../model/page_rect.dart';
@@ -394,6 +395,13 @@ class FlipProcess {
     bool needReset = true,
   ]) {
     final settings = app.getSettings;
+
+    // A turn is committed: report it once, before it animates (sound,
+    // haptics). Cancelled drags and corner peeks pass isTurned = false.
+    final turning = calc;
+    if (isTurned && turning != null) {
+      app.trigger(PageFlipEvent.turn, app, turning.getDirection());
+    }
 
     final distance = Helper.getDistanceBetweenTwoPoint(start, dest);
 

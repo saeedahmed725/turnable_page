@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### ✨ Features
+- **Sound and haptics**: `onPageTurn` on `TurnablePage` and `TurnablePdf` is called once for each turn that will complete, with its `FlipDirection`, for a page-turn sound. `FlipSettings.hapticFeedback` adds a light vibration on each turn. The new `PageFlipEvent.turn` event carries the same information for controller listeners.
+- **Keyboard navigation** (`FlipSettings.keyboardNavigation`, on by default): arrow keys, Page Up/Down, Space, Home and End turn pages once the book is tapped or clicked. Arrows follow the reading direction in right-to-left books.
+- **Mouse wheel and trackpad navigation** (`FlipSettings.mouseWheelNavigation`, off by default): one page per wheel gesture. Scroll views inside a page keep their scrolling.
+- **Screen readers** announce the current page ("Page 3 of 10") and can turn pages with the adjust gestures. Translate the text with `semanticsValueBuilder`.
+- **Adaptive shadows for dark paper** (`FlipSettings.adaptiveShadows`, on by default): shadows are drawn up to 1.8x stronger on a dark `pageBackgroundColor`, where black shadows lose contrast.
+- `FlipDirection` is now exported.
+
 ## 2.1.1 - 2026-11-27
 ### ✨ Features
 - **`coverSideBuilder`** on `TurnablePage`: fill the empty sides next to the covers (with `showCover` in a two-page spread) with your own widgets, such as endpapers or a logo. `CoverSide.front` is the side left of the front cover, `CoverSide.back` the side right of a lone last page. The widgets are interactive and turn with the pages.

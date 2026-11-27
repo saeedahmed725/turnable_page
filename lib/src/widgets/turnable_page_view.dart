@@ -1,10 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../turnable_page.dart';
 import '../enums/book_orientation.dart';
+import '../enums/flipping_state.dart';
 import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
 import '../page/page_host.dart';
@@ -22,6 +25,14 @@ class TurnablePageView extends StatefulWidget {
   final PaperBoundaryDecoration paperBoundaryDecoration;
   final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
+
+  /// Called once for each page turn that is going to complete (see
+  /// [PageFlipEvent.turn]). Use it to play a page-turn sound.
+  final void Function(FlipDirection direction)? onPageTurn;
+
+  /// Text read by screen readers for the current page. Defaults to
+  /// "Page 3 of 10".
+  final String Function(int pageIndex, int pageCount)? semanticsValueBuilder;
 
   /// Builds the widgets shown on the empty sides of a lone cover spread
   /// (see [CoverSide]). Only used with `FlipSettings.showCover`.
@@ -52,6 +63,8 @@ class TurnablePageView extends StatefulWidget {
     this.textDirection,
     this.pageCacheExtent = 4,
     this.coverSideBuilder,
+    this.onPageTurn,
+    this.semanticsValueBuilder,
   }) : assert(pageCacheExtent >= 1, 'pageCacheExtent must be at least 1');
 
   @override
@@ -80,6 +93,16 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   /// zoom so pages that stay in the window are not rebuilt. Cleared whenever
   /// the parent rebuilds us or an inherited dependency changes.
   final Map<int, Widget> _pageCache = <int, Widget>{};
+
+  /// Focus for keyboard navigation ([FlipSettings.keyboardNavigation]).
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TurnablePage');
+
+  /// Current page, for the screen reader value.
+  late final ValueNotifier<int> _pageNotifier;
+
+  /// Time stamp of the last mouse wheel turn, to turn one page per wheel
+  /// gesture.
+  Duration? _lastWheelTurn;
 
   /// Get the adjusted settings for the PageFlip instance.
   ///
@@ -141,6 +164,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     super.initState();
     _currentPageIndex = widget.settings.startPageIndex;
     _windowCenter = _currentPageIndex;
+    _pageNotifier = ValueNotifier<int>(_currentPageIndex);
     _transformationController = TransformationController();
     _transformationController.addListener(_onTransformationChanged);
     _pageFlip = PageFlip(_settings);
@@ -197,6 +221,8 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   @override
   void dispose() {
     widget.controller?.detach(_pageFlip);
+    _focusNode.dispose();
+    _pageNotifier.dispose();
     _transformationController.removeListener(_onTransformationChanged);
     _transformationController.dispose();
     super.dispose();
@@ -210,6 +236,14 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     );
 
     // Set up event listeners
+    _pageFlip.on(PageFlipEvent.turn, (event) {
+      if (!mounted) return;
+      final direction = event.data;
+      if (direction is! FlipDirection) return;
+      if (widget.settings.hapticFeedback) HapticFeedback.lightImpact();
+      widget.onPageTurn?.call(direction);
+    });
+
     // Fired exactly once per page change, after the turn completed, with the
     // new page index (see PageFlip.updatePageIndex).
     _pageFlip.on(PageFlipEvent.flip, (event) {
@@ -237,6 +271,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       void applyPageChange() {
         if (!mounted || seq != _pageReportSeq) return;
         _currentPageIndex = newIndex;
+        _pageNotifier.value = newIndex;
         _updateWindowFor(newIndex);
         if (isRtl && !_isSingleMode) {
           widget.onPageChanged?.call(right, left);
@@ -255,6 +290,86 @@ class _TurnablePageViewState extends State<TurnablePageView> {
         applyPageChange();
       }
     });
+  }
+
+  bool get _isIdle {
+    final state = _pageFlip.getState();
+    return state == null ||
+        state == FlippingState.read ||
+        state == FlippingState.foldCorner;
+  }
+
+  void _turnNext() {
+    if (_isIdle) _pageFlip.flipNext();
+  }
+
+  void _turnPrev() {
+    if (_isIdle) _pageFlip.flipPrev();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event, bool isRtl) {
+    if (!widget.settings.keyboardNavigation) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final forwardArrow = isRtl
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowRight;
+    final backArrow = isRtl
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowLeft;
+    if (key == forwardArrow ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.pageDown ||
+        key == LogicalKeyboardKey.space) {
+      _turnNext();
+    } else if (key == backArrow ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.pageUp) {
+      _turnPrev();
+    } else if (key == LogicalKeyboardKey.home) {
+      if (_isIdle) _pageFlip.turnToPage(0);
+    } else if (key == LogicalKeyboardKey.end) {
+      if (_isIdle) _pageFlip.turnToPage(widget.pageCount - 1);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (!widget.settings.mouseWheelNavigation || _isZoomed) return;
+    if (event is! PointerScrollEvent) return;
+    // Scroll views inside a page register first and win.
+    GestureBinding.instance.pointerSignalResolver.register(event, (e) {
+      final scroll = e as PointerScrollEvent;
+      final delta = scroll.scrollDelta.dy.abs() >= scroll.scrollDelta.dx.abs()
+          ? scroll.scrollDelta.dy
+          : scroll.scrollDelta.dx;
+      if (delta.abs() < 1) return;
+      // One page per wheel gesture: a trackpad sends many small events.
+      final now = scroll.timeStamp;
+      final last = _lastWheelTurn;
+      if (last != null &&
+          (now - last).inMilliseconds.abs() < widget.settings.flippingTime) {
+        return;
+      }
+      if (!_isIdle) return;
+      _lastWheelTurn = now;
+      delta > 0 ? _turnNext() : _turnPrev();
+    });
+  }
+
+  void _requestKeyboardFocus(PointerDownEvent _) {
+    if (!widget.settings.keyboardNavigation) return;
+    final primary = FocusManager.instance.primaryFocus;
+    // Keep focus on a field or button inside a page.
+    if (primary == _focusNode ||
+        (primary != null && primary.ancestors.contains(_focusNode))) {
+      return;
+    }
+    _focusNode.requestFocus();
   }
 
   bool get _usesWindowing =>
@@ -428,6 +543,49 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       );
     }
 
-    return content;
+    content = ValueListenableBuilder<int>(
+      valueListenable: _pageNotifier,
+      child: content,
+      builder: (context, page, child) {
+        final value =
+            widget.semanticsValueBuilder?.call(page, widget.pageCount) ??
+            'Page ${page + 1} of ${widget.pageCount}';
+        final hasNext = page < widget.pageCount - 1;
+        final hasPrev = page > 0;
+        return Semantics(
+          container: true,
+          value: value,
+          increasedValue: hasNext
+              ? (widget.semanticsValueBuilder?.call(
+                      page + 1,
+                      widget.pageCount,
+                    ) ??
+                    'Page ${page + 2} of ${widget.pageCount}')
+              : null,
+          decreasedValue: hasPrev
+              ? (widget.semanticsValueBuilder?.call(
+                      page - 1,
+                      widget.pageCount,
+                    ) ??
+                    'Page $page of ${widget.pageCount}')
+              : null,
+          onIncrease: hasNext ? _turnNext : null,
+          onDecrease: hasPrev ? _turnPrev : null,
+          child: child,
+        );
+      },
+    );
+
+    return Focus(
+      focusNode: _focusNode,
+      canRequestFocus: widget.settings.keyboardNavigation,
+      skipTraversal: !widget.settings.keyboardNavigation,
+      onKeyEvent: (node, event) => _onKey(node, event, isRtl),
+      child: Listener(
+        onPointerDown: _requestKeyboardFocus,
+        onPointerSignal: _onPointerSignal,
+        child: content,
+      ),
+    );
   }
 }

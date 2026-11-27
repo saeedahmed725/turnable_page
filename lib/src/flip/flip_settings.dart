@@ -148,6 +148,36 @@ class FlipSettings {
   /// dragging (from anywhere, corners included) or from the controller.
   final bool flipOnTap;
 
+  /// Light haptic feedback (a short vibration) for each page turn, on
+  /// devices that support it. Default `false`.
+  final bool hapticFeedback;
+
+  /// Turn pages with the keyboard when the book has focus (default `true`).
+  /// The book takes focus when it is tapped or clicked. Arrow keys,
+  /// Page Up / Page Down and Space turn one page; Home and End go to the
+  /// first and last page. Arrows follow the reading direction, so in a
+  /// right-to-left book the left arrow turns forward.
+  final bool keyboardNavigation;
+
+  /// Turn pages with the mouse wheel or a trackpad scroll (default `false`).
+  /// Scroll views inside a page keep their own scrolling.
+  final bool mouseWheelNavigation;
+
+  /// Strengthen the turn shadows on dark paper (default `true`). Black
+  /// shadows lose most of their contrast on a dark [pageBackgroundColor], so
+  /// they are drawn up to 1.8x stronger there. Light paper is unchanged.
+  final bool adaptiveShadows;
+
+  /// Shadow strength actually used: [maxShadowOpacity], scaled up on dark
+  /// paper when [adaptiveShadows] is on.
+  double get effectiveShadowOpacity {
+    if (!adaptiveShadows) return maxShadowOpacity;
+    final luminance = pageBackgroundColor.computeLuminance();
+    // 1.0 at luminance >= 0.4, rising to 1.8 for black paper.
+    final boost = 1.0 + 0.8 * ((0.4 - luminance) / 0.4).clamp(0.0, 1.0);
+    return maxShadowOpacity * boost;
+  }
+
   /// Paper color painted under pages, on the back side of a turning page and
   /// on blank filler pages. Defaults to white. Set it to your page background
   /// (e.g. a dark color in dark mode) to avoid light flashes at curl edges.
@@ -251,6 +281,10 @@ class FlipSettings {
     this.directionFromDrag = false,
     this.keepGrabOffset = true,
     this.flipOnTap = true,
+    this.hapticFeedback = false,
+    this.keyboardNavigation = true,
+    this.mouseWheelNavigation = false,
+    this.adaptiveShadows = true,
     this.pageBackgroundColor = const Color(0xFFFFFFFF),
     this.pageBorderColor,
   }) : pageViewMode =
@@ -298,6 +332,10 @@ class FlipSettings {
     bool? directionFromDrag,
     bool? keepGrabOffset,
     bool? flipOnTap,
+    bool? hapticFeedback,
+    bool? keyboardNavigation,
+    bool? mouseWheelNavigation,
+    bool? adaptiveShadows,
     Color? pageBackgroundColor,
     Color? pageBorderColor,
   }) {
@@ -349,6 +387,10 @@ class FlipSettings {
       directionFromDrag: directionFromDrag ?? this.directionFromDrag,
       keepGrabOffset: keepGrabOffset ?? this.keepGrabOffset,
       flipOnTap: flipOnTap ?? this.flipOnTap,
+      hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      keyboardNavigation: keyboardNavigation ?? this.keyboardNavigation,
+      mouseWheelNavigation: mouseWheelNavigation ?? this.mouseWheelNavigation,
+      adaptiveShadows: adaptiveShadows ?? this.adaptiveShadows,
       pageBackgroundColor: pageBackgroundColor ?? this.pageBackgroundColor,
       pageBorderColor: pageBorderColor ?? this.pageBorderColor,
     );

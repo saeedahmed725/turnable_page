@@ -267,6 +267,7 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
   <a href="#gestures">Gestures and taps</a>
   <a href="#scrolling">Scrolling inside pages</a>
   <a href="#zoom">Pinch-to-zoom</a>
+  <a href="#feedback">Sound, haptics, keyboard</a>
   <a href="#pdf">PDF viewer</a>
   <a href="#rtl">Right-to-left books</a>
   <a href="#frames">Book frames</a>
@@ -316,6 +317,8 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
     <a class="feature" href="#layout"><b>Single, double, auto</b><span>One page on phones, a book spread on tablets and desktop.</span></a>
     <a class="feature" href="#pdf"><b>PDF flipbook</b><span>Open a PDF from an asset, a URL or a file.</span></a>
     <a class="feature" href="#zoom"><b>Pinch-to-zoom</b><span>With an optional double-tap zoom and pan while zoomed.</span></a>
+    <a class="feature" href="#feedback"><b>Sound and haptics</b><span>A light vibration and your own page-turn sound on each turn.</span></a>
+    <a class="feature" href="#feedback"><b>Keyboard and screen readers</b><span>Arrow keys, mouse wheel, and "Page 3 of 10" for screen readers.</span></a>
     <a class="feature" href="#rtl"><b>RTL books</b><span>Arabic, Hebrew, Persian and Urdu, with mirrored turns.</span></a>
     <a class="feature" href="#controller"><b>Controller and events</b><span>Animate or jump to any page and listen to turns.</span></a>
     <a class="feature" href="#performance"><b>Large books</b><span>Only pages near the current one are built.</span></a>
@@ -506,6 +509,40 @@ controller.removeEventListener(PageFlipEvent.flip);</code></pre>
   <p>From code, <code>controller.isZoomed</code> tells whether the page is zoomed in, and <code>controller.resetZoom()</code> zooms out.</p>
 </section>
 
+<section id="feedback">
+  <h2>Sound, haptics and keyboard</h2>
+<pre><code>TurnablePage(
+  settings: FlipSettings(
+    hapticFeedback: true,       // light vibration on each turn
+    mouseWheelNavigation: true, // wheel or trackpad turns pages
+  ),
+  onPageTurn: (direction) =&gt; player.play('page_turn.mp3'),
+  pageCount: 10,
+  builder: buildPage,
+)</code></pre>
+  <h3>Page-turn sound</h3>
+  <p><code>onPageTurn</code> is called once for each turn that will complete, with <code>FlipDirection.forward</code> (next page, also in right-to-left books) or <code>FlipDirection.back</code>. It fires when a turn starts from the controller, a tap or the keyboard, and when the user releases a drag that will finish. Cancelled drags are not reported. The package plays no sound itself, so use any audio package. Controller listeners get the same information from <code>PageFlipEvent.turn</code>.</p>
+  <h3>Haptics</h3>
+  <p><code>hapticFeedback: true</code> adds a light vibration on each turn, on devices that support it.</p>
+  <h3>Keyboard</h3>
+  <p>Keyboard navigation is on by default. The book takes focus when it is tapped or clicked, without taking it from a text field inside a page. Then:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Key</th><th>Action</th></tr>
+    <tr><td>→ ↓ Page Down Space</td><td>Next page</td></tr>
+    <tr><td>← ↑ Page Up</td><td>Previous page</td></tr>
+    <tr><td>Home / End</td><td>First / last page</td></tr>
+  </table></div>
+  <p>In a right-to-left book the left arrow turns forward. Set <code>keyboardNavigation: false</code> to turn it off.</p>
+  <h3>Mouse wheel</h3>
+  <p><code>mouseWheelNavigation: true</code> turns one page per wheel or trackpad gesture. Scroll views inside a page keep their own scrolling, and the wheel does nothing while zoomed in.</p>
+  <h3>Screen readers</h3>
+  <p>Screen readers announce the current page ("Page 3 of 10") and can turn pages with the adjust gestures (swipe up or down on the book in TalkBack and VoiceOver). To translate the text:</p>
+<pre><code>TurnablePage(
+  semanticsValueBuilder: (index, count) =&gt; 'صفحة ${index + 1} من $count',
+  // ...
+)</code></pre>
+</section>
+
 <section id="pdf">
   <h2>PDF viewer</h2>
   <p><code>TurnablePdf</code> opens a PDF document as a flipbook. Initialize the PDF engine once, before <code>runApp</code>:</p>
@@ -588,6 +625,7 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
   <p><code>pageBackgroundColor</code> is the paper painted under pages, on the back of a turning page, and on blank filler pages. It is white by default. If your pages are dark, set it to their color, or light edges flash during a turn:</p>
 <pre><code>FlipSettings(pageBackgroundColor: const Color(0xFF1E1E1E))</code></pre>
   <p>The thin border around the back of a turning page (<code>pageBorderColor</code>) is derived from it: slightly darker for light paper, and no border for dark paper.</p>
+  <p>Black shadows lose most of their contrast on dark paper, so they are drawn stronger there, up to 1.8x for black paper. Light paper is unchanged. Set <code>adaptiveShadows: false</code> to keep the same strength on every paper.</p>
 </section>
 
 <section id="curl">
@@ -620,6 +658,8 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>paperBoundaryDecoration</code></td><td><code>PaperBoundaryDecoration</code></td><td><code>vintage</code></td><td>Frame around the book.</td></tr>
     <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>bool</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
     <tr><td><code>pageCacheExtent</code></td><td><code>int</code></td><td><code>4</code></td><td>Pages kept built on each side of the current page.</td></tr>
+    <tr><td><code>onPageTurn</code></td><td><code>void Function(FlipDirection)?</code></td><td><code>null</code></td><td>Called once for each turn that will complete. See <a href="#feedback">Sound</a>.</td></tr>
+    <tr><td><code>semanticsValueBuilder</code></td><td><code>String Function(int, int)?</code></td><td><code>null</code></td><td>Screen reader text for the current page.</td></tr>
     <tr><td><code>coverSideBuilder</code></td><td><code>CoverSideBuilder?</code></td><td><code>null</code></td><td><code>(context, side, constraints)</code> returns the widget for the empty side next to a cover. See <a href="#layout">Covers</a>.</td></tr>
     <tr><td><code>enableZoom</code></td><td><code>bool?</code></td><td><code>false</code></td><td>Pinch-to-zoom.</td></tr>
     <tr><td><code>enableDoubleTapZoom</code></td><td><code>bool?</code></td><td><code>true</code></td><td>Double tap toggles zoom when zoom is on.</td></tr>
@@ -660,6 +700,13 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>minScale</code></td><td><code>1.0</code></td><td>Smallest zoom.</td></tr>
     <tr><td><code>maxScale</code></td><td><code>3.0</code></td><td>Largest zoom.</td></tr>
   </table></div>
+  <h3>Feedback and input</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>hapticFeedback</code></td><td><code>false</code></td><td>Light vibration on each turn.</td></tr>
+    <tr><td><code>keyboardNavigation</code></td><td><code>true</code></td><td>Arrow keys, Page Up/Down, Space, Home and End turn pages when the book has focus.</td></tr>
+    <tr><td><code>mouseWheelNavigation</code></td><td><code>false</code></td><td>The mouse wheel or a trackpad scroll turns pages.</td></tr>
+  </table></div>
   <h3>Appearance</h3>
   <div class="table-wrap"><table>
     <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
@@ -671,6 +718,7 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>perimeterShadowColor</code></td><td><code>0x3D000000</code></td><td>Elevation shadow around the lifted page.</td></tr>
     <tr><td><code>perimeterBorderColor</code></td><td><code>0x1F000000</code></td><td>Hairline along the curled edge.</td></tr>
     <tr><td><code>maxShadowOpacity</code></td><td><code>1.0</code></td><td>Shadow strength, from 0 to 1.</td></tr>
+    <tr><td><code>adaptiveShadows</code></td><td><code>true</code></td><td>Stronger shadows on dark paper.</td></tr>
     <tr><td><code>hideLeftShadow</code></td><td><code>false</code></td><td>Hide the left-side shadow in single-page mode.</td></tr>
     <tr><td><code>pageBackgroundColor</code></td><td>white</td><td>Paper color under and behind pages.</td></tr>
     <tr><td><code>pageBorderColor</code></td><td>derived</td><td>Border around the back of a turning page. <code>null</code> derives it from the paper color.</td></tr>

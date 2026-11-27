@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../enums/cover_side.dart';
+import '../enums/flip_direction.dart';
 import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
 import '../model/paper_boundary_decoration.dart';
@@ -32,6 +33,17 @@ class TurnablePage extends StatelessWidget {
   /// contents. Without it, these sides are plain paper.
   final CoverSideBuilder? coverSideBuilder;
 
+  /// Called once for each page turn that is going to complete: when a turn
+  /// starts from the controller, a tap or the keyboard, or when the user
+  /// releases a drag that will finish. Cancelled drags are not reported.
+  /// `direction` is [FlipDirection.forward] for the next page. Use it to
+  /// play a page-turn sound with any audio package.
+  final void Function(FlipDirection direction)? onPageTurn;
+
+  /// Text read by screen readers for the current page, for example to
+  /// translate it. Defaults to "Page 3 of 10".
+  final String Function(int pageIndex, int pageCount)? semanticsValueBuilder;
+
   TurnablePage({
     super.key,
     this.controller,
@@ -47,6 +59,8 @@ class TurnablePage extends StatelessWidget {
     this.textDirection,
     this.pageCacheExtent = 4,
     this.coverSideBuilder,
+    this.onPageTurn,
+    this.semanticsValueBuilder,
     bool? enableZoom,
     bool? enableDoubleTapZoom,
     double? minScale,
@@ -141,6 +155,8 @@ class TurnablePage extends StatelessWidget {
           paperBoundaryDecoration: paperBoundaryDecoration,
           textDirection: textDirection,
           pageCacheExtent: pageCacheExtent,
+          onPageTurn: onPageTurn,
+          semanticsValueBuilder: semanticsValueBuilder,
           coverSideBuilder: coverSideBuilder == null
               ? null
               : (context, side) =>

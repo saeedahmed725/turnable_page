@@ -20,6 +20,9 @@ A high-performance Flutter package that provides a realistic **3D page-flipping 
 - **Single, double or `auto` layout**: one page on phones, a two-page spread on tablets and desktop.
 - **PDF flipbook**: open a PDF from an asset, a URL or a file with `TurnablePdf`.
 - **Pinch-to-zoom** with an optional double-tap zoom.
+- **Sound and haptics**: a light vibration on each turn, and an `onPageTurn` callback to play your own page-turn sound.
+- **Keyboard, mouse wheel and screen readers**: arrow keys, Page Up/Down, Home/End and the mouse wheel turn pages, and screen readers announce "Page 3 of 10".
+- **Dark mode**: shadows adapt to dark paper.
 - **RTL books** for Arabic, Hebrew, Persian and Urdu, with mirrored page turns.
 - **Controller**: next, previous, animate or jump to any page, and listen to page events.
 - **Large books**: only the pages near the current one are built.
@@ -121,6 +124,25 @@ TurnablePage(
 
 While a page is zoomed in, dragging pans the page instead of turning it. By default, a double tap zooms in and out. Set `enableDoubleTapZoom: false` to keep pinch-to-zoom and use double tap for your own gesture, such as toggling the reader UI. To reset the zoom from code, call `controller.resetZoom()`.
 
+## Sound, haptics and keyboard
+
+```dart
+TurnablePage(
+  settings: FlipSettings(
+    hapticFeedback: true,       // light vibration on each turn
+    mouseWheelNavigation: true, // wheel or trackpad turns pages
+  ),
+  onPageTurn: (direction) => player.play('page_turn.mp3'),
+  // ...
+)
+```
+
+`onPageTurn` is called once for each turn that will complete, when the page starts moving on its own, with `FlipDirection.forward` or `FlipDirection.back`. Cancelled drags are not reported. Play the sound with any audio package.
+
+Keyboard navigation is on by default. Once the book is tapped or clicked, the arrow keys, Page Up/Down and Space turn one page, and Home/End go to the first and last page. In a right-to-left book the left arrow turns forward. Set `keyboardNavigation: false` to turn it off.
+
+Screen readers announce the current page and can turn pages with the adjust gestures. To translate the text, pass `semanticsValueBuilder: (i, count) => 'صفحة ${i + 1} من $count'`.
+
 ## PDF page flip viewer
 
 Initialize the PDF engine once, before `runApp`:
@@ -189,6 +211,8 @@ FlipSettings(
 | `paperBoundaryDecoration` | `PaperBoundaryDecoration` | `vintage` | Frame around the book. |
 | `pagesBoundaryIsEnabled` | `bool` | `true` | Show the frame. |
 | `pageCacheExtent` | `int` | `4` | Pages kept built on each side of the current page. |
+| `onPageTurn` | `void Function(FlipDirection)?` | `null` | Called once for each turn that will complete. Use it for a page-turn sound. |
+| `semanticsValueBuilder` | `String Function(int, int)?` | `null` | Screen reader text for the current page. Defaults to "Page 3 of 10". |
 | `coverSideBuilder` | `CoverSideBuilder?` | `null` | `(context, side, constraints)` → widget for the empty side next to a cover (`showCover` in a spread). |
 | `enableZoom` | `bool?` | `false` | Pinch-to-zoom. |
 | `enableDoubleTapZoom` | `bool?` | `true` | Double tap toggles zoom when `enableZoom` is on. |
@@ -206,10 +230,14 @@ FlipSettings(
 | `enableInertia` | `true` | A fast fling finishes the turn. |
 | `enableEasing` | `true` | Eased turn animation. |
 | `onlyVerticalPageFlip` | `false` | Turn pages with vertical drags only. |
+| `hapticFeedback` | `false` | Light vibration on each turn. |
+| `keyboardNavigation` | `true` | Arrow keys, Page Up/Down, Space, Home and End turn pages when the book has focus. |
+| `mouseWheelNavigation` | `false` | The mouse wheel or a trackpad scroll turns pages. |
 | `drawShadow` | `true` | All turn shadows. |
 | `showCenterShadow` | `true` | Spine shadow in a two-page spread. |
 | `centerShadowColor`, `innerShadowColor`, `outerShadowColor` | `Colors.black` | Shadow colors. |
 | `maxShadowOpacity` | `1.0` | Shadow strength, from 0 to 1. |
+| `adaptiveShadows` | `true` | Stronger shadows on dark paper, where black shadows lose contrast. |
 | `pageBackgroundColor` | white | Paper color behind and under pages. |
 
 The full list, including the bend and inertia tuning values, is in the [API docs](https://pub.dev/documentation/turnable_page/latest/turnable_page/FlipSettings-class.html).

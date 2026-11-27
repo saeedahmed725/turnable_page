@@ -347,6 +347,7 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
             enableZoom: true,
             enableDoubleTapZoom: false,
             showCover: true,
+            mouseWheelNavigation: true
           ),
           onPageChanged: (left, right) {
             _currentPage.value = left;

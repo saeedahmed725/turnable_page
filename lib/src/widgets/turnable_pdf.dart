@@ -58,6 +58,10 @@ class TurnablePdf extends StatefulWidget {
   final Map<String, String>? headers; // For network requests
   final FlipSettings? settings;
   final void Function(int leftPageIndex, int rightPageIndex)? onPageChanged;
+
+  /// Called once for each page turn that is going to complete. See
+  /// [TurnablePage.onPageTurn].
+  final void Function(FlipDirection direction)? onPageTurn;
   final LoadingBuilder? loadingBuilder;
   final ErrorBuilder? errorBuilder;
   final double? aspectRatio;
@@ -80,6 +84,7 @@ class TurnablePdf extends StatefulWidget {
     this.headers,
     this.settings,
     this.onPageChanged,
+    this.onPageTurn,
     this.loadingBuilder,
     this.errorBuilder,
     this.aspectRatio,
@@ -116,6 +121,7 @@ class TurnablePdf extends StatefulWidget {
     BoxDecoration? boxDecoration,
     FlipSettings? settings,
     void Function(int leftPageIndex, int rightPageIndex)? onPageChanged,
+    void Function(FlipDirection direction)? onPageTurn,
     LoadingBuilder? loadingBuilder,
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
@@ -132,6 +138,7 @@ class TurnablePdf extends StatefulWidget {
     boxDecoration: boxDecoration,
     settings: settings,
     onPageChanged: onPageChanged,
+    onPageTurn: onPageTurn,
     loadingBuilder: loadingBuilder,
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
@@ -166,6 +173,7 @@ class TurnablePdf extends StatefulWidget {
     Map<String, String>? headers,
     FlipSettings? settings,
     void Function(int leftPageIndex, int rightPageIndex)? onPageChanged,
+    void Function(FlipDirection direction)? onPageTurn,
     LoadingBuilder? loadingBuilder,
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
@@ -183,6 +191,7 @@ class TurnablePdf extends StatefulWidget {
     headers: headers,
     settings: settings,
     onPageChanged: onPageChanged,
+    onPageTurn: onPageTurn,
     loadingBuilder: loadingBuilder,
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
@@ -218,6 +227,7 @@ class TurnablePdf extends StatefulWidget {
     BoxDecoration? boxDecoration,
     FlipSettings? settings,
     void Function(int leftPageIndex, int rightPageIndex)? onPageChanged,
+    void Function(FlipDirection direction)? onPageTurn,
     LoadingBuilder? loadingBuilder,
     ErrorBuilder? errorBuilder,
     double? aspectRatio,
@@ -234,6 +244,7 @@ class TurnablePdf extends StatefulWidget {
     boxDecoration: boxDecoration,
     settings: settings,
     onPageChanged: onPageChanged,
+    onPageTurn: onPageTurn,
     loadingBuilder: loadingBuilder,
     errorBuilder: errorBuilder,
     aspectRatio: aspectRatio,
@@ -458,6 +469,7 @@ class _TurnablePdfState extends State<TurnablePdf> {
             paperBoundaryDecoration: widget.paperBoundaryDecoration,
             settings: widget.settings,
             onPageChanged: widget.onPageChanged,
+            onPageTurn: widget.onPageTurn,
             aspectRatio: widget.aspectRatio,
             pagesBoundaryIsEnabled: widget.pagesBoundaryIsEnabled,
             autoResponseSize: false,

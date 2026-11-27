@@ -7,7 +7,6 @@ import 'package:turnable_page/turnable_page.dart';
 import '../collection/page_collection_impl.dart';
 import '../enums/animation_process.dart';
 import '../enums/book_orientation.dart';
-import '../enums/flip_direction.dart';
 import '../enums/page_orientation.dart';
 import '../enums/size_type.dart';
 import '../helpers/helper.dart';
@@ -944,7 +943,7 @@ class RenderTurnableBook extends RenderBox
 
   void _paintSpineGradient(Canvas canvas, Rect area, double strength) {
     final baseColor = settings.centerShadowColor;
-    final baseAlpha = (baseColor.a * settings.maxShadowOpacity * strength)
+    final baseAlpha = (baseColor.a * settings.effectiveShadowOpacity * strength)
         .clamp(0.0, 1.0);
     final gradient = ui.Gradient.linear(
       area.centerLeft,
@@ -1014,8 +1013,11 @@ class RenderTurnableBook extends RenderBox
     late final List<double> stops;
 
     final outerColor = settings.outerShadowColor;
-    final targetAlpha = (s.opacity * outerColor.a * settings.maxShadowOpacity)
-        .clamp(0.0, 1.0);
+    final targetAlpha =
+        (s.opacity * outerColor.a * settings.effectiveShadowOpacity).clamp(
+          0.0,
+          1.0,
+        );
 
     if (s.direction == FlipDirection.forward) {
       canvas.translate(0, -100);
@@ -1065,8 +1067,11 @@ class RenderTurnableBook extends RenderBox
     late final List<double> stops;
 
     final innerColor = settings.innerShadowColor;
-    final baseAlpha = (s.opacity * innerColor.a * settings.maxShadowOpacity)
-        .clamp(0.0, 1.0);
+    final baseAlpha =
+        (s.opacity * innerColor.a * settings.effectiveShadowOpacity).clamp(
+          0.0,
+          1.0,
+        );
 
     if (s.direction == FlipDirection.forward) {
       canvas.translate(-isw, -100);

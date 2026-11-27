@@ -2,6 +2,7 @@
 export 'src/enums/page_view_mode.dart';
 export 'src/enums/cover_side.dart';
 export 'src/enums/flip_corner.dart';
+export 'src/enums/flip_direction.dart';
 export 'src/enums/page_flip_event.dart';
 export 'src/widgets/page_flip_controller.dart';
 export 'src/widgets/turnable_page.dart';
