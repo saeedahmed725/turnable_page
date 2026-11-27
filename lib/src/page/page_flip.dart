@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' hide Point;
 
 import '../collection/page_collection.dart';
@@ -137,6 +138,50 @@ class PageFlip extends EventObject {
     if (page >= 0 && page < totalPages) {
       flipProcess.flipToPage(page, corner);
     }
+  }
+
+  /// Folds the page corner under the mouse (see
+  /// `FlipSettings.showPageCorners`), or lets it fall back when [pos] is
+  /// not on a corner.
+  void showCorner(Point pos) => flipProcess.showCorner(pos);
+
+  /// Folds the corner under a hovering mouse, deeper as it nears the corner
+  /// (see `FlipSettings.showPageCorners` and `cornerHoverSize`).
+  void hoverCorner(Point pos) =>
+      flipProcess.hoverCorner(pos, zone: setting.cornerHoverSize);
+
+  /// Lets a folded corner fall back smoothly.
+  void releaseCorner() => flipProcess.releaseCorner();
+
+  Timer? _peekTimer;
+
+  /// Folds the corner of the next page a little and lets it fall back, to
+  /// show that the page turns. Returns `false` when the book is busy or has
+  /// no next page.
+  bool peek({Duration hold = const Duration(milliseconds: 500)}) {
+    if (pages == null || !hasRender) return false;
+    if (getState() != FlippingState.read || !canFlipNext()) return false;
+    final rect = getBoundsRect();
+    if (rect == null) return false;
+    flipProcess.showCorner(
+      Point(rect.left + rect.pageWidth * 2 - 2, rect.height - 2),
+      cornerSize: rect.pageWidth * 0.22,
+    );
+    if (getState() != FlippingState.foldCorner) return false;
+    // The fold itself takes about 30% of flippingTime.
+    final foldMs = (setting.flippingTime * 0.3).round();
+    _peekTimer?.cancel();
+    _peekTimer = Timer(
+      Duration(milliseconds: foldMs) + hold,
+      flipProcess.releaseCorner,
+    );
+    return true;
+  }
+
+  /// Cancels a pending [peek] fall-back (when the book goes away).
+  void cancelPeek() {
+    _peekTimer?.cancel();
+    _peekTimer = null;
   }
 
   /// Update flipping state

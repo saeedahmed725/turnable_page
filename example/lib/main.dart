@@ -334,11 +334,10 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
           controller: _controller,
           pageCount: _pages.length,
           pageViewMode: PageViewMode.auto,
-          paperBoundaryDecoration: PaperBoundaryDecoration.modern,
           textDirection: _direction,
           settings: FlipSettings(
             drawShadow: true,
-            hideLeftShadow: true,
+            hideLeftShadow: false,
             flippingTime: 700,
             swipeDistance: 60,
             cornerTriggerAreaSize: 0.2,
@@ -347,7 +346,8 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
             enableZoom: true,
             enableDoubleTapZoom: false,
             showCover: true,
-            mouseWheelNavigation: true
+            mouseWheelNavigation: true,
+            showPageEdges: true
           ),
           onPageChanged: (left, right) {
             _currentPage.value = left;
@@ -356,7 +356,11 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
             CoverSide.front => Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.auto_stories, size: 80, color: Colors.redAccent),
+                const Icon(
+                  Icons.auto_stories,
+                  size: 80,
+                  color: Colors.redAccent,
+                ),
                 const SizedBox(height: 20),
                 const Text(
                   'Widget Book',
@@ -1324,7 +1328,7 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
 
     final settings = FlipSettings(
       drawShadow: true,
-      hideLeftShadow: true,
+      hideLeftShadow: false,
       flippingTime: 700,
       swipeDistance: 60,
       cornerTriggerAreaSize: 0.2,
@@ -1336,7 +1340,6 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
         widget.assetPath!,
         controller: _controller,
         pageViewMode: pageViewMode,
-        paperBoundaryDecoration: PaperBoundaryDecoration.modern,
         settings: settings,
         textDirection: _direction,
         onPageChanged: (left, right) => _currentPage.value = left,
@@ -1346,7 +1349,6 @@ class _PdfBookScreenState extends State<PdfBookScreen> {
         widget.url!,
         controller: _controller,
         pageViewMode: pageViewMode,
-        paperBoundaryDecoration: PaperBoundaryDecoration.modern,
         settings: settings,
         textDirection: _direction,
         onPageChanged: (left, right) => _currentPage.value = left,

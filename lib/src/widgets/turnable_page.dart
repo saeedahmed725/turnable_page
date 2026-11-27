@@ -4,9 +4,8 @@ import '../enums/cover_side.dart';
 import '../enums/flip_direction.dart';
 import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
-import '../model/paper_boundary_decoration.dart';
+import 'page_edges.dart';
 import 'page_flip_controller.dart';
-import 'paper_widget.dart';
 import 'turnable_page_view.dart';
 
 class TurnablePage extends StatelessWidget {
@@ -17,9 +16,7 @@ class TurnablePage extends StatelessWidget {
   final FlipSettings settings;
   final PageViewMode pageViewMode;
   final bool autoResponseSize;
-  final PaperBoundaryDecoration paperBoundaryDecoration;
   final double? aspectRatio;
-  final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
 
   /// Pages kept built on each side of the current page for large books.
@@ -53,9 +50,7 @@ class TurnablePage extends StatelessWidget {
     this.onPageChanged,
     PageViewMode? pageViewMode,
     this.autoResponseSize = true,
-    this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
     FlipSettings? settings,
-    this.pagesBoundaryIsEnabled = true,
     this.textDirection,
     this.pageCacheExtent = 4,
     this.coverSideBuilder,
@@ -125,17 +120,13 @@ class TurnablePage extends StatelessWidget {
         final isMobile = constraints.maxWidth < 600;
         final aspectRatio = _getAspectRatio(isMobile);
         FlipSettings adjustedSettings = _getAdjustedSetting(isMobile);
-
-        // The paper frame is drawn around the book, so the book gets the
-        // space left after it (otherwise the frame overflows the parent).
-        final frame = PaperWidget.frameExtent(
-          isEnabled: pagesBoundaryIsEnabled,
-          decoration: paperBoundaryDecoration,
-          isSinglePage: _resolveMode(isMobile) == PageViewMode.single,
+        final edges = PageEdges.extent(
+          enabled: settings.showPageEdges,
+          maxWidth: settings.pageEdgeWidth,
         );
         final bookSize = _calculateBookSize(
-          maxWidth: constraints.maxWidth - frame.width,
-          maxHeight: constraints.maxHeight - frame.height,
+          maxWidth: constraints.maxWidth - edges,
+          maxHeight: constraints.maxHeight,
           aspectRatio: aspectRatio,
         );
         adjustedSettings = adjustedSettings.copyWith(
@@ -151,8 +142,6 @@ class TurnablePage extends StatelessWidget {
           controller: controller,
           aspectRatio: aspectRatio,
           onPageChanged: onPageChanged,
-          pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
-          paperBoundaryDecoration: paperBoundaryDecoration,
           textDirection: textDirection,
           pageCacheExtent: pageCacheExtent,
           onPageTurn: onPageTurn,

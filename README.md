@@ -5,6 +5,8 @@
 [![likes](https://img.shields.io/pub/likes/turnable_page)](https://pub.dev/packages/turnable_page)
 [![docs](https://img.shields.io/badge/docs-website-a4471c)](https://saeedahmed725.github.io/turnable_page/)
 
+🇪🇬 [اقرأ بالعربي](README_AR.md)
+
 A high-performance Flutter package that provides a realistic **3D page-flipping (page curl) effect** for digital books, magazines, catalogs, **PDFs**, and other interactive multi-page content in Flutter applications. Build flipbooks, e-books, Quran and manga readers, and PDF page-turn viewers, where every page is a normal, fully interactive Flutter widget.
 
 📖 **[Read the full documentation →](https://saeedahmed725.github.io/turnable_page/)**
@@ -18,11 +20,18 @@ A high-performance Flutter package that provides a realistic **3D page-flipping 
 - **Realistic page curl**: bending paper, a white back side, and shadows on the fold, the spine and the page below.
 - **Interactive pages**: buttons, text fields and scroll views inside a page keep working. Pages are live widgets, not screenshots.
 - **Single, double or `auto` layout**: one page on phones, a two-page spread on tablets and desktop.
-- **PDF flipbook**: open a PDF from an asset, a URL or a file with `TurnablePdf`.
+- **PDF flipbook**: open a PDF from an asset, a URL or a file with `TurnablePdf`. Links in the PDF are tappable, and zoomed pages stay sharp.
+- **Image books**: comics, manga, catalogs and photo albums with `TurnableImages`, with the next pages loaded ahead.
+- **Hard covers**: covers (or every page) swing as stiff boards instead of bending.
+- **Page edges**: thin stacks beside the pages show how much is left. In a spread, the left one grows and the right one shrinks as you read. A single page shows only the stack of pages left to read.
+- **Page scrubber**: a slider to jump to any page, with an optional page preview. Every part can be styled.
+- **Corner hints**: a corner folds slightly under the mouse, or once when the book opens, to show that pages turn.
+- **Auto-play** for slideshows and kiosks.
 - **Pinch-to-zoom** with an optional double-tap zoom.
 - **Sound and haptics**: a light vibration on each turn, and an `onPageTurn` callback to play your own page-turn sound.
 - **Keyboard, mouse wheel and screen readers**: arrow keys, Page Up/Down, Home/End and the mouse wheel turn pages, and screen readers announce "Page 3 of 10".
-- **Dark mode**: shadows adapt to dark paper.
+- **Dark mode**: shadows adapt to dark paper. Optional glossy paper for magazines.
+- **Reduce motion**: turns get shorter when the system asks for less animation.
 - **RTL books** for Arabic, Hebrew, Persian and Urdu, with mirrored page turns.
 - **Controller**: next, previous, animate or jump to any page, and listen to page events.
 - **Large books**: only the pages near the current one are built.
@@ -31,7 +40,7 @@ A high-performance Flutter package that provides a realistic **3D page-flipping 
 
 ```yaml
 dependencies:
-  turnable_page: ^2.1.1
+  turnable_page: ^2.2.0
 ```
 
 ```dart
@@ -98,9 +107,42 @@ controller.hasClients;            // true once the book is on screen
 
 Every navigation method returns `false` when the page index is out of range or no book is attached. To react to events, use `controller.addEventListener(PageFlipEvent.flip, (e) => ...)`.
 
+The controller is a `ChangeNotifier`, so `ListenableBuilder` rebuilds your UI on each page change:
+
+```dart
+ListenableBuilder(
+  listenable: controller,
+  builder: (context, _) => Text('${controller.currentPageIndex + 1} / ${controller.pageCount}'),
+)
+```
+
+**Auto-play** turns pages on a timer. It stops at the last page (or starts over with `loop: true`), and when the reader touches the book:
+
+```dart
+controller.startAutoPlay(interval: const Duration(seconds: 4), loop: true);
+controller.stopAutoPlay();
+```
+
+## Page scrubber
+
+`PageScrubber` is a slider for the book: drag or tap it to go to any page. It follows page turns.
+
+```dart
+Column(children: [
+  Expanded(child: TurnablePage(controller: controller, ...)),
+  PageScrubber(
+    controller: controller,
+    activeColor: Colors.brown,
+    previewBuilder: (context, i) => Image.asset('thumbs/$i.jpg'), // optional
+  ),
+])
+```
+
+Every part can be changed: `height`, `trackHeight`, `thumbRadius`, `activeColor`, `inactiveColor`, `thumbColor`, your own thumb (`thumbBuilder`), the label (`showLabel`, `labelBuilder`, `labelStyle`), the preview size, `animate` (turn instead of jump), `padding` and `textDirection`. In a right-to-left book the track runs from right to left.
+
 ## Interactive pages and taps
 
-By default, a tap on an empty part of a page turns it, and the page corners are reserved for turning. If your pages have their own tap targets (links, buttons, verses), turn that off:
+By default, a tap on an empty part of a page turns it, and the page corners are reserved for turning. Buttons, links and text fields (anything with a clickable mouse cursor) stay tappable even on a corner. If your pages have many tap targets (links, verses), turn tap-to-flip off:
 
 ```dart
 TurnablePage(
@@ -143,6 +185,18 @@ Keyboard navigation is on by default. Once the book is tapped or clicked, the ar
 
 Screen readers announce the current page and can turn pages with the adjust gestures. To translate the text, pass `semanticsValueBuilder: (i, count) => 'صفحة ${i + 1} من $count'`.
 
+## Image books
+
+```dart
+TurnableImages.network(
+  [for (int i = 1; i <= 24; i++) 'https://example.com/comic/$i.jpg'],
+  pageViewMode: PageViewMode.auto,
+  aspectRatio: 2 / 3,
+)
+```
+
+`TurnableImages(images: [...])` takes any `ImageProvider`s, and `TurnableImages.asset([...])` asset paths. The images around the current page are loaded ahead (`precacheExtent`, default 2), so a turn never shows an empty page. Set `fit`, `pageColor`, `loadingBuilder` and `errorBuilder` to style the pages.
+
 ## PDF page flip viewer
 
 Initialize the PDF engine once, before `runApp`:
@@ -165,6 +219,8 @@ TurnablePdf.file('/path/to/book.pdf');
 
 `TurnablePdf` accepts the same `controller`, `settings`, `onPageChanged` and `textDirection` as `TurnablePage`, plus `loadingBuilder` and `errorBuilder`. PDF rendering is provided by [pdfrx](https://pub.dev/packages/pdfrx).
 
+Links in the PDF are tappable (`enableLinks`, on by default): a link to another page turns to it. Pass `onLinkTap: (link) => ...` to open web links, for example with url_launcher. With zoom on, pages are rendered at a higher resolution so text stays sharp when zoomed in.
+
 ## Right-to-left books
 
 ```dart
@@ -178,7 +234,20 @@ Page 1 is on the right and pages turn from left to right.
 
 ## Styling
 
-**Book frame**: `paperBoundaryDecoration` takes `PaperBoundaryDecoration.vintage` (default), `.modern`, `.parchment` or `.none`, or your own `PaperBoundaryDecoration(...)`.
+**A real book**:
+
+```dart
+FlipSettings(
+  hardCover: true,      // covers swing as stiff boards (or hardPages: every page)
+  showPageEdges: true,  // page stacks beside the pages show what is left
+  pageEdgeWidth: 6,     // width of a full stack
+  paperGloss: 0.6,      // glossy magazine paper, 0 (matte) to 1
+)
+```
+
+**Corner hints**: on desktop and web, a corner folds slightly when the mouse comes near it (`showPageCorners`, on by default; `cornerHoverSize` sets the area). `peekOnOpen: true` folds the first page's corner once when the book appears, and `controller.peek()` does it on demand.
+
+**Reduce motion**: when the system asks for less animation, turns last at most 200 ms. Set `respectReducedMotion: false` to ignore it.
 
 **Paper and shadows**:
 
@@ -208,8 +277,6 @@ FlipSettings(
 | `settings` | `FlipSettings?` | `FlipSettings()` | Behavior and appearance (see below). |
 | `aspectRatio` | `double?` | `2/3` per page | Width ÷ height of one page. |
 | `textDirection` | `TextDirection?` | ambient | `ltr` or `rtl`. |
-| `paperBoundaryDecoration` | `PaperBoundaryDecoration` | `vintage` | Frame around the book. |
-| `pagesBoundaryIsEnabled` | `bool` | `true` | Show the frame. |
 | `pageCacheExtent` | `int` | `4` | Pages kept built on each side of the current page. |
 | `onPageTurn` | `void Function(FlipDirection)?` | `null` | Called once for each turn that will complete. Use it for a page-turn sound. |
 | `semanticsValueBuilder` | `String Function(int, int)?` | `null` | Screen reader text for the current page. Defaults to "Page 3 of 10". |
@@ -239,6 +306,12 @@ FlipSettings(
 | `maxShadowOpacity` | `1.0` | Shadow strength, from 0 to 1. |
 | `adaptiveShadows` | `true` | Stronger shadows on dark paper, where black shadows lose contrast. |
 | `pageBackgroundColor` | white | Paper color behind and under pages. |
+| `hardCover` / `hardPages` | `false` | Covers, or every page, turn as stiff boards. |
+| `showPageEdges` / `pageEdgeWidth` | `false` / `6` | Page stacks beside the pages, growing and shrinking as you read. |
+| `paperGloss` | `0` | Glossy paper, from 0 (matte) to 1. |
+| `showPageCorners` / `cornerHoverSize` | `true` / `64` | Fold a corner slightly under the mouse, within this many pixels of it. |
+| `peekOnOpen` | `false` | Fold the first page's corner once when the book appears. |
+| `respectReducedMotion` | `true` | Shorter turns when the system asks for less animation. |
 
 The full list, including the bend and inertia tuning values, is in the [API docs](https://pub.dev/documentation/turnable_page/latest/turnable_page/FlipSettings-class.html).
 

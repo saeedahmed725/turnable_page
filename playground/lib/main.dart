@@ -12,11 +12,11 @@ class PlaygroundApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ThemeData theme(Brightness b) => ThemeData(
-          brightness: b,
-          colorSchemeSeed: _accent,
-          useMaterial3: true,
-          visualDensity: VisualDensity.compact,
-        );
+      brightness: b,
+      colorSchemeSeed: _accent,
+      useMaterial3: true,
+      visualDensity: VisualDensity.compact,
+    );
     return MaterialApp(
       title: 'Turnable Page Playground',
       debugShowCheckedModeBanner: false,
@@ -27,8 +27,6 @@ class PlaygroundApp extends StatelessWidget {
   }
 }
 
-enum Frame { vintage, modern, parchment, none }
-
 /// Everything the panel can change. Values equal to the package defaults
 /// are left out of the generated code.
 class Config {
@@ -36,7 +34,6 @@ class Config {
   bool rtl = false;
   bool showCover = false;
   int pageCount = 12;
-  Frame frame = Frame.modern;
 
   bool flipOnTap = true;
   bool directionFromDrag = false;
@@ -53,40 +50,49 @@ class Config {
   double sagAmplitude = 0.08;
   bool darkPaper = false;
 
-  PaperBoundaryDecoration get decoration => switch (frame) {
-        Frame.vintage => PaperBoundaryDecoration.vintage,
-        Frame.modern => PaperBoundaryDecoration.modern,
-        Frame.parchment => PaperBoundaryDecoration.parchment,
-        Frame.none => PaperBoundaryDecoration.none,
-      };
+  bool hardCover = false;
+  bool hardPages = false;
+  bool showPageEdges = false;
+  bool peekOnOpen = false;
+  bool showPageCorners = true;
+  bool mouseWheelNavigation = false;
+  bool keyboardNavigation = true;
+  double paperGloss = 0.0;
 
   Color get paper => darkPaper ? const Color(0xFF22201D) : Colors.white;
 
   FlipSettings settings(int startPage) => FlipSettings(
-        startPageIndex: startPage,
-        showCover: showCover,
-        flipOnTap: flipOnTap,
-        directionFromDrag: directionFromDrag,
-        keepGrabOffset: keepGrabOffset,
-        enableInertia: enableInertia,
-        flippingTime: flippingTime,
-        drawShadow: drawShadow,
-        showCenterShadow: showCenterShadow,
-        maxShadowOpacity: maxShadowOpacity,
-        bendStrength: bendStrength,
-        sagAmplitude: sagAmplitude,
-        pageBackgroundColor: paper,
-      );
+    startPageIndex: startPage,
+    showCover: showCover,
+    flipOnTap: flipOnTap,
+    directionFromDrag: directionFromDrag,
+    keepGrabOffset: keepGrabOffset,
+    enableInertia: enableInertia,
+    flippingTime: flippingTime,
+    drawShadow: drawShadow,
+    showCenterShadow: showCenterShadow,
+    maxShadowOpacity: maxShadowOpacity,
+    bendStrength: bendStrength,
+    sagAmplitude: sagAmplitude,
+    pageBackgroundColor: paper,
+    hardCover: hardCover,
+    hardPages: hardPages,
+    showPageEdges: showPageEdges,
+    peekOnOpen: peekOnOpen,
+    showPageCorners: showPageCorners,
+    mouseWheelNavigation: mouseWheelNavigation,
+    keyboardNavigation: keyboardNavigation,
+    paperGloss: paperGloss,
+  );
 
   String _num(double v) => v.toStringAsFixed(2).replaceAll(RegExp(r'0$'), '');
 
   String code() {
     final top = <String>[
       'pageCount: $pageCount,',
-      if (mode != PageViewMode.single) 'pageViewMode: PageViewMode.${mode.name},',
+      if (mode != PageViewMode.single)
+        'pageViewMode: PageViewMode.${mode.name},',
       if (rtl) 'textDirection: TextDirection.rtl,',
-      if (frame != Frame.vintage)
-        'paperBoundaryDecoration: PaperBoundaryDecoration.${frame.name},',
       if (enableZoom) 'enableZoom: true,',
       if (enableZoom && !enableDoubleTapZoom) 'enableDoubleTapZoom: false,',
       if (showCover)
@@ -101,10 +107,19 @@ class Config {
       if (flippingTime != 700) 'flippingTime: $flippingTime,',
       if (!drawShadow) 'drawShadow: false,',
       if (!showCenterShadow) 'showCenterShadow: false,',
-      if (maxShadowOpacity != 1.0) 'maxShadowOpacity: ${_num(maxShadowOpacity)},',
+      if (maxShadowOpacity != 1.0)
+        'maxShadowOpacity: ${_num(maxShadowOpacity)},',
       if (bendStrength != 0.6) 'bendStrength: ${_num(bendStrength)},',
       if (sagAmplitude != 0.08) 'sagAmplitude: ${_num(sagAmplitude)},',
       if (darkPaper) 'pageBackgroundColor: const Color(0xFF22201D),',
+      if (hardCover) 'hardCover: true,',
+      if (hardPages) 'hardPages: true,',
+      if (showPageEdges) 'showPageEdges: true,',
+      if (peekOnOpen) 'peekOnOpen: true,',
+      if (!showPageCorners) 'showPageCorners: false,',
+      if (mouseWheelNavigation) 'mouseWheelNavigation: true,',
+      if (!keyboardNavigation) 'keyboardNavigation: false,',
+      if (paperGloss > 0) 'paperGloss: ${_num(paperGloss)},',
     ];
     final b = StringBuffer('TurnablePage(\n');
     for (final l in top) {
@@ -140,19 +155,21 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
   /// Settings changes rebuild the book from scratch on the current page,
   /// so every option applies at once.
   void update(VoidCallback f) => setState(() {
-        f();
-        version++;
-      });
+    f();
+    version++;
+  });
 
   void snack(String text) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(text),
-        duration: const Duration(milliseconds: 1400),
-        behavior: SnackBarBehavior.floating,
-        width: 320,
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text),
+          duration: const Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+          width: 320,
+        ),
+      );
   }
 
   @override
@@ -186,22 +203,28 @@ class _PlaygroundPageState extends State<PlaygroundPage> {
     return Scaffold(
       body: SafeArea(
         child: wide
-            ? Row(children: [
-                SizedBox(width: 330, child: panel),
-                const VerticalDivider(width: 1),
-                Expanded(
-                  child: Column(children: [
-                    Expanded(child: book),
-                    nav,
-                  ]),
-                ),
-              ])
-            : Column(children: [
-                Expanded(flex: 11, child: book),
-                nav,
-                const Divider(height: 1),
-                Expanded(flex: 9, child: panel),
-              ]),
+            ? Row(
+                children: [
+                  SizedBox(width: 330, child: panel),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Expanded(child: book),
+                        nav,
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                children: [
+                  Expanded(flex: 11, child: book),
+                  nav,
+                  const Divider(height: 1),
+                  Expanded(flex: 9, child: panel),
+                ],
+              ),
       ),
     );
   }
@@ -234,8 +257,6 @@ class _BookArea extends StatelessWidget {
         pageCount: c.pageCount,
         pageViewMode: c.mode,
         textDirection: c.rtl ? TextDirection.rtl : TextDirection.ltr,
-        paperBoundaryDecoration: c.decoration,
-        pagesBoundaryIsEnabled: c.frame != Frame.none,
         enableZoom: c.enableZoom,
         enableDoubleTapZoom: c.enableDoubleTapZoom,
         settings: c.settings(startPage),
@@ -296,10 +317,15 @@ class _DemoPage extends StatelessWidget {
             const Icon(Icons.auto_stories, color: Colors.white, size: 44),
             const SizedBox(height: 14),
             Text(
-              index == 0 ? (rtl ? 'الغلاف' : 'Turnable Page') : (rtl ? 'النهاية' : 'The End'),
+              index == 0
+                  ? (rtl ? 'الغلاف' : 'Turnable Page')
+                  : (rtl ? 'النهاية' : 'The End'),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700),
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -314,42 +340,65 @@ class _DemoPage extends StatelessWidget {
     return Container(
       color: paper,
       padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
-      child: LayoutBuilder(builder: (context, box) {
-        final lines = ((box.maxHeight - 190) / 16).floor().clamp(2, 14);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              rtl ? 'الفصل $index' : 'Chapter $index',
-              style: TextStyle(color: tint, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              rtl ? 'صفحة تفاعلية' : 'An interactive page',
-              style: TextStyle(color: ink, fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 14),
-            for (var i = 0; i < lines; i++)
-              Container(
-                height: 7,
-                margin: const EdgeInsets.only(bottom: 9),
-                width: box.maxWidth * (i % 4 == 3 ? 0.6 : 1),
-                decoration: BoxDecoration(color: line, borderRadius: BorderRadius.circular(4)),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final lines = ((box.maxHeight - 190) / 16).floor().clamp(2, 14);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                rtl ? 'الفصل $index' : 'Chapter $index',
+                style: TextStyle(
+                  color: tint,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
               ),
-            const Spacer(),
-            FilledButton.tonal(
-              onPressed: onButton,
-              style: FilledButton.styleFrom(backgroundColor: tint.withValues(alpha: .15), foregroundColor: tint),
-              child: Text(rtl ? 'اضغط هنا' : 'Tap me'),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: AlignmentDirectional.bottomEnd,
-              child: Text('${index + 1}', style: TextStyle(color: ink.withValues(alpha: .5), fontSize: 12)),
-            ),
-          ],
-        );
-      }),
+              const SizedBox(height: 6),
+              Text(
+                rtl ? 'صفحة تفاعلية' : 'An interactive page',
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              for (var i = 0; i < lines; i++)
+                Container(
+                  height: 7,
+                  margin: const EdgeInsets.only(bottom: 9),
+                  width: box.maxWidth * (i % 4 == 3 ? 0.6 : 1),
+                  decoration: BoxDecoration(
+                    color: line,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              const Spacer(),
+              FilledButton.tonal(
+                onPressed: onButton,
+                style: FilledButton.styleFrom(
+                  backgroundColor: tint.withValues(alpha: .15),
+                  foregroundColor: tint,
+                ),
+                child: Text(rtl ? 'اضغط هنا' : 'Tap me'),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: AlignmentDirectional.bottomEnd,
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                    color: ink.withValues(alpha: .5),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -382,23 +431,29 @@ class _Endpaper extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: const Color(0xFFB79B72)),
             ),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(
-                front
-                    ? (rtl ? 'هذا الكتاب ملك' : 'This book belongs to')
-                    : (rtl ? 'شكرًا للقراءة' : 'Thanks for reading'),
-                style: const TextStyle(color: Color(0xFF6E5638), fontSize: 13),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'coverSideBuilder',
-                style: TextStyle(
-                  color: const Color(0xFF6E5638).withValues(alpha: .7),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  front
+                      ? (rtl ? 'هذا الكتاب ملك' : 'This book belongs to')
+                      : (rtl ? 'شكرًا للقراءة' : 'Thanks for reading'),
+                  style: const TextStyle(
+                    color: Color(0xFF6E5638),
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-            ]),
+                const SizedBox(height: 6),
+                Text(
+                  'coverSideBuilder',
+                  style: TextStyle(
+                    color: const Color(0xFF6E5638).withValues(alpha: .7),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -492,67 +547,107 @@ class _Panel extends StatelessWidget {
     final t = Theme.of(context);
 
     Widget header(String text) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
-          child: Text(text.toUpperCase(),
-              style: t.textTheme.labelSmall?.copyWith(
-                  letterSpacing: 1.1, color: t.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
-        );
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: t.textTheme.labelSmall?.copyWith(
+          letterSpacing: 1.1,
+          color: t.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
 
-    Widget toggle(String label, bool value, ValueChanged<bool> set, {String? sub, bool enabled = true}) =>
-        SwitchListTile(
-          dense: true,
-          title: Text(label),
-          subtitle: sub == null ? null : Text(sub),
-          value: value,
-          onChanged: enabled ? (v) => update(() => set(v)) : null,
-        );
+    Widget toggle(
+      String label,
+      bool value,
+      ValueChanged<bool> set, {
+      String? sub,
+      bool enabled = true,
+    }) => SwitchListTile(
+      dense: true,
+      title: Text(label),
+      subtitle: sub == null ? null : Text(sub),
+      value: value,
+      onChanged: enabled ? (v) => update(() => set(v)) : null,
+    );
 
-    Widget slider(String label, double value, double min, double max, ValueChanged<double> set,
-            {int? divisions, String Function(double)? fmt}) =>
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
+    Widget slider(
+      String label,
+      double value,
+      double min,
+      double max,
+      ValueChanged<double> set, {
+      int? divisions,
+      String Function(double)? fmt,
+    }) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Expanded(child: Text(label, style: t.textTheme.bodyMedium)),
-              Text(fmt?.call(value) ?? value.toStringAsFixed(2), style: t.textTheme.bodySmall),
+              Text(
+                fmt?.call(value) ?? value.toStringAsFixed(2),
+                style: t.textTheme.bodySmall,
+              ),
               const SizedBox(width: 8),
-            ]),
-            Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: (v) => update(() => set(v)),
-            ),
-          ]),
-        );
-
-    Widget segmented<T>(List<(T, String)> options, T value, ValueChanged<T> set) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<T>(
-              showSelectedIcon: false,
-              segments: [for (final (v, l) in options) ButtonSegment(value: v, label: Text(l))],
-              selected: {value},
-              onSelectionChanged: (s) => update(() => set(s.first)),
-            ),
+            ],
           ),
-        );
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: (v) => update(() => set(v)),
+          ),
+        ],
+      ),
+    );
+
+    Widget segmented<T>(
+      List<(T, String)> options,
+      T value,
+      ValueChanged<T> set,
+    ) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<T>(
+          showSelectedIcon: false,
+          segments: [
+            for (final (v, l) in options)
+              ButtonSegment(value: v, label: Text(l)),
+          ],
+          selected: {value},
+          onSelectionChanged: (s) => update(() => set(s.first)),
+        ),
+      ),
+    );
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-          child: Row(children: [
-            Expanded(child: Text('Playground', style: t.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700))),
-            TextButton.icon(
-              onPressed: onToggleCode,
-              icon: Icon(showCode ? Icons.tune : Icons.code, size: 18),
-              label: Text(showCode ? 'Options' : 'Code'),
-            ),
-          ]),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Playground',
+                  style: t.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onToggleCode,
+                icon: Icon(showCode ? Icons.tune : Icons.code, size: 18),
+                label: Text(showCode ? 'Options' : 'Code'),
+              ),
+            ],
+          ),
         ),
         if (showCode) ...[
           Container(
@@ -565,51 +660,183 @@ class _Panel extends StatelessWidget {
             child: SelectableText(
               c.code(),
               style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 12.5, height: 1.5, color: Color(0xFFEDE6DA)),
+                fontFamily: 'monospace',
+                fontSize: 12.5,
+                height: 1.5,
+                color: Color(0xFFEDE6DA),
+              ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: FilledButton.icon(onPressed: onCopy, icon: const Icon(Icons.copy, size: 16), label: const Text('Copy code')),
+            child: FilledButton.icon(
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy code'),
+            ),
           ),
         ] else ...[
           header('Layout'),
           segmented<PageViewMode>(
-            const [(PageViewMode.single, 'Single'), (PageViewMode.double, 'Double'), (PageViewMode.auto, 'Auto')],
+            const [
+              (PageViewMode.single, 'Single'),
+              (PageViewMode.double, 'Double'),
+              (PageViewMode.auto, 'Auto'),
+            ],
             c.mode,
             (v) => c.mode = v,
           ),
-          segmented<Frame>(
-            const [(Frame.modern, 'Modern'), (Frame.vintage, 'Vintage'), (Frame.parchment, 'Parch.'), (Frame.none, 'None')],
-            c.frame,
-            (v) => c.frame = v,
+          toggle(
+            'Right-to-left',
+            c.rtl,
+            (v) => c.rtl = v,
+            sub: 'Arabic, Hebrew, Persian',
           ),
-          toggle('Right-to-left', c.rtl, (v) => c.rtl = v, sub: 'Arabic, Hebrew, Persian'),
-          toggle('Show cover', c.showCover, (v) => c.showCover = v, sub: 'First and last pages alone in a spread'),
+          toggle(
+            'Show cover',
+            c.showCover,
+            (v) => c.showCover = v,
+            sub: 'First and last pages alone in a spread',
+          ),
+          toggle(
+            'Hard cover',
+            c.hardCover,
+            (v) => c.hardCover = v,
+            sub: 'Covers swing as stiff boards (with Show cover, two pages)',
+          ),
+          toggle(
+            'Hard pages',
+            c.hardPages,
+            (v) => c.hardPages = v,
+            sub: 'Board book: every sheet is stiff',
+          ),
+          toggle(
+            'Page edges',
+            c.showPageEdges,
+            (v) => c.showPageEdges = v,
+            sub: 'Stacks of read and unread pages beside the book',
+          ),
           header('Gestures'),
-          toggle('Flip on tap', c.flipOnTap, (v) => c.flipOnTap = v,
-              sub: 'Off: taps reach page buttons, even in corners'),
-          toggle('Direction from drag', c.directionFromDrag, (v) => c.directionFromDrag = v,
-              sub: 'Single page: turn by swipe direction'),
-          toggle('Keep grab offset', c.keepGrabOffset, (v) => c.keepGrabOffset = v),
-          toggle('Inertia', c.enableInertia, (v) => c.enableInertia = v, sub: 'A fast fling finishes the turn'),
+          toggle(
+            'Flip on tap',
+            c.flipOnTap,
+            (v) => c.flipOnTap = v,
+            sub: 'Off: taps reach page buttons, even in corners',
+          ),
+          toggle(
+            'Direction from drag',
+            c.directionFromDrag,
+            (v) => c.directionFromDrag = v,
+            sub: 'Single page: turn by swipe direction',
+          ),
+          toggle(
+            'Keep grab offset',
+            c.keepGrabOffset,
+            (v) => c.keepGrabOffset = v,
+          ),
+          toggle(
+            'Inertia',
+            c.enableInertia,
+            (v) => c.enableInertia = v,
+            sub: 'A fast fling finishes the turn',
+          ),
+          toggle(
+            'Corner on hover',
+            c.showPageCorners,
+            (v) => c.showPageCorners = v,
+            sub: 'Mouse over a corner folds it',
+          ),
+          toggle(
+            'Peek on open',
+            c.peekOnOpen,
+            (v) => c.peekOnOpen = v,
+            sub: 'Folds a corner once when shown',
+          ),
+          toggle(
+            'Keyboard',
+            c.keyboardNavigation,
+            (v) => c.keyboardNavigation = v,
+            sub: 'Arrows, Page Up/Down, Home, End',
+          ),
+          toggle(
+            'Mouse wheel',
+            c.mouseWheelNavigation,
+            (v) => c.mouseWheelNavigation = v,
+          ),
           header('Zoom'),
           toggle('Pinch-to-zoom', c.enableZoom, (v) => c.enableZoom = v),
-          toggle('Double-tap zoom', c.enableDoubleTapZoom, (v) => c.enableDoubleTapZoom = v,
-              enabled: c.enableZoom),
+          toggle(
+            'Double-tap zoom',
+            c.enableDoubleTapZoom,
+            (v) => c.enableDoubleTapZoom = v,
+            enabled: c.enableZoom,
+          ),
           header('Animation'),
-          slider('Flipping time', c.flippingTime.toDouble(), 200, 1500, (v) => c.flippingTime = v.round(),
-              divisions: 26, fmt: (v) => '${v.round()} ms'),
-          slider('Bend strength', c.bendStrength, 0, 1, (v) => c.bendStrength = v, divisions: 20),
-          slider('Sag amplitude', c.sagAmplitude, 0, 0.2, (v) => c.sagAmplitude = v, divisions: 20),
+          slider(
+            'Flipping time',
+            c.flippingTime.toDouble(),
+            200,
+            1500,
+            (v) => c.flippingTime = v.round(),
+            divisions: 26,
+            fmt: (v) => '${v.round()} ms',
+          ),
+          slider(
+            'Bend strength',
+            c.bendStrength,
+            0,
+            1,
+            (v) => c.bendStrength = v,
+            divisions: 20,
+          ),
+          slider(
+            'Sag amplitude',
+            c.sagAmplitude,
+            0,
+            0.2,
+            (v) => c.sagAmplitude = v,
+            divisions: 20,
+          ),
           header('Shadows and paper'),
           toggle('Shadows', c.drawShadow, (v) => c.drawShadow = v),
-          toggle('Spine shadow', c.showCenterShadow, (v) => c.showCenterShadow = v, enabled: c.drawShadow),
-          slider('Shadow opacity', c.maxShadowOpacity, 0, 1, (v) => c.maxShadowOpacity = v, divisions: 20),
-          toggle('Dark paper', c.darkPaper, (v) => c.darkPaper = v, sub: 'Sets pageBackgroundColor'),
+          toggle(
+            'Spine shadow',
+            c.showCenterShadow,
+            (v) => c.showCenterShadow = v,
+            enabled: c.drawShadow,
+          ),
+          slider(
+            'Shadow opacity',
+            c.maxShadowOpacity,
+            0,
+            1,
+            (v) => c.maxShadowOpacity = v,
+            divisions: 20,
+          ),
+          toggle(
+            'Dark paper',
+            c.darkPaper,
+            (v) => c.darkPaper = v,
+            sub: 'Sets pageBackgroundColor',
+          ),
+          slider(
+            'Paper gloss',
+            c.paperGloss,
+            0,
+            1,
+            (v) => c.paperGloss = v,
+            divisions: 20,
+          ),
           header('Book'),
-          slider('Pages', c.pageCount.toDouble(), 4, 40, (v) => c.pageCount = v.round(),
-              divisions: 36, fmt: (v) => '${v.round()}'),
+          slider(
+            'Pages',
+            c.pageCount.toDouble(),
+            4,
+            40,
+            (v) => c.pageCount = v.round(),
+            divisions: 36,
+            fmt: (v) => '${v.round()}',
+          ),
         ],
       ],
     );

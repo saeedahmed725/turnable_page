@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
@@ -11,7 +12,7 @@ import '../enums/flipping_state.dart';
 import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
 import '../page/page_host.dart';
-import 'paper_widget.dart';
+import 'page_edges.dart';
 import 'turnable_book_render_object_widget.dart';
 
 class TurnablePageView extends StatefulWidget {
@@ -22,8 +23,6 @@ class TurnablePageView extends StatefulWidget {
   final FlipSettings settings;
   final double aspectRatio;
   final Size bookSize;
-  final PaperBoundaryDecoration paperBoundaryDecoration;
-  final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
 
   /// Called once for each page turn that is going to complete (see
@@ -58,8 +57,6 @@ class TurnablePageView extends StatefulWidget {
     required this.aspectRatio,
     required this.bookSize,
     required this.settings,
-    required this.paperBoundaryDecoration,
-    this.pagesBoundaryIsEnabled = true,
     this.textDirection,
     this.pageCacheExtent = 4,
     this.coverSideBuilder,
@@ -97,6 +94,8 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   /// Focus for keyboard navigation ([FlipSettings.keyboardNavigation]).
   final FocusNode _focusNode = FocusNode(debugLabel: 'TurnablePage');
 
+  Timer? _peekOnOpenTimer;
+
   /// Current page, for the screen reader value.
   late final ValueNotifier<int> _pageNotifier;
 
@@ -113,7 +112,14 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     width: widget.bookSize.width,
     height: widget.bookSize.height,
     startPage: _currentPageIndex,
+    flippingTime: _reduceMotion
+        ? math.min(widget.settings.flippingTime, 200)
+        : null,
   );
+
+  /// The system asks for less motion (see
+  /// [FlipSettings.respectReducedMotion]).
+  bool _reduceMotion = false;
 
   bool get _isSingleMode {
     final orientation = _pageFlip.renderNullable?.getOrientation();
@@ -157,6 +163,13 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     // The page builder runs with our context; inherited changes (theme,
     // media query, ...) must reach the pages.
     _pageCache.clear();
+    final reduce =
+        widget.settings.respectReducedMotion &&
+        (MediaQuery.maybeDisableAnimationsOf(context) ?? false);
+    if (reduce != _reduceMotion) {
+      _reduceMotion = reduce;
+      _pageFlip.updateSetting(_settings);
+    }
   }
 
   @override
@@ -169,6 +182,13 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     _transformationController.addListener(_onTransformationChanged);
     _pageFlip = PageFlip(_settings);
     _setupPageFlipEventsAndController();
+    if (widget.settings.peekOnOpen) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _peekOnOpenTimer = Timer(const Duration(milliseconds: 600), () {
+          if (mounted) _pageFlip.peek();
+        });
+      });
+    }
   }
 
   void _onTransformationChanged() {
@@ -221,6 +241,8 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   @override
   void dispose() {
     widget.controller?.detach(_pageFlip);
+    _peekOnOpenTimer?.cancel();
+    _pageFlip.cancelPeek();
     _focusNode.dispose();
     _pageNotifier.dispose();
     _transformationController.removeListener(_onTransformationChanged);
@@ -501,6 +523,11 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       children: children,
     );
 
+    final edgesExtent = PageEdges.extent(
+      enabled: _settings.showPageEdges,
+      maxWidth: _settings.pageEdgeWidth,
+    );
+
     if (isRtl) {
       bookWidget = Transform(
         alignment: Alignment.center,
@@ -509,11 +536,8 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       );
     }
 
-    Widget content = PaperWidget(
-      size: widget.bookSize,
-      isSinglePage: _isSingleMode,
-      paperBoundaryDecoration: widget.paperBoundaryDecoration,
-      isEnabled: widget.pagesBoundaryIsEnabled,
+    Widget content = SizedBox.fromSize(
+      size: Size(widget.bookSize.width + edgesExtent, widget.bookSize.height),
       child: bookWidget,
     );
 
@@ -584,7 +608,11 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       child: Listener(
         onPointerDown: _requestKeyboardFocus,
         onPointerSignal: _onPointerSignal,
-        child: content,
+        child: MouseRegion(
+          // A corner folded by hovering falls back when the mouse leaves.
+          onExit: (_) => _pageFlip.releaseCorner(),
+          child: content,
+        ),
       ),
     );
   }

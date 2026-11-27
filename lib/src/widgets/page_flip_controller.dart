@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
@@ -13,7 +14,12 @@ import '../page/page_flip.dart';
 /// Provides both animated page-turn methods (`nextPage`, `previousPage`, `animateToPage`)
 /// which return a [Future<bool>] completing when the turn finishes, and instant jump methods
 /// (`jumpToPage`) without animation.
-class PageFlipController {
+///
+/// It is a [ChangeNotifier]: listeners are notified when the page changes,
+/// when a book attaches or detaches, and when auto-play starts or stops, so
+/// widgets outside the book (a page counter, a [PageScrubber]) can rebuild
+/// with `ListenableBuilder`.
+class PageFlipController extends ChangeNotifier {
   PageFlip? _attached;
 
   /// Whether a [TurnablePage] / [TurnablePageView] is attached to this
@@ -42,17 +48,127 @@ class PageFlipController {
   bool Function()? _isZoomedGetter;
 
   void initializeController({required PageFlip pageFlip}) {
+    if (identical(_attached, pageFlip)) return;
+    _attached?.off(PageFlipEvent.flip, _onFlip);
+    _attached?.off(PageFlipEvent.changeState, _onState);
     _attached = pageFlip;
+    pageFlip.on(PageFlipEvent.flip, _onFlip);
+    pageFlip.on(PageFlipEvent.changeState, _onState);
+    _notifySafely();
   }
 
   /// Detaches [pageFlip] if it is the one attached (called by the view on
   /// dispose).
   void detach(PageFlip pageFlip) {
     if (identical(_attached, pageFlip)) {
+      pageFlip.off(PageFlipEvent.flip, _onFlip);
+      pageFlip.off(PageFlipEvent.changeState, _onState);
       _attached = null;
       _resetZoomCallback = null;
       _isZoomedGetter = null;
+      _notifySafely();
     }
+  }
+
+  bool _disposed = false;
+
+  void _onFlip(WidgetEvent _) => _notifySafely();
+
+  void _onState(WidgetEvent e) {
+    // The reader grabbed a page: auto-play gives way.
+    if (_autoPlaying &&
+        _autoPlayStopOnTouch &&
+        e.data == FlippingState.userFold) {
+      stopAutoPlay();
+    }
+  }
+
+  /// Page changes are reported while a frame is painted; listeners may call
+  /// setState, so they are notified after the frame.
+  void _notifySafely() {
+    if (_disposed) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!_disposed) notifyListeners();
+      });
+    } else {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    stopAutoPlay();
+    _disposed = true;
+    super.dispose();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AUTO-PLAY
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  bool _autoPlaying = false;
+  bool _autoPlayLoop = false;
+  bool _autoPlayStopOnTouch = true;
+  Duration _autoPlayInterval = const Duration(seconds: 4);
+  Timer? _autoPlayTimer;
+
+  /// Whether auto-play is running (see [startAutoPlay]).
+  bool get isAutoPlaying => _autoPlaying;
+
+  /// Turns to the next page every [interval], like a slideshow.
+  ///
+  /// At the last page it stops, or goes back to the first page when [loop]
+  /// is true. With [stopOnTouch] (default), it stops when the reader grabs
+  /// a page. While a turn is running the next tick waits for it.
+  void startAutoPlay({
+    Duration interval = const Duration(seconds: 4),
+    bool loop = false,
+    bool stopOnTouch = true,
+  }) {
+    _autoPlayTimer?.cancel();
+    _autoPlaying = true;
+    _autoPlayInterval = interval;
+    _autoPlayLoop = loop;
+    _autoPlayStopOnTouch = stopOnTouch;
+    _scheduleAutoPlay();
+    _notifySafely();
+  }
+
+  /// Stops auto-play.
+  void stopAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = null;
+    if (!_autoPlaying) return;
+    _autoPlaying = false;
+    _notifySafely();
+  }
+
+  void _scheduleAutoPlay() {
+    _autoPlayTimer = Timer(_autoPlayInterval, () async {
+      if (!_autoPlaying) return;
+      final book = _attached;
+      if (book == null) {
+        stopAutoPlay();
+        return;
+      }
+      final state = book.getState();
+      if (state != null && state != FlippingState.read) {
+        _scheduleAutoPlay(); // a turn is running: try again later
+        return;
+      }
+      if (hasNextPage) {
+        await nextPage();
+      } else if (_autoPlayLoop && pageCount > 0) {
+        await animateToPage(0);
+      } else {
+        stopAutoPlay();
+        return;
+      }
+      if (_autoPlaying) _scheduleAutoPlay();
+    });
   }
 
   /// Internal setter for the PageFlip instance
@@ -198,6 +314,11 @@ class PageFlipController {
     _pageFlip.turnToPage(pageIndex);
     return true;
   }
+
+  /// Folds the corner of the next page a little and lets it fall back, to
+  /// show the reader that pages turn. Returns `false` when no book is
+  /// attached, a turn is running, or there is no next page.
+  bool peek() => _attached?.peek() ?? false;
 
   /// Jump to the first page immediately without animation.
   bool jumpToFirstPage() => jumpToPage(0);

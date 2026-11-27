@@ -339,7 +339,9 @@ class FlipProcess {
 
   /// Fold the corners of the book when the mouse pointer is over them.
   /// Called when the mouse pointer is over the book without clicking
-  void showCorner(Point globalPos) {
+  ///
+  /// [cornerSize] is how far the corner folds, in pixels.
+  void showCorner(Point globalPos, {double cornerSize = 50.0}) {
     if (!checkState([FlippingState.read, FlippingState.foldCorner])) return;
 
     final rect = getBoundsRect();
@@ -362,7 +364,7 @@ class FlipProcess {
 
         calc!.calc(Point(pageWidth - 1, 1));
 
-        const fixedCornerSize = 50.0;
+        final fixedCornerSize = cornerSize;
         final yStart = calc!.getCorner() == FlipCorner.bottom
             ? rect.height - 1
             : 1;
@@ -381,10 +383,90 @@ class FlipProcess {
         doCalculation(render.convertToPage(globalPos));
       }
     } else {
-      if (state == FlippingState.foldCorner) {
-        abortFlip();
-      }
+      releaseCorner();
     }
+  }
+
+  /// Lets a folded corner (hover or peek) fall back smoothly. Does nothing
+  /// unless a corner is folded.
+  void releaseCorner() {
+    final c = calc;
+    if (state != FlippingState.foldCorner || c == null) return;
+    // Not foldCorner any more: hovering cannot grab the corner while it
+    // falls back.
+    setState(FlippingState.flipping);
+    final rect = getBoundsRect();
+    final y = c.getCorner() == FlipCorner.bottom ? rect.height : 0;
+    animateFlippingTo(
+      c.getPosition(),
+      Point(_cancelX(rect), y.toDouble()),
+      false,
+    );
+  }
+
+  /// Folds the corner under a hovering mouse. The fold starts from nothing
+  /// at the edge of a small [zone] around the corner and deepens smoothly,
+  /// up to [maxFold], as the mouse gets closer, so it never jumps and never
+  /// rolls far into the page. Outside the zone the corner falls back.
+  void hoverCorner(Point globalPos, {required double zone, double? maxFold}) {
+    if (!checkState([FlippingState.read, FlippingState.foldCorner])) return;
+    final rect = getBoundsRect();
+    final bookPos = render.convertToBook(globalPos);
+    if (bookPos.x <= 0 ||
+        bookPos.y <= 0 ||
+        bookPos.x >= rect.width ||
+        bookPos.y >= rect.height) {
+      releaseCorner();
+      return;
+    }
+    final direction = getDirectionByPoint(bookPos);
+    if (!checkDirection(direction)) {
+      releaseCorner();
+      return;
+    }
+
+    final r = math.min(zone, rect.pageWidth * 0.35);
+    final fold = maxFold ?? r * 0.75;
+    final page = render.convertToPage(globalPos, direction);
+    final bottom = bookPos.y >= rect.height / 2;
+    final cy = bottom ? rect.height : 0.0;
+    final dx = rect.pageWidth - page.x; // >= 0 inside the page
+    final dy = (page.y - cy).abs();
+    final d = math.sqrt(dx * dx + dy * dy);
+    if (dx < 0 || d >= r) {
+      releaseCorner();
+      return;
+    }
+
+    final t = 1 - d / r;
+    final len = fold * t * t * (3 - 2 * t);
+    if (len < 1) {
+      // Too far to fold anything yet.
+      if (state == FlippingState.foldCorner) releaseCorner();
+      return;
+    }
+
+    final corner = bottom ? FlipCorner.bottom : FlipCorner.top;
+    final c = calc;
+    if (c != null &&
+        (c.getCorner() != corner || c.getDirection() != direction)) {
+      abortFlip();
+    }
+    if (calc == null) {
+      if (!start(globalPos)) return;
+      setState(FlippingState.foldCorner);
+    }
+
+    // Fold along the corner's diagonal, leaning toward the mouse.
+    final mx = d > 0 ? -dx / d : 0.0;
+    final my = d > 0 ? (page.y - cy).sign * dy / d : 0.0;
+    var ux = mx - 0.7071;
+    var uy = my + (bottom ? -0.7071 : 0.7071);
+    final ul = math.sqrt(ux * ux + uy * uy);
+    ux /= ul;
+    uy /= ul;
+    render.finishAnimation();
+    doCalculation(Point(rect.pageWidth + ux * len, cy + uy * len));
   }
 
   /// Animation function. Animates flipping process with improved physics and easing

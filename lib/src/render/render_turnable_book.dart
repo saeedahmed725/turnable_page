@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:turnable_page/turnable_page.dart';
 import '../collection/page_collection_impl.dart';
 import '../enums/animation_process.dart';
@@ -19,6 +20,7 @@ import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
 import '../render/render_page.dart';
 import '../render/turnable_parent_data.dart';
+import '../widgets/page_edges.dart';
 
 class RenderTurnableBook extends RenderBox
     with
@@ -538,20 +540,60 @@ class RenderTurnableBook extends RenderBox
   @override
   void updateApp(PageFlip app) {}
 
+  /// Paints the page stacks against the outer edges of the visible pages
+  /// (FlipSettings.showPageEdges). They follow the reading position, and
+  /// move smoothly while a page turns.
+  void _paintPageEdges(Canvas canvas, PageRect rect, Offset offset) {
+    final spreads = collection.getSpread().length;
+    if (spreads < 1) return;
+    var read = spreads > 1
+        ? collection.getCurrentSpreadIndex() / (spreads - 1)
+        : 0.0;
+    if (spreads > 1 && flippingPage != null && _flipProgress > 0) {
+      final sign = direction == FlipDirection.back ? -1 : 1;
+      read += sign * (_flipProgress / 100) / (spreads - 1);
+    }
+    final landscape = _orientation != BookOrientation.portrait;
+    // A single page is the right half of an open book: the pages already
+    // read are behind the spine, out of sight, so only the stack of pages
+    // left to read shows, on the outer edge (mirrored in right-to-left).
+    final spine = rect.left + rect.pageWidth;
+    // A cover alone in a spread has its outer edges at the spine side too.
+    final leftEdge = landscape && leftPage != null ? rect.left : spine;
+    final rightEdge = !landscape || rightPage != null
+        ? rect.left + rect.pageWidth * 2
+        : spine;
+    PageEdges.paint(
+      canvas,
+      leftEdge: leftEdge + offset.dx,
+      rightEdge: rightEdge + offset.dx,
+      top: rect.top + offset.dy,
+      height: rect.height,
+      read: read,
+      showRead: landscape,
+      maxWidth: settings.pageEdgeWidth,
+      paperColor: settings.pageBackgroundColor,
+    );
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final rect = getRect();
 
     // Background fill — safe: pure canvas draw with no compositing children around it.
+    // In portrait only the right half of the book rect is a visible page.
+    final portrait = _orientation == BookOrientation.portrait;
     context.canvas.drawRect(
       Rect.fromLTWH(
-        rect.left + offset.dx,
+        rect.left + (portrait ? rect.pageWidth : 0) + offset.dx,
         rect.top + offset.dy,
-        rect.width,
+        portrait ? rect.pageWidth : rect.width,
         rect.height,
       ),
       Paint()..color = settings.pageBackgroundColor,
     );
+
+    if (settings.showPageEdges) _paintPageEdges(context.canvas, rect, offset);
 
     // Nested helper: paint a static (non-flipping) page child.
     // We do NOT wrap context.paintChild() in canvas.save/restore because compositing
@@ -574,6 +616,10 @@ class RenderTurnableBook extends RenderBox
       context.paintChild(child, pageOffset);
     }
 
+    final bool hardTurn = _isHardTurn;
+    final bool hardForward = hardTurn && direction == FlipDirection.forward;
+    final bool hardBack = hardTurn && direction == FlipDirection.back;
+
     if (_orientation != BookOrientation.portrait) {
       // Cover side widgets fill the empty side of a lone cover spread.
       if (leftPage == null && _frontSideChild != null) {
@@ -588,12 +634,19 @@ class RenderTurnableBook extends RenderBox
           Offset(rect.left + rect.pageWidth + offset.dx, rect.top + offset.dy),
         );
       }
-      paintStatic(leftPage, true);
+      // A hard sheet does not reveal the page below progressively: its
+      // front is drawn rotating (below), and the page it uncovers is drawn
+      // whole.
+      if (!hardBack) paintStatic(leftPage, true);
       // In two-page mode, do not double-paint rightPage if it is already being flipped
-      if (flippingPage is! BookPageImpl ||
-          (flippingPage as BookPageImpl).index !=
-              (rightPage as BookPageImpl?)?.index) {
+      if (!hardForward &&
+          (flippingPage is! BookPageImpl ||
+              (flippingPage as BookPageImpl).index !=
+                  (rightPage as BookPageImpl?)?.index)) {
         paintStatic(rightPage, false);
+      }
+      if (hardTurn && bottomPage is BookPageImpl) {
+        _paintFlatPage(context, offset, bottomPage as BookPageImpl, hardBack);
       }
     } else {
       // In portrait mode, rightPage is the static base page (Page N) currently visible.
@@ -601,7 +654,7 @@ class RenderTurnableBook extends RenderBox
       paintStatic(rightPage, false);
     }
 
-    if (bottomPage is BookPageImpl) {
+    if (!hardTurn && bottomPage is BookPageImpl) {
       _paintDynamicPage(
         context,
         offset,
@@ -617,6 +670,11 @@ class RenderTurnableBook extends RenderBox
         : !settings.hideLeftShadow;
     if (settings.drawShadow && shouldDrawCenterShadow) {
       _drawBookShadow(context.canvas, rect, offset);
+    }
+
+    if (hardTurn) {
+      _paintHardSheet(context, offset, rect);
+      return;
     }
 
     if (flippingPage is BookPageImpl) {
@@ -636,7 +694,10 @@ class RenderTurnableBook extends RenderBox
       // The turning sheet covers the spine shadow painted above. Paint the
       // spine shadow on the sheet too, growing as it lands, so the crease is
       // already there when the turn ends instead of popping in on the new page.
-      if (_orientation != BookOrientation.portrait &&
+      // In single-page mode only a back turn lands a page (the previous one,
+      // spine on its left edge); a forward turn lifts the page away.
+      if ((_orientation != BookOrientation.portrait ||
+              direction == FlipDirection.back) &&
           settings.drawShadow &&
           shouldDrawCenterShadow) {
         _drawSpineShadowOnTurningPage(
@@ -654,6 +715,148 @@ class RenderTurnableBook extends RenderBox
         _drawInnerShadow(context.canvas, rect, offset);
       }
     }
+  }
+
+  /// Whether the running turn is a hard sheet (see `FlipSettings.hardCover`).
+  /// Two-page spreads only. The sheet is hard when its front or its back is
+  /// a hard page.
+  bool get _isHardTurn {
+    if (_orientation == BookOrientation.portrait) return false;
+    if (!settings.hardCover && !settings.hardPages) return false;
+    final back = flippingPage;
+    if (back is! BookPageImpl) return false;
+    final front = direction == FlipDirection.forward ? rightPage : leftPage;
+    bool hard(BookPage? p) =>
+        p is BookPageImpl &&
+        !p.isBlank &&
+        settings.isHardPage(p.index, _pageCount);
+    return hard(back) || hard(front);
+  }
+
+  /// Paints [page] whole and unrotated on the left or right side.
+  void _paintFlatPage(
+    PaintingContext context,
+    Offset offset,
+    BookPageImpl page,
+    bool isLeft,
+  ) {
+    final rect = getRect();
+    if (_isWhitePageIndex(page.index)) {
+      _drawWhitePageStatic(context.canvas, rect, offset, isLeft);
+      return;
+    }
+    final child = _childByIndex(page.index);
+    if (child == null) return; // plain paper: already filled
+    context.paintChild(
+      child,
+      Offset(
+        (isLeft ? rect.left : rect.left + rect.pageWidth) + offset.dx,
+        rect.top + offset.dy,
+      ),
+    );
+  }
+
+  /// Paints a hard sheet swinging around the spine.
+  ///
+  /// Up to 90 degrees the sheet's front is visible on its starting side,
+  /// then its back on the other side. The rotation is a real 3D one with a
+  /// light perspective, so the free edge grows slightly as it lifts towards
+  /// the reader, and the sheet darkens as it turns edge-on.
+  void _paintHardSheet(PaintingContext context, Offset offset, PageRect rect) {
+    final t = (_flipProgress / 100).clamp(0.0, 1.0);
+    final angle = t * math.pi;
+    final forward = direction == FlipDirection.forward;
+    final showFront = angle < math.pi / 2;
+    final w = rect.pageWidth.toDouble();
+    final h = rect.height.toDouble();
+    final spineX = rect.left + w + offset.dx;
+    final top = rect.top + offset.dy;
+    final midY = top + h / 2;
+    final lift = math.sin(angle);
+
+    // Shadow cast by the lifted sheet on the page it is moving towards.
+    if (settings.drawShadow && lift > 0.01) {
+      final towardsLeft = forward;
+      final reach = w * 0.35 * lift;
+      final shadowRect = towardsLeft
+          ? Rect.fromLTWH(spineX - reach, top, reach, h)
+          : Rect.fromLTWH(spineX, top, reach, h);
+      final shadowColor = settings.outerShadowColor;
+      final alpha =
+          (0.35 * lift * shadowColor.a * settings.effectiveShadowOpacity).clamp(
+            0.0,
+            1.0,
+          );
+      context.canvas.drawRect(
+        shadowRect,
+        Paint()
+          ..shader = ui.Gradient.linear(
+            towardsLeft ? shadowRect.centerRight : shadowRect.centerLeft,
+            towardsLeft ? shadowRect.centerLeft : shadowRect.centerRight,
+            [
+              shadowColor.withValues(alpha: alpha),
+              shadowColor.withValues(alpha: 0.0),
+            ],
+          ),
+      );
+    }
+
+    final BookPage? side = showFront
+        ? (forward ? rightPage : leftPage)
+        : flippingPage;
+    if (side is! BookPageImpl) return;
+
+    // Which half of the spine the visible side lies on, and its rotation.
+    // The signs keep the free edge towards the reader (drawn bigger).
+    final bool onRight = showFront ? forward : !forward;
+    final double rotation;
+    if (showFront) {
+      rotation = forward ? angle : -angle;
+    } else {
+      rotation = forward ? angle - math.pi : math.pi - angle;
+    }
+
+    final transform = Matrix4.translationValues(spineX, midY, 0)
+      ..multiply(Matrix4.identity()..setEntry(3, 2, 0.18 / w))
+      ..rotateY(rotation)
+      ..multiply(Matrix4.translationValues(onRight ? 0.0 : -w, -h / 2, 0));
+
+    final child = side.isBlank ? null : _childByIndex(side.index);
+    final white = _isWhitePageIndex(side.index);
+    final shade = (0.28 * lift * settings.effectiveShadowOpacity).clamp(
+      0.0,
+      0.6,
+    );
+
+    context.pushTransform(needsCompositing, Offset.zero, transform, (
+      PaintingContext ctx,
+      Offset off,
+    ) {
+      final pageRect = Rect.fromLTWH(off.dx, off.dy, w, h);
+      ctx.canvas.drawRect(
+        pageRect,
+        Paint()..color = settings.pageBackgroundColor,
+      );
+      if (child != null && !white) ctx.paintChild(child, off);
+      // Read the canvas again: paintChild may have started a new layer.
+      final canvas = ctx.canvas;
+      final border = settings.effectivePageBorderColor;
+      if (border != null) {
+        canvas.drawRect(
+          pageRect.deflate(0.5),
+          Paint()
+            ..color = border
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+      }
+      if (settings.drawShadow && shade > 0) {
+        canvas.drawRect(
+          pageRect,
+          Paint()..color = const Color(0xFF000000).withValues(alpha: shade),
+        );
+      }
+    });
   }
 
   void _paintDynamicPage(
@@ -930,7 +1133,8 @@ class RenderTurnableBook extends RenderBox
     canvas.clipRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height));
 
     // The sheet lands as the left page on a forward turn (spine on its right
-    // edge) and as the right page on a back turn (spine on its left edge).
+    // edge) and as the right page on a back turn (spine on its left edge),
+    // in a spread and in single-page mode.
     final spineX = direction == FlipDirection.forward ? rect.pageWidth : 0.0;
     final shadowSize = rect.width / 20;
     _paintSpineGradient(
@@ -1100,6 +1304,31 @@ class RenderTurnableBook extends RenderBox
     );
     paint.shader = gradient;
     canvas.drawRect(Rect.fromLTWH(0, 0, isw, rect.height * 2), paint);
+
+    // Glossy paper: a soft light band on the curl, beside the fold.
+    final gloss = settings.paperGloss.clamp(0.0, 1.0);
+    if (gloss > 0 && isw > 1) {
+      final forward = s.direction == FlipDirection.forward;
+      // The fold is at x = isw (forward) or x = 0 (back).
+      final start = forward ? isw * 0.45 : isw * 0.25;
+      final band = isw * 0.3;
+      final alpha = (0.55 * gloss * (0.4 + 0.6 * s.opacity)).clamp(0.0, 1.0);
+      const light = Color(0xFFFFFFFF);
+      canvas.drawRect(
+        Rect.fromLTWH(start, 0, band, rect.height * 2),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(start, 0),
+            Offset(start + band, 0),
+            [
+              light.withValues(alpha: 0.0),
+              light.withValues(alpha: alpha),
+              light.withValues(alpha: 0.0),
+            ],
+            const [0.0, 0.5, 1.0],
+          ),
+      );
+    }
     canvas.restore();
   }
 
@@ -1114,11 +1343,39 @@ class RenderTurnableBook extends RenderBox
     // Do not route them to child scroll views or child buttons on the corner.
     // Not with tap-to-flip off: the page's widgets there must stay tappable
     // (a drag from a corner still turns the page, see _handlePointerMove).
+    // Buttons, links and fields on a corner (anything with a clickable
+    // mouse cursor) stay tappable.
     final point = model.Point(position.dx, position.dy);
-    if (settings.flipOnTap && pageFlip.isPointOnCorners(point)) {
+    if (settings.flipOnTap &&
+        pageFlip.isPointOnCorners(point) &&
+        !_isInteractiveAt(position)) {
       return false;
     }
+    return _hitTestPages(result, position);
+  }
 
+  /// Whether a widget with a clickable mouse cursor (a button, link or text
+  /// field) is under [position].
+  bool _isInteractiveAt(Offset position) {
+    final consumed = _childConsumedHit;
+    final probe = BoxHitTestResult();
+    _hitTestPages(probe, position);
+    _childConsumedHit = consumed;
+    for (final entry in probe.path) {
+      final Object target = entry.target;
+      if (target is MouseTrackerAnnotation && target.validForMouseTracker) {
+        final cursor = target.cursor;
+        if (cursor != MouseCursor.defer &&
+            cursor != MouseCursor.uncontrolled &&
+            cursor != SystemMouseCursors.basic) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool _hitTestPages(BoxHitTestResult result, Offset position) {
     final rect = getRect();
 
     // Test visible static pages for interactive widgets
@@ -1247,6 +1504,19 @@ class RenderTurnableBook extends RenderBox
       _handlePointerMove(getPointerOffset(event: event), timeMs);
     } else if (event is PointerUpEvent || event is PointerCancelEvent) {
       _handlePointerUp(getPointerOffset(event: event), timeMs);
+    } else if (event is PointerHoverEvent) {
+      // A mouse over a page corner folds it a little (showPageCorners).
+      if (settings.showPageCorners &&
+          !isZoomed &&
+          event.kind == PointerDeviceKind.mouse) {
+        if (_isInteractiveAt(event.localPosition)) {
+          pageFlip.releaseCorner();
+        } else {
+          pageFlip.hoverCorner(
+            model.Point(event.localPosition.dx, event.localPosition.dy),
+          );
+        }
+      }
     }
   }
 
@@ -1481,6 +1751,17 @@ class RenderTurnableBook extends RenderBox
   bool? _dragTopCorner;
   double _dragMinLift = 0;
 
+  /// A drag that starts away from the page edge: the fold starts at the
+  /// edge and closes this horizontal gap to the finger gradually, as the
+  /// finger moves [_catchUpDistance], instead of jumping to the finger.
+  double _catchUpGap = 0;
+  double _catchUpDistance = 1;
+  double _catchUpStartX = 0;
+
+  /// How far the fold has caught up (0 to 1). It never goes back, so the
+  /// fold does not drift away if the finger returns towards its start.
+  double _catchUp = 1;
+
   model.Point _shiftDrag(model.Point p) {
     double y = p.y + _dragShift.y;
     final top = _dragTopCorner;
@@ -1494,7 +1775,19 @@ class RenderTurnableBook extends RenderBox
         y = math.min(y, rect.top + rect.height - _dragMinLift);
       }
     }
-    return model.Point(p.x + _dragShift.x, y);
+    double x = p.x + _dragShift.x;
+    if (_catchUpGap != 0) {
+      final t = ((p.x - _catchUpStartX).abs() / _catchUpDistance).clamp(
+        0.0,
+        1.0,
+      );
+      _catchUp = math.max(_catchUp, t);
+      // Smoothstep: the fold starts by moving with the finger and speeds up
+      // gently until it reaches it.
+      final u = _catchUp;
+      x += _catchUpGap * (1 - u * u * (3 - 2 * u));
+    }
+    return model.Point(x, y);
   }
 
   /// Starts a user drag. Local coordinates are already mirrored for RTL
@@ -1548,12 +1841,35 @@ class RenderTurnableBook extends RenderBox
         shiftY,
       );
     }
+    _catchUpGap = 0;
+    _catchUp = 1;
+    if (_dragShift.x == 0) {
+      // Grabbed away from the edge: start the fold at the edge rather than
+      // under the finger, then let it catch up with the finger.
+      final rect = getRect();
+      final forward =
+          pageFlip.flipProcess.getDirectionByPoint(convertToBook(start)) ==
+          FlipDirection.forward;
+      final edgeX = forward
+          ? rect.left + rect.pageWidth * 2 - 2
+          : rect.left + 2;
+      final gap = edgeX - start.x;
+      if (gap.abs() > 8 &&
+          (forward ? pageFlip.canFlipNext() : pageFlip.canFlipPrev())) {
+        _catchUpGap = gap;
+        _catchUpDistance = math.max(48.0, gap.abs() * 0.7);
+        _catchUpStartX = start.x;
+        _catchUp = 0;
+      }
+    }
     pageFlip.startUserTouch(_shiftDrag(start), timeMs);
     ensureAnimating();
   }
 
   void _resetGestureState() {
     _dragShift = const model.Point(0, 0);
+    _catchUpGap = 0;
+    _catchUp = 1;
     _dragTopCorner = null;
     _isDragging = false;
     _isVerticalScrollLocked = false;
