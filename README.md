@@ -3,8 +3,11 @@
 [![pub package](https://img.shields.io/pub/v/turnable_page.svg)](https://pub.dev/packages/turnable_page)
 [![pub points](https://img.shields.io/pub/points/turnable_page)](https://pub.dev/packages/turnable_page/score)
 [![likes](https://img.shields.io/pub/likes/turnable_page)](https://pub.dev/packages/turnable_page)
+[![docs](https://img.shields.io/badge/docs-website-a4471c)](https://saeedahmed725.github.io/turnable_page/)
 
 A **page flip / page curl widget for Flutter**. Build flipbooks, e-books, magazines, catalogs, Quran and manga readers, and **PDF page-turn viewers**, where every page is a normal, fully interactive Flutter widget.
+
+📖 **[Read the full documentation →](https://saeedahmed725.github.io/turnable_page/)**
 
 | Two-page spread (desktop) | Single page (mobile) | Responsive `auto` mode |
 |:---:|:---:|:---:|
@@ -198,6 +201,10 @@ FlipSettings(
 | `pageBackgroundColor` | white | Paper color behind and under pages. |
 
 The full list, including the bend and inertia tuning values, is in the [API docs](https://pub.dev/documentation/turnable_page/latest/turnable_page/FlipSettings-class.html).
+
+## Documentation
+
+The [documentation website](https://saeedahmed725.github.io/turnable_page/) covers every feature in depth: gestures, events, PDF loading, styling, the full `FlipSettings` reference, recipes, migrating to 2.0, and troubleshooting.
 
 ## Example app
 

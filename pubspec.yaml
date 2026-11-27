@@ -3,6 +3,7 @@ description: "Realistic page flip and page curl widget for Flutter. Build intera
 version: 2.0.0
 homepage: https://saeed-flutter.vercel.app
 repository: https://github.com/saeedahmed725/turnable_page
+documentation: https://saeedahmed725.github.io/turnable_page/
 issue_tracker: https://github.com/saeedahmed725/turnable_page/issues
 
 topics:

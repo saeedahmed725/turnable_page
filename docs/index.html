@@ -124,7 +124,7 @@ main { padding: 40px 48px 96px; min-width: 0; max-width: 880px; }
   display: flex; align-items: center; gap: 10px; background: var(--code-bg); color: var(--code-text);
   padding: 10px 10px 10px 16px; border-radius: 10px; width: fit-content; max-width: 100%;
 }
-.install code { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.install code { background: none; border: 0; padding: 0; color: inherit; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -163,7 +163,7 @@ h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
 .feature b { display: block; margin-bottom: 4px; }
 .feature span { color: var(--muted); font-size: 14px; }
-.feature a { color: inherit; text-decoration: none; }
+a.feature { color: inherit; text-decoration: none; }
 .feature:hover { border-color: var(--accent); }
 
 pre {
@@ -196,6 +196,21 @@ td code { white-space: nowrap; }
 .demos img { width: 100%; display: block; aspect-ratio: 4 / 3; object-fit: cover; background: var(--surface-2); }
 .demos figcaption { font-size: 13px; color: var(--muted); padding: 8px 12px; }
 
+.playground {
+  position: relative; height: 640px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+  background: var(--surface-2); box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.playground iframe { width: 100%; height: 100%; border: 0; display: block; }
+.pg-start {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  border: 0; cursor: pointer; color: var(--text); font: 600 16px Inter, sans-serif;
+  background: radial-gradient(circle at 50% 45%, var(--accent-soft), var(--surface-2) 70%);
+}
+.pg-start svg { background: var(--accent); color: #fff; border-radius: 50%; padding: 14px; width: 60px; height: 60px; box-shadow: var(--shadow); transition: transform .15s; }
+.pg-start:hover svg { transform: scale(1.06); }
+.pg-start small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.pg-links { font-size: 14px; text-align: right; }
+@media (max-width: 900px) { .playground { height: 760px; } }
 footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--muted); font-size: 14px; }
 
 /* Mobile */
@@ -242,6 +257,7 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
 <aside class="sidebar" id="sidebar">
   <h4>Getting started</h4>
   <a href="#overview">Overview</a>
+  <a href="#playground">Live playground</a>
   <a href="#installation">Installation</a>
   <a href="#quick-start">Quick start</a>
   <h4>Guides</h4>
@@ -277,7 +293,8 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
       <p class="lead">Turnable Page is a page curl widget for flipbooks, e-books, magazines, catalogs, Quran and manga readers, and PDF viewers. Every page is a normal Flutter widget, so buttons, text fields and lists keep working.</p>
       <div class="install"><code>flutter pub add turnable_page</code><button class="copy" style="position:static;opacity:1" data-copy="flutter pub add turnable_page">Copy</button></div>
       <div class="cta">
-        <a class="btn primary" href="#quick-start">Quick start</a>
+        <a class="btn primary" href="#playground">Try it live</a>
+        <a class="btn" href="#quick-start">Quick start</a>
         <a class="btn" href="https://github.com/saeedahmed725/turnable_page/tree/main/example">Example app</a>
       </div>
     </div>
@@ -303,6 +320,19 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
     <a class="feature" href="#controller"><b>Controller and events</b><span>Animate or jump to any page and listen to turns.</span></a>
     <a class="feature" href="#performance"><b>Large books</b><span>Only pages near the current one are built.</span></a>
   </div>
+</section>
+
+<section id="playground">
+  <h2>Live playground</h2>
+  <p>This is the real package, built for the web. Drag the pages, change the options, then open <b>Code</b> to copy the matching <code>TurnablePage</code> setup.</p>
+  <div class="playground" id="pg">
+    <button class="pg-start" id="pgStart" type="button">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <span>Load the playground</span>
+      <small>About 4 MB, loaded on demand</small>
+    </button>
+  </div>
+  <p class="pg-links"><a href="demo/" target="_blank" rel="noopener">Open full screen ↗</a></p>
 </section>
 
 <section id="installation">
@@ -774,6 +804,15 @@ Text('${page + 1} / ${pages.length}');</code></pre>
       : window.matchMedia('(prefers-color-scheme: dark)').matches;
     root.dataset.theme = dark ? 'light' : 'dark';
     try { localStorage.setItem('tp-theme', root.dataset.theme); } catch (e) {}
+  });
+
+  // Playground: load the Flutter build only when asked.
+  var pgStart = document.getElementById('pgStart');
+  pgStart.addEventListener('click', function () {
+    var f = document.createElement('iframe');
+    f.src = 'demo/'; f.title = 'Turnable Page live playground';
+    f.allow = 'clipboard-write';
+    document.getElementById('pg').replaceChildren(f);
   });
 
   // Mobile navigation.
