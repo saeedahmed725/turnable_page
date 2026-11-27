@@ -89,6 +89,8 @@ class Config {
         'paperBoundaryDecoration: PaperBoundaryDecoration.${frame.name},',
       if (enableZoom) 'enableZoom: true,',
       if (enableZoom && !enableDoubleTapZoom) 'enableDoubleTapZoom: false,',
+      if (showCover)
+        'coverSideBuilder: (context, side, constraints) => MyEndpaper(side),',
     ];
     final s = <String>[
       if (showCover) 'showCover: true,',
@@ -238,6 +240,8 @@ class _BookArea extends StatelessWidget {
         enableDoubleTapZoom: c.enableDoubleTapZoom,
         settings: c.settings(startPage),
         onPageChanged: (left, right) => onPageChanged(left),
+        coverSideBuilder: (context, side, constraints) =>
+            _Endpaper(side: side, rtl: c.rtl),
         builder: (context, index, constraints) => _DemoPage(
           index: index,
           count: c.pageCount,
@@ -348,6 +352,73 @@ class _DemoPage extends StatelessWidget {
       }),
     );
   }
+}
+
+/// Shown on the empty sides next to the covers (see coverSideBuilder).
+class _Endpaper extends StatelessWidget {
+  const _Endpaper({required this.side, required this.rtl});
+
+  final CoverSide side;
+  final bool rtl;
+
+  @override
+  Widget build(BuildContext context) {
+    final front = side == CoverSide.front;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEFE4D2), Color(0xFFE3D3B8)],
+        ),
+      ),
+      child: CustomPaint(
+        painter: _DotsPainter(),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFBF6EE),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFB79B72)),
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(
+                front
+                    ? (rtl ? 'هذا الكتاب ملك' : 'This book belongs to')
+                    : (rtl ? 'شكرًا للقراءة' : 'Thanks for reading'),
+                style: const TextStyle(color: Color(0xFF6E5638), fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'coverSideBuilder',
+                style: TextStyle(
+                  color: const Color(0xFF6E5638).withValues(alpha: .7),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DotsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = const Color(0x22704F2A);
+    for (double y = 10; y < size.height; y += 18) {
+      for (double x = (y ~/ 18).isEven ? 10 : 19; x < size.width; x += 18) {
+        canvas.drawCircle(Offset(x, y), 1.6, p);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _NavBar extends StatelessWidget {

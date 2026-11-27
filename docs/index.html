@@ -392,6 +392,16 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
   pageCount: 12,
   builder: buildPage,
 )</code></pre>
+  <p>The sides next to a lone cover are empty, and show plain paper by default. Fill them with <code>coverSideBuilder</code>, for endpapers, a logo or a dedication. <code>CoverSide.front</code> is the side left of the front cover, and <code>CoverSide.back</code> the side right of the last page when it is alone. These widgets are interactive and are revealed and covered by the turning pages like any page.</p>
+<pre><code>TurnablePage(
+  pageViewMode: PageViewMode.double,
+  settings: FlipSettings(showCover: true),
+  coverSideBuilder: (context, side, constraints) =&gt; side == CoverSide.front
+      ? const Endpaper(text: 'This book belongs to…')
+      : const Endpaper(text: 'The End'),
+  pageCount: 12,
+  builder: buildPage,
+)</code></pre>
   <h3>Size</h3>
   <p><code>aspectRatio</code> is the width divided by the height of <b>one page</b>. It defaults to <code>2/3</code>. In a spread, the book is twice as wide.</p>
 </section>
@@ -610,6 +620,7 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>paperBoundaryDecoration</code></td><td><code>PaperBoundaryDecoration</code></td><td><code>vintage</code></td><td>Frame around the book.</td></tr>
     <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>bool</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
     <tr><td><code>pageCacheExtent</code></td><td><code>int</code></td><td><code>4</code></td><td>Pages kept built on each side of the current page.</td></tr>
+    <tr><td><code>coverSideBuilder</code></td><td><code>CoverSideBuilder?</code></td><td><code>null</code></td><td><code>(context, side, constraints)</code> returns the widget for the empty side next to a cover. See <a href="#layout">Covers</a>.</td></tr>
     <tr><td><code>enableZoom</code></td><td><code>bool?</code></td><td><code>false</code></td><td>Pinch-to-zoom.</td></tr>
     <tr><td><code>enableDoubleTapZoom</code></td><td><code>bool?</code></td><td><code>true</code></td><td>Double tap toggles zoom when zoom is on.</td></tr>
     <tr><td><code>minScale</code> / <code>maxScale</code></td><td><code>double?</code></td><td><code>1.0</code> / <code>3.0</code></td><td>Zoom limits.</td></tr>

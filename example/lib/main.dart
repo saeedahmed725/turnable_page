@@ -345,10 +345,91 @@ class _WidgetBookScreenState extends State<WidgetBookScreen> {
             enableEasing: true,
             enableInertia: true,
             enableZoom: true,
-            enableDoubleTapZoom: false
+            enableDoubleTapZoom: false,
+            showCover: true,
           ),
           onPageChanged: (left, right) {
             _currentPage.value = left;
+          },
+          coverSideBuilder: (context, side, constraints) => switch (side) {
+            CoverSide.front => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.auto_stories, size: 80, color: Colors.redAccent),
+                const SizedBox(height: 20),
+                const Text(
+                  'Widget Book',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Integration test suite for Turnable Page\n'
+                    '(Flutter widgets with page-flip)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            CoverSide.back => Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 80,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'End of Book',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'You have reached the end of the Widget Book.\n'
+                    'Thank you for testing Turnable Page!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           },
           builder: (context, pageIndex, constraints) =>
               _PageContent(config: _pages[pageIndex]),

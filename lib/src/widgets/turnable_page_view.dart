@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../turnable_page.dart';
 import '../enums/book_orientation.dart';
+import '../page/book_page_impl.dart';
 import '../page/page_flip.dart';
 import '../page/page_host.dart';
 import 'paper_widget.dart';
@@ -21,6 +22,11 @@ class TurnablePageView extends StatefulWidget {
   final PaperBoundaryDecoration paperBoundaryDecoration;
   final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
+
+  /// Builds the widgets shown on the empty sides of a lone cover spread
+  /// (see [CoverSide]). Only used with `FlipSettings.showCover`.
+  final Widget Function(BuildContext context, CoverSide side)?
+      coverSideBuilder;
 
   /// Number of pages kept built on EACH side of the current page when the
   /// book is large (more than [virtualWindowingThreshold] pages). Pages
@@ -46,6 +52,7 @@ class TurnablePageView extends StatefulWidget {
     this.pagesBoundaryIsEnabled = true,
     this.textDirection,
     this.pageCacheExtent = 4,
+    this.coverSideBuilder,
   }) : assert(pageCacheExtent >= 1, 'pageCacheExtent must be at least 1');
 
   @override
@@ -318,7 +325,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       _pageCache.removeWhere((i, _) => i < windowStart || i > windowEnd);
     }
 
-    final children = List<Widget>.generate(
+    List<Widget> children = List<Widget>.generate(
       widget.pageCount,
       (index) {
         if (index < windowStart || index > windowEnd) {
@@ -345,11 +352,41 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       growable: false,
     );
 
+    // The cover side widgets go after the pages, front first.
+    final sideBuilder = _settings.showCover ? widget.coverSideBuilder : null;
+    if (sideBuilder != null) {
+      Widget side(CoverSide s, int index) {
+        Widget child = sideBuilder(context, s);
+        if (isRtl) {
+          child = Directionality(
+            textDirection: effectiveDir,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.diagonal3Values(-1.0, 1.0, 1.0),
+              child: child,
+            ),
+          );
+        }
+        return PageHost(
+          key: ValueKey('cover_side_${s.name}'),
+          index: index,
+          child: child,
+        );
+      }
+
+      children = [
+        ...children,
+        side(CoverSide.front, BookPageImpl.frontCoverSideIndex),
+        side(CoverSide.back, BookPageImpl.backCoverSideIndex),
+      ];
+    }
+
     Widget bookWidget = TurnableBookRenderObjectWidget(
       pageCount: widget.pageCount,
       settings: _settings,
       pageFlip: _pageFlip,
       isZoomed: _isZoomed,
+      coverSideCount: sideBuilder != null ? 2 : 0,
       children: children,
     );
 

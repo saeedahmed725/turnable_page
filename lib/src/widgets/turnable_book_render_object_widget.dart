@@ -12,6 +12,9 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
   final PageFlip pageFlip;
   final bool isZoomed;
 
+  /// Children after the pages that hold the cover side widgets (0 or 2).
+  final int coverSideCount;
+
   TurnableBookRenderObjectWidget({
     super.key,
     required this.pageCount,
@@ -19,6 +22,7 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
     required this.settings,
     required this.pageFlip,
     this.isZoomed = false,
+    this.coverSideCount = 0,
     List<Widget>? children,
   }) : super(
           children: children ??
@@ -38,6 +42,7 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
   RenderTurnableBook createRenderObject(BuildContext context) {
     final render = RenderTurnableBook(settings, pageFlip);
     render.isZoomed = isZoomed;
+    render.coverSideCount = coverSideCount;
     return render;
   }
 
@@ -48,6 +53,7 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
   ) {
     renderObject.updateSettings(settings);
     renderObject.isZoomed = isZoomed;
+    renderObject.coverSideCount = coverSideCount;
   }
 }
 

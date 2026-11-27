@@ -29,8 +29,25 @@ class RenderTurnableBook extends RenderBox
   static const double _minMoveThreshold = 10.0;
   bool get _needsWhitePage {
     if (settings.usePortrait) return false;
-    return settings.showCover ? false : childCount % 2 == 1;
+    return settings.showCover ? false : _pageCount % 2 == 1;
   }
+
+  /// Number of children after the pages: the [CoverSide.front] and
+  /// [CoverSide.back] widgets, or 0 when no cover side builder is set.
+  int get coverSideCount => _coverSideCount;
+  int _coverSideCount = 0;
+  set coverSideCount(int value) {
+    if (value == _coverSideCount) return;
+    _coverSideCount = value;
+    _needsIndexRebuild = true;
+    markNeedsLayout();
+  }
+
+  RenderBox? _frontSideChild;
+  RenderBox? _backSideChild;
+
+  /// Number of book pages (children minus the cover side widgets).
+  int get _pageCount => childCount - _coverSideCount;
 
   FlipSettings settings;
   final PageFlip pageFlip;
@@ -160,7 +177,7 @@ class RenderTurnableBook extends RenderBox
       _assignPageIndices();
     }
     if (!_initialized) {
-      final totalPages = _needsWhitePage ? childCount + 1 : childCount;
+      final totalPages = _needsWhitePage ? _pageCount + 1 : _pageCount;
       collection = PageCollectionImpl(pageFlip, this, totalPages);
       pageFlip.pages = collection;
       collection.loadBookPages();
@@ -184,7 +201,7 @@ class RenderTurnableBook extends RenderBox
 
   void _assignPageIndices() {
     _needsIndexRebuild = false;
-    final count = childCount;
+    final count = _pageCount;
     final totalSlots = _needsWhitePage ? count + 1 : count;
     if (_indexedChildren.length != totalSlots) {
       _indexedChildren = List<RenderBox?>.filled(
@@ -205,10 +222,21 @@ class RenderTurnableBook extends RenderBox
     if (_needsWhitePage) {
       _indexedChildren[count] = null;
     }
+    // The cover side widgets follow the pages, front first.
+    _frontSideChild = _coverSideCount > 0 ? child : null;
+    _backSideChild = _coverSideCount > 1
+        ? (child?.parentData as TurnableParentData?)?.nextSibling
+        : null;
   }
 
   RenderBox? _childByIndex(int index) {
-    if (_needsWhitePage && index == childCount) {
+    if (index < 0) {
+      if (_needsIndexRebuild) _assignPageIndices();
+      return index == BookPageImpl.frontCoverSideIndex
+          ? _frontSideChild
+          : _backSideChild;
+    }
+    if (_needsWhitePage && index == _pageCount) {
       return null;
     }
     if (!_needsIndexRebuild && index >= 0 && index < _indexedChildren.length) {
@@ -544,6 +572,19 @@ class RenderTurnableBook extends RenderBox
     }
 
     if (_orientation != BookOrientation.portrait) {
+      // Cover side widgets fill the empty side of a lone cover spread.
+      if (leftPage == null && _frontSideChild != null) {
+        context.paintChild(
+          _frontSideChild!,
+          Offset(rect.left + offset.dx, rect.top + offset.dy),
+        );
+      }
+      if (rightPage == null && _backSideChild != null) {
+        context.paintChild(
+          _backSideChild!,
+          Offset(rect.left + rect.pageWidth + offset.dx, rect.top + offset.dy),
+        );
+      }
       paintStatic(leftPage, true);
       // In two-page mode, do not double-paint rightPage if it is already being flipped
       if (flippingPage is! BookPageImpl ||
@@ -588,6 +629,20 @@ class RenderTurnableBook extends RenderBox
       } else {
         _paintDynamicPage(context, offset, flippingPage as BookPageImpl);
       }
+
+      // The turning sheet covers the spine shadow painted above. Paint the
+      // spine shadow on the sheet too, growing as it lands, so the crease is
+      // already there when the turn ends instead of popping in on the new page.
+      if (_orientation != BookOrientation.portrait &&
+          settings.drawShadow &&
+          shouldDrawCenterShadow) {
+        _drawSpineShadowOnTurningPage(
+          context.canvas,
+          rect,
+          offset,
+          flippingPage as BookPageImpl,
+        );
+      }
     }
 
     if (shadow != null && settings.drawShadow) {
@@ -604,6 +659,12 @@ class RenderTurnableBook extends RenderBox
     BookPageImpl page, {
     bool isBottom = false,
   }) {
+    // An empty cover side without a widget is plain paper; with one, it is
+    // painted below like any page.
+    if (page.isBlank && _childByIndex(page.index) == null) {
+      _paintBlankBottomPage(context.canvas, rootOffset, page);
+      return;
+    }
     if (_isWhitePageIndex(page.index)) {
       _paintDynamicWhitePage(context.canvas, rootOffset, page);
       return;
@@ -735,6 +796,43 @@ class RenderTurnableBook extends RenderBox
     }
   }
 
+  /// Paints the revealed part of an empty spread side as plain paper, the
+  /// same as that side looks once the turn completes (no border).
+  void _paintBlankBottomPage(
+    Canvas canvas,
+    Offset rootOffset,
+    BookPageImpl page,
+  ) {
+    final rect = getRect();
+    final paint = Paint()..color = settings.pageBackgroundColor;
+    if (Helper.isDegenerateArea(page.state.area)) {
+      // Late in a turn the clip collapses: the side is fully revealed.
+      if (_flipProgress < 50) return;
+      final isLeft = direction == FlipDirection.back;
+      canvas.drawRect(
+        Rect.fromLTWH(
+          (isLeft ? rect.left : rect.left + rect.pageWidth) + rootOffset.dx,
+          rect.top + rootOffset.dy,
+          rect.pageWidth,
+          rect.height,
+        ),
+        paint,
+      );
+      return;
+    }
+    final origin = convertToGlobal(page.state.position);
+    if (origin == null) return;
+    final path = page.buildOrGetClipPath(
+      origin,
+      (model.Point p) => convertToGlobal(p)!,
+    );
+    if (path == null) return;
+    canvas.save();
+    canvas.translate(origin.x + rootOffset.dx, origin.y + rootOffset.dy);
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
   void _paintDynamicWhitePage(
     Canvas canvas,
     Offset rootOffset,
@@ -796,6 +894,65 @@ class RenderTurnableBook extends RenderBox
     }
   }
 
+  void _drawSpineShadowOnTurningPage(
+    Canvas canvas,
+    PageRect rect,
+    Offset root,
+    BookPageImpl page,
+  ) {
+    if (Helper.isDegenerateArea(page.state.area)) return;
+    final strength = (_flipProgress / 100).clamp(0.0, 1.0);
+    if (strength <= 0) return;
+    final origin = convertToGlobal(page.state.position);
+    if (origin == null) return;
+    final clip = page.buildOrGetClipPath(
+      origin,
+      (model.Point p) => convertToGlobal(p)!,
+    );
+    if (clip == null) return;
+
+    final anchor = Offset(origin.x + root.dx, origin.y + root.dy);
+    canvas.save();
+    canvas.clipPath(clip.shift(anchor));
+    // Work in the sheet's own coordinates, so the crease follows the paper
+    // as it moves and rotates instead of staying at the book's center.
+    canvas.translate(anchor.dx, anchor.dy);
+    final angle = page.state.angle;
+    if (angle.abs() > 0.001) canvas.rotate(angle);
+    canvas.clipRect(Rect.fromLTWH(0, 0, rect.pageWidth, rect.height));
+
+    // The sheet lands as the left page on a forward turn (spine on its right
+    // edge) and as the right page on a back turn (spine on its left edge).
+    final spineX = direction == FlipDirection.forward ? rect.pageWidth : 0.0;
+    final shadowSize = rect.width / 20;
+    _paintSpineGradient(
+      canvas,
+      Rect.fromLTWH(spineX - shadowSize / 2, 0, shadowSize, rect.height),
+      strength,
+    );
+    canvas.restore();
+  }
+
+  void _paintSpineGradient(Canvas canvas, Rect area, double strength) {
+    final baseColor = settings.centerShadowColor;
+    final baseAlpha =
+        (baseColor.a * settings.maxShadowOpacity * strength).clamp(0.0, 1.0);
+    final gradient = ui.Gradient.linear(
+      area.centerLeft,
+      area.centerRight,
+      [
+        baseColor.withValues(alpha: 0.0),
+        baseColor.withValues(alpha: (0.2 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.1 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.5 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: (0.4 * baseAlpha).clamp(0.0, 1.0)),
+        baseColor.withValues(alpha: 0.0),
+      ],
+      [0.0, 0.4, 0.49, 0.5, 0.51, 1.0],
+    );
+    canvas.drawRect(area, Paint()..shader = gradient);
+  }
+
   void _drawBookShadow(Canvas canvas, PageRect rect, Offset root) {
     if (!settings.drawShadow) return;
     if (_orientation != BookOrientation.portrait && !settings.showCenterShadow) {
@@ -818,24 +975,11 @@ class RenderTurnableBook extends RenderBox
     final shadowPosX = rect.left + rect.width / 2 - shadowSize / 2 + root.dx;
     final shadowPosY = 0 + root.dy;
     canvas.translate(shadowPosX, shadowPosY);
-    final baseColor = settings.centerShadowColor;
-    final baseAlpha = (baseColor.a * settings.maxShadowOpacity).clamp(0.0, 1.0);
-
-    final gradient = ui.Gradient.linear(
-      const Offset(0, 0),
-      Offset(shadowSize, 0),
-      [
-        baseColor.withValues(alpha: 0.0),
-        baseColor.withValues(alpha: (0.2 * baseAlpha).clamp(0.0, 1.0)),
-        baseColor.withValues(alpha: (0.1 * baseAlpha).clamp(0.0, 1.0)),
-        baseColor.withValues(alpha: (0.5 * baseAlpha).clamp(0.0, 1.0)),
-        baseColor.withValues(alpha: (0.4 * baseAlpha).clamp(0.0, 1.0)),
-        baseColor.withValues(alpha: 0.0),
-      ],
-      [0.0, 0.4, 0.49, 0.5, 0.51, 1.0],
+    _paintSpineGradient(
+      canvas,
+      Rect.fromLTWH(0, 0, shadowSize, rect.height * 2),
+      1.0,
     );
-    final paint = Paint()..shader = gradient;
-    canvas.drawRect(Rect.fromLTWH(0, 0, shadowSize, rect.height * 2), paint);
     canvas.restore();
   }
 
@@ -1012,6 +1156,36 @@ class RenderTurnableBook extends RenderBox
           _childConsumedHit = true;
           return true;
         }
+      }
+    }
+
+    // Cover side widgets fill the empty side of a lone cover spread.
+    if (_orientation != BookOrientation.portrait) {
+      bool hitSide(RenderBox? side, bool isLeft) {
+        if (side == null) return false;
+        return result.addWithPaintOffset(
+          offset: Offset(
+            isLeft ? rect.left : rect.left + rect.pageWidth,
+            rect.top,
+          ),
+          position: position,
+          hitTest: (BoxHitTestResult result, Offset transformed) {
+            if (!_isPositionInChildBounds(
+              transformed,
+              rect.pageWidth,
+              rect.height,
+            )) {
+              return false;
+            }
+            return side.hitTest(result, position: transformed);
+          },
+        );
+      }
+
+      if ((leftPage == null && hitSide(_frontSideChild, true)) ||
+          (rightPage == null && hitSide(_backSideChild, false))) {
+        _childConsumedHit = true;
+        return true;
       }
     }
 
@@ -1368,7 +1542,7 @@ class RenderTurnableBook extends RenderBox
   void ensureAnimating() => _scheduleFrame();
 
   bool _isWhitePageIndex(int index) {
-    return _needsWhitePage && index == childCount;
+    return _needsWhitePage && index == _pageCount;
   }
 
   void _drawWhitePageStatic(
