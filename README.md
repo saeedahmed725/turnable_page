@@ -5,7 +5,7 @@
 [![likes](https://img.shields.io/pub/likes/turnable_page)](https://pub.dev/packages/turnable_page)
 [![docs](https://img.shields.io/badge/docs-website-a4471c)](https://saeedahmed725.github.io/turnable_page/)
 
-A **page flip / page curl widget for Flutter**. Build flipbooks, e-books, magazines, catalogs, Quran and manga readers, and **PDF page-turn viewers**, where every page is a normal, fully interactive Flutter widget.
+A high-performance Flutter package that provides a realistic **3D page-flipping (page curl) effect** for digital books, magazines, catalogs, **PDFs**, and other interactive multi-page content in Flutter applications. Build flipbooks, e-books, Quran and manga readers, and PDF page-turn viewers, where every page is a normal, fully interactive Flutter widget.
 
 📖 **[Read the full documentation →](https://saeedahmed725.github.io/turnable_page/)**
 
@@ -28,7 +28,7 @@ A **page flip / page curl widget for Flutter**. Build flipbooks, e-books, magazi
 
 ```yaml
 dependencies:
-  turnable_page: ^2.0.0
+  turnable_page: ^2.1.0
 ```
 
 ```dart

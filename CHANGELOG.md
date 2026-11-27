@@ -2,9 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.1.0 - 2026-11-27
 ### ✨ Features
 - **`enableDoubleTapZoom`** on `TurnablePage` and `FlipSettings` (default `true`): set it to `false` to turn off double-tap zoom while keeping pinch-to-zoom, so double tap is free for your own gestures ([#13](https://github.com/saeedahmed725/turnable_page/issues/13)).
+- **`flipOnTap`** on `FlipSettings` (default `true`): set it to `false` when pages have their own tappable content. Taps then always reach the page, corners included, and pages turn only by dragging or from the controller.
+- **Documentation website** with a live playground: https://saeedahmed725.github.io/turnable_page/
+
+### 🔧 Changes
+- Requires Flutter 3.35 or later. `pdfrx` updated to `^2.4.4` ([#12](https://github.com/saeedahmed725/turnable_page/pull/12)).
+- `TurnablePdf.initPDFLoaders()` now uses pdfrx's own initializer, which sets the cache directory and the asset loader on every platform, web included.
 
 ## 2.0.0 - 2026-11-21
 ### ⚠️ Breaking changes
