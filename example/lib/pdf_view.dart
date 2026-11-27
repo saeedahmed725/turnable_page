@@ -45,8 +45,6 @@ class PDFView extends StatelessWidget {
               'https://showcase.apryse.com/gallery/WebviewerDemoDoc.pdf',
               pageViewMode: PageViewMode.single,
               // aspectRatio: 5/10,
-              pagesBoundaryIsEnabled: false,
-              paperBoundaryDecoration: PaperBoundaryDecoration.modern,
               settings: FlipSettings(),
             ),
             _buildBookmark(context),

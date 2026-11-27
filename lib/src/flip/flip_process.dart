@@ -4,6 +4,7 @@ import '../enums/book_orientation.dart';
 import '../enums/flip_corner.dart';
 import '../enums/flip_direction.dart';
 import '../enums/flipping_state.dart';
+import '../enums/page_flip_event.dart';
 import '../enums/page_density.dart';
 import '../helpers/helper.dart';
 import '../model/page_rect.dart';
@@ -82,7 +83,8 @@ class FlipProcess {
     // positions with x > 0 (back coordinates) are off-screen. Starting there
     // wasted the first part of the animation on an invisible page and then
     // rushed the visible part, so start right at the spine instead.
-    final isPortraitBack = render.getOrientation() == BookOrientation.portrait &&
+    final isPortraitBack =
+        render.getOrientation() == BookOrientation.portrait &&
         calc!.getDirection() == FlipDirection.back;
     final xStart = isPortraitBack ? -1.0 : rect.pageWidth - topMargins;
 
@@ -258,8 +260,9 @@ class FlipProcess {
       return;
     }
 
-    final threshold =
-        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+    final threshold = render.getOrientation() == BookOrientation.portrait
+        ? 0.35
+        : 0.5;
 
     if (progress >= threshold) {
       animateFlippingTo(
@@ -268,11 +271,7 @@ class FlipProcess {
         true,
       );
     } else {
-      animateFlippingTo(
-        pos,
-        Point(_cancelX(rect), y.toDouble()),
-        false,
-      );
+      animateFlippingTo(pos, Point(_cancelX(rect), y.toDouble()), false);
     }
   }
 
@@ -317,8 +316,9 @@ class FlipProcess {
     // A flick away from center (back towards starting edge) cancels the flip.
     final isFlick = fastSwipe || velocity.abs() > 300.0;
 
-    final threshold =
-        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+    final threshold = render.getOrientation() == BookOrientation.portrait
+        ? 0.35
+        : 0.5;
 
     if (isFlick && progress > 0.05) {
       complete = swipeTowardsCenter;
@@ -333,17 +333,15 @@ class FlipProcess {
         true,
       );
     } else {
-      animateFlippingTo(
-        pos,
-        Point(_cancelX(rect), y.toDouble()),
-        false,
-      );
+      animateFlippingTo(pos, Point(_cancelX(rect), y.toDouble()), false);
     }
   }
 
   /// Fold the corners of the book when the mouse pointer is over them.
   /// Called when the mouse pointer is over the book without clicking
-  void showCorner(Point globalPos) {
+  ///
+  /// [cornerSize] is how far the corner folds, in pixels.
+  void showCorner(Point globalPos, {double cornerSize = 50.0}) {
     if (!checkState([FlippingState.read, FlippingState.foldCorner])) return;
 
     final rect = getBoundsRect();
@@ -366,7 +364,7 @@ class FlipProcess {
 
         calc!.calc(Point(pageWidth - 1, 1));
 
-        const fixedCornerSize = 50.0;
+        final fixedCornerSize = cornerSize;
         final yStart = calc!.getCorner() == FlipCorner.bottom
             ? rect.height - 1
             : 1;
@@ -385,10 +383,90 @@ class FlipProcess {
         doCalculation(render.convertToPage(globalPos));
       }
     } else {
-      if (state == FlippingState.foldCorner) {
-        abortFlip();
-      }
+      releaseCorner();
     }
+  }
+
+  /// Lets a folded corner (hover or peek) fall back smoothly. Does nothing
+  /// unless a corner is folded.
+  void releaseCorner() {
+    final c = calc;
+    if (state != FlippingState.foldCorner || c == null) return;
+    // Not foldCorner any more: hovering cannot grab the corner while it
+    // falls back.
+    setState(FlippingState.flipping);
+    final rect = getBoundsRect();
+    final y = c.getCorner() == FlipCorner.bottom ? rect.height : 0;
+    animateFlippingTo(
+      c.getPosition(),
+      Point(_cancelX(rect), y.toDouble()),
+      false,
+    );
+  }
+
+  /// Folds the corner under a hovering mouse. The fold starts from nothing
+  /// at the edge of a small [zone] around the corner and deepens smoothly,
+  /// up to [maxFold], as the mouse gets closer, so it never jumps and never
+  /// rolls far into the page. Outside the zone the corner falls back.
+  void hoverCorner(Point globalPos, {required double zone, double? maxFold}) {
+    if (!checkState([FlippingState.read, FlippingState.foldCorner])) return;
+    final rect = getBoundsRect();
+    final bookPos = render.convertToBook(globalPos);
+    if (bookPos.x <= 0 ||
+        bookPos.y <= 0 ||
+        bookPos.x >= rect.width ||
+        bookPos.y >= rect.height) {
+      releaseCorner();
+      return;
+    }
+    final direction = getDirectionByPoint(bookPos);
+    if (!checkDirection(direction)) {
+      releaseCorner();
+      return;
+    }
+
+    final r = math.min(zone, rect.pageWidth * 0.35);
+    final fold = maxFold ?? r * 0.75;
+    final page = render.convertToPage(globalPos, direction);
+    final bottom = bookPos.y >= rect.height / 2;
+    final cy = bottom ? rect.height : 0.0;
+    final dx = rect.pageWidth - page.x; // >= 0 inside the page
+    final dy = (page.y - cy).abs();
+    final d = math.sqrt(dx * dx + dy * dy);
+    if (dx < 0 || d >= r) {
+      releaseCorner();
+      return;
+    }
+
+    final t = 1 - d / r;
+    final len = fold * t * t * (3 - 2 * t);
+    if (len < 1) {
+      // Too far to fold anything yet.
+      if (state == FlippingState.foldCorner) releaseCorner();
+      return;
+    }
+
+    final corner = bottom ? FlipCorner.bottom : FlipCorner.top;
+    final c = calc;
+    if (c != null &&
+        (c.getCorner() != corner || c.getDirection() != direction)) {
+      abortFlip();
+    }
+    if (calc == null) {
+      if (!start(globalPos)) return;
+      setState(FlippingState.foldCorner);
+    }
+
+    // Fold along the corner's diagonal, leaning toward the mouse.
+    final mx = d > 0 ? -dx / d : 0.0;
+    final my = d > 0 ? (page.y - cy).sign * dy / d : 0.0;
+    var ux = mx - 0.7071;
+    var uy = my + (bottom ? -0.7071 : 0.7071);
+    final ul = math.sqrt(ux * ux + uy * uy);
+    ux /= ul;
+    uy /= ul;
+    render.finishAnimation();
+    doCalculation(Point(rect.pageWidth + ux * len, cy + uy * len));
   }
 
   /// Animation function. Animates flipping process with improved physics and easing
@@ -400,6 +478,13 @@ class FlipProcess {
   ]) {
     final settings = app.getSettings;
 
+    // A turn is committed: report it once, before it animates (sound,
+    // haptics). Cancelled drags and corner peeks pass isTurned = false.
+    final turning = calc;
+    if (isTurned && turning != null) {
+      app.trigger(PageFlipEvent.turn, app, turning.getDirection());
+    }
+
     final distance = Helper.getDistanceBetweenTwoPoint(start, dest);
 
     // In single-page mode a forward turn reveals the next page at the fold
@@ -408,7 +493,8 @@ class FlipProcess {
     // corner distance therefore made back turns look about twice as fast
     // ("snatched"). Give them ~1.8x the frame budget (measured) so both
     // directions reveal the page at the same pace.
-    final isPortraitBack = render.getOrientation() == BookOrientation.portrait &&
+    final isPortraitBack =
+        render.getOrientation() == BookOrientation.portrait &&
         calc?.getDirection() == FlipDirection.back;
     // Forward turn in single-page mode: the corner travels two page widths
     // but only the first one is on screen. With a strong ease-out the flap
@@ -416,7 +502,8 @@ class FlipProcess {
     // turn), so forward turns looked snatched. Completed forward turns use a
     // gentler curve and a bigger frame budget so the visible edge moves at
     // the same pace in both directions.
-    final isPortraitForwardTurn = isTurned &&
+    final isPortraitForwardTurn =
+        isTurned &&
         render.getOrientation() == BookOrientation.portrait &&
         calc?.getDirection() == FlipDirection.forward;
     final speedFactor = isPortraitBack
@@ -433,8 +520,9 @@ class FlipProcess {
     // grow before shrinking back, which looked broken; a full turn
     // (~2 page widths) keeps the full arc.
     final rectForSag = getBoundsRect();
-    final sagScale =
-        (distance / (2 * rectForSag.pageWidth)).clamp(0.0, 1.0).toDouble();
+    final sagScale = (distance / (2 * rectForSag.pageWidth))
+        .clamp(0.0, 1.0)
+        .toDouble();
     final sagAmp = settings.sagAmplitude * rectForSag.height * sagScale;
 
     // Scratch calculation used to validate every frame up-front. Frames whose
@@ -634,7 +722,8 @@ class FlipProcess {
       return false;
     }
 
-    final isVerticalCorner = bookPos.y < operatingDistance ||
+    final isVerticalCorner =
+        bookPos.y < operatingDistance ||
         bookPos.y > rect.height - operatingDistance;
     if (!isVerticalCorner) return false;
 

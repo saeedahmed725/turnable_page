@@ -1,26 +1,33 @@
-Turnable Page Proprietary License (TPPL) v1.0
+Turnable Page Proprietary License (TPPL) v1.1
 
-This Software is proprietary. No person or entity is permitted to use, copy, modify, merge, publish, distribute, sublicense, or sell copies of the Software, in whole or in part, for any purpose, without prior written permission from the copyright holder. Any modifications to the codebase must be proposed and integrated exclusively via collaboration in the official GitHub repository through pull requests and only upon explicit approval by the maintainers. Any use or distribution outside of this process is prohibited.
+Copyright (c) 2026 saeedahmed725 (https://github.com/saeedahmed725). All rights reserved.
 
-1. Ownership and Rights
-	- All rights, title, and interest in and to the Software are reserved by the copyright holder.
+The "Software" means the turnable_page package: its source code, documentation and assets, as published on pub.dev and in the official GitHub repository (https://github.com/saeedahmed725/turnable_page).
 
-2. Permitted Activity
-	- Viewing the source code.
-	- Submitting proposed changes via pull requests to the official GitHub repository. Approved changes will be merged and distributed only from the official repository.
+1. Permission to Use
+	You may, free of charge:
+	- Add the Software as a dependency of your applications, through pub.dev or the official repository.
+	- Use the Software, unmodified, in personal, open-source and commercial applications, including applications that are sold or that earn revenue.
+	- Distribute the Software only as an unmodified, compiled part of such an application.
 
-3. Prohibited Uses (without prior written permission)
-	- Any use of the Software in other projects, products, packages, services, or publications.
-	- Copying, modifying, merging, publishing, distributing, hosting, mirroring, or sublicensing the Software or any derivative works.
-	- Commercial or non-commercial use, including internal use, embedding, or redistribution of binaries or source code.
+2. Restrictions (without prior written permission from the copyright holder)
+	You may not:
+	- Modify, adapt, translate or create derivative works of the Software, except as described in section 3.
+	- Copy the Software's source code, in whole or in part, into other projects, packages, libraries or products.
+	- Publish, redistribute, mirror, host or sublicense the Software or any modified version of it as source code or as a standalone package.
+	- Sell, rent, lease or otherwise commercialize the Software itself, or any modified version of it, as a product, package, template, component or service.
+	- Remove or alter this License or any copyright notice.
+
+3. Contributions
+	Changes to the Software must be proposed through pull requests to the official GitHub repository. Approved changes are merged and distributed only from the official repository. By submitting a contribution, you agree that it may be distributed under this License.
 
 4. Termination
-	- Any breach of this License automatically terminates any limited rights you may have had to view or contribute. Upon termination, you must cease all activity with the Software and delete any copies in your possession.
+	Any breach of this License automatically terminates the rights granted to you. Upon termination, you must stop using and distributing the Software and delete any copies in your possession.
 
 5. No Warranty
-	- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 6. Limitation of Liability
-	- IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+	IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-For permission requests, please contact the repository owner via the official GitHub repository.
+For permission requests, contact the copyright holder through the official GitHub repository.

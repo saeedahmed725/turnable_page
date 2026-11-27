@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../enums/cover_side.dart';
+import '../enums/flip_direction.dart';
 import '../enums/page_view_mode.dart';
 import '../flip/flip_settings.dart';
-import '../model/paper_boundary_decoration.dart';
+import 'page_edges.dart';
 import 'page_flip_controller.dart';
-import 'paper_widget.dart';
 import 'turnable_page_view.dart';
 
 class TurnablePage extends StatelessWidget {
@@ -16,9 +16,7 @@ class TurnablePage extends StatelessWidget {
   final FlipSettings settings;
   final PageViewMode pageViewMode;
   final bool autoResponseSize;
-  final PaperBoundaryDecoration paperBoundaryDecoration;
   final double? aspectRatio;
-  final bool pagesBoundaryIsEnabled;
   final TextDirection? textDirection;
 
   /// Pages kept built on each side of the current page for large books.
@@ -32,6 +30,17 @@ class TurnablePage extends StatelessWidget {
   /// contents. Without it, these sides are plain paper.
   final CoverSideBuilder? coverSideBuilder;
 
+  /// Called once for each page turn that is going to complete: when a turn
+  /// starts from the controller, a tap or the keyboard, or when the user
+  /// releases a drag that will finish. Cancelled drags are not reported.
+  /// `direction` is [FlipDirection.forward] for the next page. Use it to
+  /// play a page-turn sound with any audio package.
+  final void Function(FlipDirection direction)? onPageTurn;
+
+  /// Text read by screen readers for the current page, for example to
+  /// translate it. Defaults to "Page 3 of 10".
+  final String Function(int pageIndex, int pageCount)? semanticsValueBuilder;
+
   TurnablePage({
     super.key,
     this.controller,
@@ -41,24 +50,26 @@ class TurnablePage extends StatelessWidget {
     this.onPageChanged,
     PageViewMode? pageViewMode,
     this.autoResponseSize = true,
-    this.paperBoundaryDecoration = PaperBoundaryDecoration.vintage,
     FlipSettings? settings,
-    this.pagesBoundaryIsEnabled = true,
     this.textDirection,
     this.pageCacheExtent = 4,
     this.coverSideBuilder,
+    this.onPageTurn,
+    this.semanticsValueBuilder,
     bool? enableZoom,
     bool? enableDoubleTapZoom,
     double? minScale,
     double? maxScale,
-  })  : pageViewMode = pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
-        settings = (settings ?? FlipSettings()).copyWith(
-          pageViewMode: pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
-          enableZoom: enableZoom,
-          enableDoubleTapZoom: enableDoubleTapZoom,
-          minScale: minScale,
-          maxScale: maxScale,
-        ) {
+  }) : pageViewMode =
+           pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+       settings = (settings ?? FlipSettings()).copyWith(
+         pageViewMode:
+             pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+         enableZoom: enableZoom,
+         enableDoubleTapZoom: enableDoubleTapZoom,
+         minScale: minScale,
+         maxScale: maxScale,
+       ) {
     assert(
       this.settings.startPageIndex >= 0,
       'Page count must be greater than 0',
@@ -109,17 +120,13 @@ class TurnablePage extends StatelessWidget {
         final isMobile = constraints.maxWidth < 600;
         final aspectRatio = _getAspectRatio(isMobile);
         FlipSettings adjustedSettings = _getAdjustedSetting(isMobile);
-
-        // The paper frame is drawn around the book, so the book gets the
-        // space left after it (otherwise the frame overflows the parent).
-        final frame = PaperWidget.frameExtent(
-          isEnabled: pagesBoundaryIsEnabled,
-          decoration: paperBoundaryDecoration,
-          isSinglePage: _resolveMode(isMobile) == PageViewMode.single,
+        final edges = PageEdges.extent(
+          enabled: settings.showPageEdges,
+          maxWidth: settings.pageEdgeWidth,
         );
         final bookSize = _calculateBookSize(
-          maxWidth: constraints.maxWidth - frame.width,
-          maxHeight: constraints.maxHeight - frame.height,
+          maxWidth: constraints.maxWidth - edges,
+          maxHeight: constraints.maxHeight,
           aspectRatio: aspectRatio,
         );
         adjustedSettings = adjustedSettings.copyWith(
@@ -135,13 +142,14 @@ class TurnablePage extends StatelessWidget {
           controller: controller,
           aspectRatio: aspectRatio,
           onPageChanged: onPageChanged,
-          pagesBoundaryIsEnabled: pagesBoundaryIsEnabled,
-          paperBoundaryDecoration: paperBoundaryDecoration,
           textDirection: textDirection,
           pageCacheExtent: pageCacheExtent,
+          onPageTurn: onPageTurn,
+          semanticsValueBuilder: semanticsValueBuilder,
           coverSideBuilder: coverSideBuilder == null
               ? null
-              : (context, side) => coverSideBuilder!(context, side, constraints),
+              : (context, side) =>
+                    coverSideBuilder!(context, side, constraints),
         );
       },
     );

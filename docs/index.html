@@ -263,13 +263,16 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
   <h4>Guides</h4>
   <a href="#layout">Page layout</a>
   <a href="#controller">Controller</a>
+  <a href="#scrubber">Page scrubber</a>
   <a href="#events">Events</a>
   <a href="#gestures">Gestures and taps</a>
   <a href="#scrolling">Scrolling inside pages</a>
   <a href="#zoom">Pinch-to-zoom</a>
+  <a href="#feedback">Sound, haptics, keyboard</a>
+  <a href="#images">Image books</a>
   <a href="#pdf">PDF viewer</a>
   <a href="#rtl">Right-to-left books</a>
-  <a href="#frames">Book frames</a>
+  <a href="#real-book">A real book</a>
   <a href="#shadows">Shadows and paper</a>
   <a href="#curl">Curl shape and feel</a>
   <a href="#performance">Large books</a>
@@ -280,7 +283,7 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
   <a href="#api-pdf">TurnablePdf</a>
   <h4>More</h4>
   <a href="#recipes">Recipes</a>
-  <a href="#migration">Migrating to 2.0</a>
+  <a href="#migration">Migrating</a>
   <a href="#faq">Troubleshooting</a>
 </aside>
 
@@ -314,8 +317,13 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
     <a class="feature" href="#shadows"><b>Realistic page curl</b><span>Bending paper, a back side, and shadows on the fold, the spine and the page below.</span></a>
     <a class="feature" href="#gestures"><b>Interactive pages</b><span>Pages are live widgets, not screenshots. Taps can go to your content.</span></a>
     <a class="feature" href="#layout"><b>Single, double, auto</b><span>One page on phones, a book spread on tablets and desktop.</span></a>
-    <a class="feature" href="#pdf"><b>PDF flipbook</b><span>Open a PDF from an asset, a URL or a file.</span></a>
+    <a class="feature" href="#pdf"><b>PDF flipbook</b><span>Open a PDF from an asset, a URL or a file, with tappable links.</span></a>
+    <a class="feature" href="#images"><b>Image books</b><span>Comics, manga, catalogs and albums, with the next pages loaded ahead.</span></a>
+    <a class="feature" href="#real-book"><b>Hard covers and page edges</b><span>Stiff covers, page stacks that follow your reading, glossy paper.</span></a>
+    <a class="feature" href="#scrubber"><b>Page scrubber</b><span>A slider to jump to any page, styled your way.</span></a>
     <a class="feature" href="#zoom"><b>Pinch-to-zoom</b><span>With an optional double-tap zoom and pan while zoomed.</span></a>
+    <a class="feature" href="#feedback"><b>Sound and haptics</b><span>A light vibration and your own page-turn sound on each turn.</span></a>
+    <a class="feature" href="#feedback"><b>Keyboard and screen readers</b><span>Arrow keys, mouse wheel, and "Page 3 of 10" for screen readers.</span></a>
     <a class="feature" href="#rtl"><b>RTL books</b><span>Arabic, Hebrew, Persian and Urdu, with mirrored turns.</span></a>
     <a class="feature" href="#controller"><b>Controller and events</b><span>Animate or jump to any page and listen to turns.</span></a>
     <a class="feature" href="#performance"><b>Large books</b><span>Only pages near the current one are built.</span></a>
@@ -339,7 +347,7 @@ footer { border-top: 1px solid var(--border); padding-top: 22px; color: var(--mu
   <h2>Installation</h2>
   <p>Add the package to <code>pubspec.yaml</code>:</p>
 <pre><code class="lang-yaml">dependencies:
-  turnable_page: ^2.1.0</code></pre>
+  turnable_page: ^2.2.0</code></pre>
   <p>Then import it:</p>
 <pre><code>import 'package:turnable_page/turnable_page.dart';</code></pre>
   <p>Turnable Page needs Dart 3.8 or later. It works on Android, iOS, web, Windows, macOS and Linux.</p>
@@ -431,6 +439,46 @@ controller.hasPreviousPage;
 controller.hasClients;       // true once a book is on screen</code></pre>
   <p>Before a book is attached (<code>hasClients</code> is <code>false</code>), getters return neutral values and navigation returns <code>false</code> instead of throwing. You can pass a new controller to a book that is already on screen.</p>
   <p><code>nextPage</code>, <code>previousPage</code> and <code>animateToPage</code> take an optional <code>FlipCorner.top</code> or <code>FlipCorner.bottom</code> to choose which corner the page is lifted from.</p>
+  <h3>Rebuild on page changes</h3>
+  <p>The controller is a <code>ChangeNotifier</code>:</p>
+<pre><code>ListenableBuilder(
+  listenable: controller,
+  builder: (context, _) =&gt; Text('${controller.currentPageIndex + 1} / ${controller.pageCount}'),
+)</code></pre>
+  <h3>Auto-play</h3>
+<pre><code>controller.startAutoPlay(
+  interval: const Duration(seconds: 4),
+  loop: true,        // start over after the last page
+  stopOnTouch: true, // stop when the reader drags a page (default)
+);
+controller.stopAutoPlay();
+controller.isAutoPlaying;</code></pre>
+  <p>Without <code>loop</code>, auto-play stops at the last page.</p>
+</section>
+
+<section id="scrubber">
+  <h2>Page scrubber</h2>
+  <p><code>PageScrubber</code> is a slider for the book. Drag or tap it to go to any page. It follows the book when pages are turned.</p>
+<pre><code>Column(children: [
+  Expanded(child: TurnablePage(controller: controller, pageCount: 40, builder: buildPage)),
+  PageScrubber(
+    controller: controller,
+    activeColor: Colors.brown,
+    previewBuilder: (context, i) =&gt; Image.asset('thumbs/$i.jpg'),
+  ),
+])</code></pre>
+  <div class="table-wrap"><table>
+    <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>height</code> / <code>trackHeight</code> / <code>thumbRadius</code></td><td><code>44</code> / <code>4</code> / <code>8</code></td><td>Sizes.</td></tr>
+    <tr><td><code>activeColor</code> / <code>inactiveColor</code> / <code>thumbColor</code></td><td>brown / light gray / active</td><td>Colors of the read part, the rest, and the thumb.</td></tr>
+    <tr><td><code>thumbBuilder</code></td><td><code>null</code></td><td><code>(context, dragging)</code> → your own thumb.</td></tr>
+    <tr><td><code>showLabel</code> / <code>labelBuilder</code> / <code>labelStyle</code></td><td><code>true</code> / "3 / 12"</td><td>The label after the track.</td></tr>
+    <tr><td><code>previewBuilder</code> / <code>previewSize</code></td><td><code>null</code> / <code>72×100</code></td><td>A page preview above the thumb while dragging.</td></tr>
+    <tr><td><code>animate</code></td><td><code>false</code></td><td>Turn to the chosen page instead of jumping.</td></tr>
+    <tr><td><code>onChanged</code></td><td><code>null</code></td><td>The page under the thumb while dragging.</td></tr>
+    <tr><td><code>textDirection</code></td><td>ambient</td><td>In right-to-left, the track runs from right to left.</td></tr>
+  </table></div>
+  <p>It uses only the widgets library, so it fits Material, Cupertino or your own design.</p>
 </section>
 
 <section id="events">
@@ -506,6 +554,54 @@ controller.removeEventListener(PageFlipEvent.flip);</code></pre>
   <p>From code, <code>controller.isZoomed</code> tells whether the page is zoomed in, and <code>controller.resetZoom()</code> zooms out.</p>
 </section>
 
+<section id="feedback">
+  <h2>Sound, haptics and keyboard</h2>
+<pre><code>TurnablePage(
+  settings: FlipSettings(
+    hapticFeedback: true,       // light vibration on each turn
+    mouseWheelNavigation: true, // wheel or trackpad turns pages
+  ),
+  onPageTurn: (direction) =&gt; player.play('page_turn.mp3'),
+  pageCount: 10,
+  builder: buildPage,
+)</code></pre>
+  <h3>Page-turn sound</h3>
+  <p><code>onPageTurn</code> is called once for each turn that will complete, with <code>FlipDirection.forward</code> (next page, also in right-to-left books) or <code>FlipDirection.back</code>. It fires when a turn starts from the controller, a tap or the keyboard, and when the user releases a drag that will finish. Cancelled drags are not reported. The package plays no sound itself, so use any audio package. Controller listeners get the same information from <code>PageFlipEvent.turn</code>.</p>
+  <h3>Haptics</h3>
+  <p><code>hapticFeedback: true</code> adds a light vibration on each turn, on devices that support it.</p>
+  <h3>Keyboard</h3>
+  <p>Keyboard navigation is on by default. The book takes focus when it is tapped or clicked, without taking it from a text field inside a page. Then:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Key</th><th>Action</th></tr>
+    <tr><td>→ ↓ Page Down Space</td><td>Next page</td></tr>
+    <tr><td>← ↑ Page Up</td><td>Previous page</td></tr>
+    <tr><td>Home / End</td><td>First / last page</td></tr>
+  </table></div>
+  <p>In a right-to-left book the left arrow turns forward. Set <code>keyboardNavigation: false</code> to turn it off.</p>
+  <h3>Mouse wheel</h3>
+  <p><code>mouseWheelNavigation: true</code> turns one page per wheel or trackpad gesture. Scroll views inside a page keep their own scrolling, and the wheel does nothing while zoomed in.</p>
+  <h3>Screen readers</h3>
+  <p>Screen readers announce the current page ("Page 3 of 10") and can turn pages with the adjust gestures (swipe up or down on the book in TalkBack and VoiceOver). To translate the text:</p>
+<pre><code>TurnablePage(
+  semanticsValueBuilder: (index, count) =&gt; 'صفحة ${index + 1} من $count',
+  // ...
+)</code></pre>
+</section>
+
+<section id="images">
+  <h2>Image books</h2>
+  <p><code>TurnableImages</code> makes a book from images, one per page: comics, manga, magazines, catalogs and photo albums.</p>
+<pre><code>TurnableImages.network(
+  [for (int i = 1; i &lt;= 24; i++) 'https://example.com/comic/$i.jpg'],
+  pageViewMode: PageViewMode.auto,
+  aspectRatio: 2 / 3,
+)
+
+TurnableImages.asset(['assets/album/1.jpg', 'assets/album/2.jpg']);
+TurnableImages(images: [MemoryImage(bytes), FileImage(file)]);</code></pre>
+  <p>The images around the current page are loaded ahead (<code>precacheExtent</code>, default 2), so a turn never shows an empty page. <code>fit</code> (default <code>BoxFit.contain</code>), <code>pageColor</code>, <code>loadingBuilder</code> and <code>errorBuilder</code> style the pages. It takes the same <code>controller</code>, <code>settings</code>, zoom and callbacks as <code>TurnablePage</code>.</p>
+</section>
+
 <section id="pdf">
   <h2>PDF viewer</h2>
   <p><code>TurnablePdf</code> opens a PDF document as a flipbook. Initialize the PDF engine once, before <code>runApp</code>:</p>
@@ -535,6 +631,22 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
   ),
 );</code></pre>
   <p>Without builders, a shimmer is shown while loading and an error card with a retry button on failure. PDF rendering uses <a href="https://pub.dev/packages/pdfrx">pdfrx</a>.</p>
+  <h3>Links and zoom</h3>
+  <p>Links in the PDF are tappable (<code>enableLinks</code>, on by default). A link to another page turns to it. To open web links, pass <code>onLinkTap</code>; it then receives every tapped link, links to pages included:</p>
+<pre><code>TurnablePdf.asset(
+  'assets/catalog.pdf',
+  controller: controller,
+  onLinkTap: (link) {
+    final url = link.url;
+    final dest = link.dest;
+    if (url != null) {
+      launchUrl(url); // url_launcher
+    } else if (dest != null) {
+      controller.animateToPage(dest.pageNumber - 1);
+    }
+  },
+)</code></pre>
+  <p>With zoom on, pages are rendered at a higher resolution (up to 3x, following <code>maxScale</code>), so text stays sharp when zoomed in.</p>
 </section>
 
 <section id="rtl">
@@ -547,28 +659,22 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
   <p>Page 1 is on the right and pages turn from left to right, like an Arabic or Hebrew book. Leave <code>textDirection</code> as <code>null</code> to follow the ambient <code>Directionality</code>. Gesture settings such as <code>directionFromDrag</code> are mirrored automatically.</p>
 </section>
 
-<section id="frames">
-  <h2>Book frames</h2>
-  <p><code>paperBoundaryDecoration</code> draws a frame around the book. Use a preset:</p>
-  <div class="table-wrap"><table>
-    <tr><th>Preset</th><th>Look</th></tr>
-    <tr><td><code>PaperBoundaryDecoration.vintage</code></td><td>Layered warm borders. Default for <code>TurnablePage</code>.</td></tr>
-    <tr><td><code>PaperBoundaryDecoration.modern</code></td><td>A clean border with a soft shadow. Default for <code>TurnablePdf</code>.</td></tr>
-    <tr><td><code>PaperBoundaryDecoration.parchment</code></td><td>Aged paper tones.</td></tr>
-    <tr><td><code>PaperBoundaryDecoration.none</code></td><td>No frame.</td></tr>
-  </table></div>
-  <p>Or build your own from a few high-level values:</p>
-<pre><code>TurnablePage(
-  paperBoundaryDecoration: PaperBoundaryDecoration.custom(
-    baseColor: const Color(0xFFF4EBDD),
-    shadowColor: Colors.brown,
-    borderRadius: 6,
-    borderWidth: 0.8,
-    shadowOpacity: 0.25,
-  ),
-  // ...
+<section id="real-book">
+  <h2>A real book</h2>
+<pre><code>FlipSettings(
+  hardCover: true,     // covers swing as stiff boards
+  hardPages: false,    // true: every page is stiff, like a board book
+  showPageEdges: true, // page stacks beside the pages
+  pageEdgeWidth: 6,    // width of a full stack
+  paperGloss: 0.6,     // glossy magazine paper, 0 (matte) to 1
 )</code></pre>
-  <p>Set <code>pagesBoundaryIsEnabled: false</code> to hide the frame without changing the decoration.</p>
+  <p><b>Hard covers</b> turn around the spine in perspective instead of bending. With <code>showCover</code> in a two-page spread, the front and back covers are the first and last pages.</p>
+  <p><b>Page edges</b> are thin stacks against the outer edges of the pages. In a two-page spread, the left stack grows and the right one shrinks as the reader moves through the book, and they move with each turn. A single page is half of an open book, so it shows only the stack of pages left to read, on its outer edge (the left edge in right-to-left books). The book leaves <code>pageEdgeWidth</code> of space on each side for them, so they never cover a page.</p>
+  <h3>Corner hints</h3>
+  <p>On desktop and web, a corner folds slightly when the mouse comes near it (<code>showPageCorners</code>, on by default). The fold starts at the edge of a small area around the corner (<code>cornerHoverSize</code>, 64 px) and grows as the mouse gets closer, then falls back when it leaves. Buttons, links and text fields on a corner (anything with a clickable mouse cursor) never fold it and stay clickable.</p>
+  <p><code>peekOnOpen: true</code> folds the first page's corner once when the book appears, to show that pages turn. <code>controller.peek()</code> does it on demand.</p>
+  <h3>Reduce motion</h3>
+  <p>When the system asks for less animation, turns last at most 200 ms. Set <code>respectReducedMotion: false</code> to ignore it.</p>
 </section>
 
 <section id="shadows">
@@ -588,6 +694,7 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
   <p><code>pageBackgroundColor</code> is the paper painted under pages, on the back of a turning page, and on blank filler pages. It is white by default. If your pages are dark, set it to their color, or light edges flash during a turn:</p>
 <pre><code>FlipSettings(pageBackgroundColor: const Color(0xFF1E1E1E))</code></pre>
   <p>The thin border around the back of a turning page (<code>pageBorderColor</code>) is derived from it: slightly darker for light paper, and no border for dark paper.</p>
+  <p>Black shadows lose most of their contrast on dark paper, so they are drawn stronger there, up to 1.8x for black paper. Light paper is unchanged. Set <code>adaptiveShadows: false</code> to keep the same strength on every paper.</p>
 </section>
 
 <section id="curl">
@@ -617,9 +724,9 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>settings</code></td><td><code>FlipSettings?</code></td><td><code>FlipSettings()</code></td><td>Behavior and appearance.</td></tr>
     <tr><td><code>aspectRatio</code></td><td><code>double?</code></td><td><code>2/3</code></td><td>Width ÷ height of one page.</td></tr>
     <tr><td><code>textDirection</code></td><td><code>TextDirection?</code></td><td>ambient</td><td><code>ltr</code> or <code>rtl</code>.</td></tr>
-    <tr><td><code>paperBoundaryDecoration</code></td><td><code>PaperBoundaryDecoration</code></td><td><code>vintage</code></td><td>Frame around the book.</td></tr>
-    <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>bool</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
     <tr><td><code>pageCacheExtent</code></td><td><code>int</code></td><td><code>4</code></td><td>Pages kept built on each side of the current page.</td></tr>
+    <tr><td><code>onPageTurn</code></td><td><code>void Function(FlipDirection)?</code></td><td><code>null</code></td><td>Called once for each turn that will complete. See <a href="#feedback">Sound</a>.</td></tr>
+    <tr><td><code>semanticsValueBuilder</code></td><td><code>String Function(int, int)?</code></td><td><code>null</code></td><td>Screen reader text for the current page.</td></tr>
     <tr><td><code>coverSideBuilder</code></td><td><code>CoverSideBuilder?</code></td><td><code>null</code></td><td><code>(context, side, constraints)</code> returns the widget for the empty side next to a cover. See <a href="#layout">Covers</a>.</td></tr>
     <tr><td><code>enableZoom</code></td><td><code>bool?</code></td><td><code>false</code></td><td>Pinch-to-zoom.</td></tr>
     <tr><td><code>enableDoubleTapZoom</code></td><td><code>bool?</code></td><td><code>true</code></td><td>Double tap toggles zoom when zoom is on.</td></tr>
@@ -639,11 +746,15 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>showCover</code></td><td><code>false</code></td><td>Show the first and last pages alone in a spread.</td></tr>
     <tr><td><code>flippingTime</code></td><td><code>700</code></td><td>Turn duration in ms.</td></tr>
     <tr><td><code>enableEasing</code></td><td><code>true</code></td><td>Eased turn animation.</td></tr>
+    <tr><td><code>respectReducedMotion</code></td><td><code>true</code></td><td>Turns last at most 200 ms when the system asks for less animation.</td></tr>
   </table></div>
   <h3>Gestures</h3>
   <div class="table-wrap"><table>
     <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
     <tr><td><code>flipOnTap</code></td><td><code>true</code></td><td>Tap to turn, with the corners reserved for turning. Set <code>false</code> for tappable page content.</td></tr>
+    <tr><td><code>showPageCorners</code></td><td><code>true</code></td><td>Fold a corner slightly under the mouse.</td></tr>
+    <tr><td><code>cornerHoverSize</code></td><td><code>64</code></td><td>Hover area around a corner, in pixels.</td></tr>
+    <tr><td><code>peekOnOpen</code></td><td><code>false</code></td><td>Fold the first page's corner once when the book appears.</td></tr>
     <tr><td><code>directionFromDrag</code></td><td><code>false</code></td><td>Single-page mode: the turn direction follows the drag, not the touch position.</td></tr>
     <tr><td><code>keepGrabOffset</code></td><td><code>true</code></td><td>Keep the grabbed spot under the finger.</td></tr>
     <tr><td><code>cornerTriggerAreaSize</code></td><td><code>0.2</code></td><td>Corner hot zone, as a fraction of the page diagonal.</td></tr>
@@ -660,6 +771,13 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>minScale</code></td><td><code>1.0</code></td><td>Smallest zoom.</td></tr>
     <tr><td><code>maxScale</code></td><td><code>3.0</code></td><td>Largest zoom.</td></tr>
   </table></div>
+  <h3>Feedback and input</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>hapticFeedback</code></td><td><code>false</code></td><td>Light vibration on each turn.</td></tr>
+    <tr><td><code>keyboardNavigation</code></td><td><code>true</code></td><td>Arrow keys, Page Up/Down, Space, Home and End turn pages when the book has focus.</td></tr>
+    <tr><td><code>mouseWheelNavigation</code></td><td><code>false</code></td><td>The mouse wheel or a trackpad scroll turns pages.</td></tr>
+  </table></div>
   <h3>Appearance</h3>
   <div class="table-wrap"><table>
     <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
@@ -671,11 +789,15 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>perimeterShadowColor</code></td><td><code>0x3D000000</code></td><td>Elevation shadow around the lifted page.</td></tr>
     <tr><td><code>perimeterBorderColor</code></td><td><code>0x1F000000</code></td><td>Hairline along the curled edge.</td></tr>
     <tr><td><code>maxShadowOpacity</code></td><td><code>1.0</code></td><td>Shadow strength, from 0 to 1.</td></tr>
+    <tr><td><code>adaptiveShadows</code></td><td><code>true</code></td><td>Stronger shadows on dark paper.</td></tr>
     <tr><td><code>hideLeftShadow</code></td><td><code>false</code></td><td>Hide the left-side shadow in single-page mode.</td></tr>
     <tr><td><code>pageBackgroundColor</code></td><td>white</td><td>Paper color under and behind pages.</td></tr>
     <tr><td><code>pageBorderColor</code></td><td>derived</td><td>Border around the back of a turning page. <code>null</code> derives it from the paper color.</td></tr>
     <tr><td><code>sagAmplitude</code></td><td><code>0.08</code></td><td>Fold line sag, as a fraction of page height.</td></tr>
     <tr><td><code>bendStrength</code></td><td><code>0.6</code></td><td>Paper bend, from 0 to 1.</td></tr>
+    <tr><td><code>hardCover</code> / <code>hardPages</code></td><td><code>false</code></td><td>Covers, or every page, turn as stiff boards.</td></tr>
+    <tr><td><code>showPageEdges</code> / <code>pageEdgeWidth</code></td><td><code>false</code> / <code>6</code></td><td>Page stacks beside the pages that follow the reading position.</td></tr>
+    <tr><td><code>paperGloss</code></td><td><code>0</code></td><td>Glossy paper, from 0 (matte) to 1.</td></tr>
   </table></div>
 </section>
 
@@ -695,6 +817,9 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>hasClients</code></td><td><code>bool</code></td><td>Whether a book is attached.</td></tr>
     <tr><td><code>isZoomed</code></td><td><code>bool</code></td><td>Whether the page is zoomed in.</td></tr>
     <tr><td><code>resetZoom()</code></td><td><code>void</code></td><td>Zoom back out.</td></tr>
+    <tr><td><code>startAutoPlay({interval, loop, stopOnTouch})</code> / <code>stopAutoPlay()</code></td><td><code>void</code></td><td>Turn pages on a timer. <code>isAutoPlaying</code> tells whether it runs.</td></tr>
+    <tr><td><code>peek()</code></td><td><code>bool</code></td><td>Fold the next page's corner briefly.</td></tr>
+    <tr><td><code>addListener(callback)</code></td><td><code>void</code></td><td>Called on each page change (<code>ChangeNotifier</code>).</td></tr>
     <tr><td><code>addEventListener(event, callback)</code></td><td><code>void</code></td><td>Listen to a <a href="#events">PageFlipEvent</a>.</td></tr>
     <tr><td><code>removeEventListener(event, [callback])</code></td><td><code>void</code></td><td>Stop listening.</td></tr>
   </table></div>
@@ -715,8 +840,8 @@ TurnablePdf.file('/storage/emulated/0/Download/book.pdf');</code></pre>
     <tr><td><code>aspectRatio</code></td><td><code>2/3</code></td><td>Override the page ratio.</td></tr>
     <tr><td><code>pagePadding</code></td><td><code>EdgeInsets.zero</code></td><td>Padding around each rendered page.</td></tr>
     <tr><td><code>boxDecoration</code></td><td><code>null</code></td><td>Decoration behind each page.</td></tr>
-    <tr><td><code>paperBoundaryDecoration</code></td><td><code>modern</code></td><td>Frame around the book.</td></tr>
-    <tr><td><code>pagesBoundaryIsEnabled</code></td><td><code>true</code></td><td>Show the frame.</td></tr>
+    <tr><td><code>enableLinks</code></td><td><code>true</code></td><td>Tappable PDF links. Links to a page turn to it.</td></tr>
+    <tr><td><code>onLinkTap</code></td><td><code>null</code></td><td>Receives every tapped <code>PdfLink</code>, to open web links.</td></tr>
     <tr><td><code>textDirection</code></td><td>ambient</td><td>Reading direction.</td></tr>
   </table></div>
 </section>
@@ -768,7 +893,12 @@ Text('${page + 1} / ${pages.length}');</code></pre>
 </section>
 
 <section id="migration">
-  <h2>Migrating to 2.0</h2>
+  <h2>Migrating</h2>
+  <h3>To 2.2</h3>
+  <ul>
+    <li><b><code>PaperBoundaryDecoration</code> is removed</b>, with the <code>paperBoundaryDecoration</code> and <code>pagesBoundaryIsEnabled</code> parameters. Delete these arguments. For the look of a real book, use <code>FlipSettings(showPageEdges: true)</code>.</li>
+  </ul>
+  <h3>To 2.0</h3>
   <ul>
     <li><b><code>startPageIndex</code> is read once.</b> Changing it after the book is shown no longer navigates. Use <code>jumpToPage</code> or <code>animateToPage</code>.</li>
     <li><b><code>PageFlipEvent.flip</code> fires once per page change, after the turn completes.</b> Its data is always the new page index as an <code>int</code>. It no longer fires at the start of <code>nextPage</code> with a <code>Map</code>.</li>

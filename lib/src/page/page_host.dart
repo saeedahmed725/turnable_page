@@ -8,11 +8,7 @@ import '../widgets/turnable_book_render_object_widget.dart';
 class PageHost extends ParentDataWidget<TurnableParentData> {
   final int index;
 
-  const PageHost({
-    super.key,
-    required this.index,
-    required super.child,
-  });
+  const PageHost({super.key, required this.index, required super.child});
 
   @override
   void applyParentData(RenderObject renderObject) {

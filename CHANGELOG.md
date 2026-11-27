@@ -2,13 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.2.0 - 2026-11-27
+### ⚠️ Breaking changes
+- **`PaperBoundaryDecoration` is removed**, with the `paperBoundaryDecoration` and `pagesBoundaryIsEnabled` parameters of `TurnablePage`, `TurnablePdf` and `TurnableImages`. Delete these arguments. For the look of a real book, use `FlipSettings(showPageEdges: true)`, whose page stacks follow the reading position.
+
+### ✨ Features
+- **`TurnableImages`**: a book made of images (comics, manga, catalogs, photo albums), from `ImageProvider`s, URLs (`.network`) or assets (`.asset`). The images around the current page are loaded ahead, so a turn never shows an empty page.
+- **`PageScrubber`**: a page slider that follows the book. Drag or tap to jump (or turn, with `animate`) to any page, with an optional page preview. Colors, sizes, thumb, label and preview can all be changed. It runs right to left in RTL books.
+- **Hard covers** (`FlipSettings.hardCover`, or `hardPages` for every page): the sheet swings around the spine as a stiff board, in perspective, instead of bending.
+- **Page edges** (`FlipSettings.showPageEdges`, `pageEdgeWidth`): thin stacks against the outer edges of the pages. In a two-page spread, the left one grows and the right one shrinks as the reader moves through the book, and they move with each turn. A single page is half of an open book, so it shows only the stack of pages left to read, on its outer edge (the left edge in right-to-left books).
+- **Corner hints**: `peekOnOpen` folds the first page's corner once when the book appears, and `PageFlipController.peek()` does it on demand.
+- **Glossy paper** (`FlipSettings.paperGloss`, 0 to 1): a soft light band on the curl, like magazine paper.
+- **Auto-play**: `PageFlipController.startAutoPlay(interval:, loop:, stopOnTouch:)` and `stopAutoPlay()`, for slideshows and kiosks.
+- `PageFlipController` is now a `ChangeNotifier`: `ListenableBuilder` and `AnimatedBuilder` rebuild on page changes.
+- **PDF links**: links in a `TurnablePdf` are tappable (`enableLinks`, on by default). Links to a page turn to it, and `onLinkTap` receives every tapped link, to open web links.
+- **Sharper zoomed PDFs**: with zoom on, PDF pages are rendered at up to 3x resolution so text stays sharp when zoomed in.
+- **Reduce motion** (`FlipSettings.respectReducedMotion`, on by default): turns last at most 200 ms when the system asks for less animation.
+- **Sound and haptics**: `onPageTurn` on `TurnablePage` and `TurnablePdf` is called once for each turn that will complete, with its `FlipDirection`, for a page-turn sound. `FlipSettings.hapticFeedback` adds a light vibration on each turn. The new `PageFlipEvent.turn` event carries the same information for controller listeners.
+- **Keyboard navigation** (`FlipSettings.keyboardNavigation`, on by default): arrow keys, Page Up/Down, Space, Home and End turn pages once the book is tapped or clicked. Arrows follow the reading direction in right-to-left books.
+- **Mouse wheel and trackpad navigation** (`FlipSettings.mouseWheelNavigation`, off by default): one page per wheel gesture. Scroll views inside a page keep their scrolling.
+- **Screen readers** announce the current page ("Page 3 of 10") and can turn pages with the adjust gestures. Translate the text with `semanticsValueBuilder`.
+- **Adaptive shadows for dark paper** (`FlipSettings.adaptiveShadows`, on by default): shadows are drawn up to 1.8x stronger on a dark `pageBackgroundColor`, where black shadows lose contrast.
+- `FlipDirection` is now exported.
+
+### 🐛 Fixes
+- **In single-page mode, the spine shadow popped onto a page at the end of a back turn.** It now belongs to the incoming page, on its spine edge, and grows as the page lands, like in a two-page spread.
+- **A drag that started in the middle of a page made the fold jump to the finger.** The fold now starts at the page edge and catches up with the finger smoothly as it moves.
+- **`showPageCorners` had no effect**: a corner now folds slightly when the mouse comes near it, on desktop and web. The fold grows gently as the mouse gets closer (within `cornerHoverSize`, 64 px by default) and falls back when it leaves. Buttons, links and text fields on a corner never fold it and stay clickable, with taps and clicks.
+- **A small corner fold showed a white band** across the page near the bottom corner.
+- **Single-page mode painted blank paper** to the left of the page (it was hidden behind the book frame).
+
+## 2.1.1 - 2026-11-27
 ### ✨ Features
 - **`coverSideBuilder`** on `TurnablePage`: fill the empty sides next to the covers (with `showCover` in a two-page spread) with your own widgets, such as endpapers or a logo. `CoverSide.front` is the side left of the front cover, `CoverSide.back` the side right of a lone last page. The widgets are interactive and turn with the pages.
 
 ### 🐛 Fixes
 - **With `showCover`, the empty side of the cover spread showed a copy of the page being turned** while turning back to the front cover (or forward to a lone last page), then turned blank when the turn ended. It now shows plain paper (or the `coverSideBuilder` widget) during the whole turn.
 - **The spine shadow no longer pops onto the new page at the end of a turn** in a two-page spread. It now belongs to the turning sheet, on its spine edge, and grows as the sheet lands.
+
+### 🔧 Changes
+- **License updated to TPPL v1.1**: you may use the package, unmodified, in any app, commercial apps included. Modifying, copying, redistributing or selling the package itself still needs permission. See [LICENSE](https://github.com/saeedahmed725/turnable_page/blob/main/LICENSE).
+- Supports `pdfrx` 3.x (`>=2.4.4 <4.0.0`).
+- The package no longer imports `package:flutter/material.dart`, ahead of its deprecation.
+- Homepage moved to the documentation website.
 
 ## 2.1.0 - 2026-11-27
 ### ✨ Features
@@ -71,8 +107,8 @@ All notable changes to this project will be documented in this file.
 
 ## 1.0.2 - 2026-09-13
 ### ✨ New Features
-- **Configurable Center Shadow**: Added `showCenterShadow` to [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) to toggle the spine crease shadow between pages on or off.
-- **Independent Shadow Colors**: Added individual color settings in [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) for every shadow:
+- **Configurable Center Shadow**: Added `showCenterShadow` to `FlipSettings` to toggle the spine crease shadow between pages on or off.
+- **Independent Shadow Colors**: Added individual color settings in `FlipSettings` for every shadow:
   - `centerShadowColor`: Spine/crease shadow between two-page spreads.
   - `outerShadowColor`: Shadow cast on the page beneath the turning page.
   - `innerShadowColor`: Shadow cast on the back/inside of the curled page.

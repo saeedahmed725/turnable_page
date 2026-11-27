@@ -1,7 +1,7 @@
 name: turnable_page
 description: "Realistic page flip and page curl widget for Flutter. Build interactive flipbooks, e-books, magazines and PDF viewers with single, double or RTL pages."
-version: 2.1.0
-homepage: https://saeed-flutter.vercel.app
+version: 2.2.0
+homepage: https://saeedahmed725.github.io/turnable_page/
 repository: https://github.com/saeedahmed725/turnable_page
 documentation: https://saeedahmed725.github.io/turnable_page/
 issue_tracker: https://github.com/saeedahmed725/turnable_page/issues
@@ -20,7 +20,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pdfrx: ^2.4.4
+  pdfrx: ">=2.4.4 <4.0.0"
 
 dev_dependencies:
   flutter_test:

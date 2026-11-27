@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../enums/page_view_mode.dart';
 import '../enums/size_type.dart';
@@ -71,8 +71,22 @@ class FlipSettings {
   /// Minimum distance in pixels for a swipe gesture to register
   final double swipeDistance;
 
-  /// Show interactive corner highlighting when hovering near page corners
+  /// Fold a page corner a little when the mouse hovers over it, on desktop
+  /// and web (default `true`). It falls back when the mouse leaves.
   final bool showPageCorners;
+
+  /// Size, in pixels, of the area around a corner where a hovering mouse
+  /// folds it (default 64, at most 35% of the page width). The fold grows
+  /// from nothing at the edge of this area to about 3/4 of it at the
+  /// corner. Widgets with a clickable mouse cursor (buttons, links, text
+  /// fields) never fold the corner and stay clickable.
+  final double cornerHoverSize;
+
+  /// Fold the corner of the first page once when the book appears, then let
+  /// it fall back, to show that pages turn (default `false`). Useful on
+  /// touch screens, where there is no hover. See also
+  /// `PageFlipController.peek`.
+  final bool peekOnOpen;
 
   // (Removed) disableFlipByClick, enableSmartGestures
 
@@ -147,6 +161,75 @@ class FlipSettings {
   /// content: taps then always go to the page, and pages turn only by
   /// dragging (from anywhere, corners included) or from the controller.
   final bool flipOnTap;
+
+  /// Turn the front and back covers as hard boards (default `false`): the
+  /// cover sheet swings around the spine in 3D and does not bend. Applies
+  /// to two-page spreads with [showCover], where the covers are separate
+  /// sheets. Single-page mode always uses the paper curl.
+  final bool hardCover;
+
+  /// Turn every sheet as a hard board, like a children's board book
+  /// (default `false`). Two-page spreads only.
+  final bool hardPages;
+
+  /// Whether [pageIndex] belongs to a hard sheet (see [hardCover] and
+  /// [hardPages]).
+  bool isHardPage(int pageIndex, int pageCount) {
+    if (hardPages) return true;
+    if (!hardCover) return false;
+    return pageIndex == 0 || pageIndex == pageCount - 1;
+  }
+
+  /// Draw the edges of the stacked pages beside the book (default `false`):
+  /// the pages already read on the left, the pages left to read on the
+  /// right, so the stacks grow and shrink as the reader moves through the
+  /// book. A single page is half of an open book, so it shows only the stack
+  /// of pages left to read, on its outer edge (the left edge in right-to-left
+  /// books). The stacks sit against the outer edges of the pages, in
+  /// [pageEdgeWidth] of space reserved on each side, and never cover a page.
+  final bool showPageEdges;
+
+  /// Width of a full page stack, in logical pixels (default `6`).
+  final double pageEdgeWidth;
+
+  /// Glossy paper, like a magazine: a soft light band on the curl, beside
+  /// the fold, from 0 (matte, default) to 1.
+  final double paperGloss;
+
+  /// Follow the system "reduce motion" setting (default `true`). When it is
+  /// on, turns take at most 200 ms, so pages still turn without a long
+  /// animation.
+  final bool respectReducedMotion;
+
+  /// Light haptic feedback (a short vibration) for each page turn, on
+  /// devices that support it. Default `false`.
+  final bool hapticFeedback;
+
+  /// Turn pages with the keyboard when the book has focus (default `true`).
+  /// The book takes focus when it is tapped or clicked. Arrow keys,
+  /// Page Up / Page Down and Space turn one page; Home and End go to the
+  /// first and last page. Arrows follow the reading direction, so in a
+  /// right-to-left book the left arrow turns forward.
+  final bool keyboardNavigation;
+
+  /// Turn pages with the mouse wheel or a trackpad scroll (default `false`).
+  /// Scroll views inside a page keep their own scrolling.
+  final bool mouseWheelNavigation;
+
+  /// Strengthen the turn shadows on dark paper (default `true`). Black
+  /// shadows lose most of their contrast on a dark [pageBackgroundColor], so
+  /// they are drawn up to 1.8x stronger there. Light paper is unchanged.
+  final bool adaptiveShadows;
+
+  /// Shadow strength actually used: [maxShadowOpacity], scaled up on dark
+  /// paper when [adaptiveShadows] is on.
+  double get effectiveShadowOpacity {
+    if (!adaptiveShadows) return maxShadowOpacity;
+    final luminance = pageBackgroundColor.computeLuminance();
+    // 1.0 at luminance >= 0.4, rising to 1.8 for black paper.
+    final boost = 1.0 + 0.8 * ((0.4 - luminance) / 0.4).clamp(0.0, 1.0);
+    return maxShadowOpacity * boost;
+  }
 
   /// Paper color painted under pages, on the back side of a turning page and
   /// on blank filler pages. Defaults to white. Set it to your page background
@@ -230,6 +313,9 @@ class FlipSettings {
     /// Show corner highlights on hover. Default: true
     this.showPageCorners = true,
 
+    /// Hover area around a corner, in pixels. Default: 64
+    this.cornerHoverSize = 64.0,
+
     // Legacy flags removed
 
     /// Corner trigger area size as fraction of diagonal. Default: 0.2 (20%)
@@ -251,12 +337,24 @@ class FlipSettings {
     this.directionFromDrag = false,
     this.keepGrabOffset = true,
     this.flipOnTap = true,
+    this.hapticFeedback = false,
+    this.hardCover = false,
+    this.paperGloss = 0.0,
+    this.respectReducedMotion = true,
+    this.showPageEdges = false,
+    this.pageEdgeWidth = 6.0,
+    this.peekOnOpen = false,
+    this.hardPages = false,
+    this.keyboardNavigation = true,
+    this.mouseWheelNavigation = false,
+    this.adaptiveShadows = true,
     this.pageBackgroundColor = const Color(0xFFFFFFFF),
     this.pageBorderColor,
-  }) : pageViewMode = pageViewMode ??
-            (usePortrait != null
-                ? (usePortrait ? PageViewMode.single : PageViewMode.double)
-                : PageViewMode.single);
+  }) : pageViewMode =
+           pageViewMode ??
+           (usePortrait != null
+               ? (usePortrait ? PageViewMode.single : PageViewMode.double)
+               : PageViewMode.single);
 
   FlipSettings copyWith({
     int? startPage,
@@ -279,6 +377,7 @@ class FlipSettings {
     // Legacy parameters removed
     double? swipeDistance,
     bool? showPageCorners,
+    double? cornerHoverSize,
     // Legacy parameters removed
     double? cornerTriggerAreaSize,
     bool? enableEasing,
@@ -297,10 +396,22 @@ class FlipSettings {
     bool? directionFromDrag,
     bool? keepGrabOffset,
     bool? flipOnTap,
+    bool? hapticFeedback,
+    bool? hardCover,
+    double? paperGloss,
+    bool? respectReducedMotion,
+    bool? showPageEdges,
+    double? pageEdgeWidth,
+    bool? peekOnOpen,
+    bool? hardPages,
+    bool? keyboardNavigation,
+    bool? mouseWheelNavigation,
+    bool? adaptiveShadows,
     Color? pageBackgroundColor,
     Color? pageBorderColor,
   }) {
-    final resolvedMode = pageViewMode ??
+    final resolvedMode =
+        pageViewMode ??
         (usePortrait != null
             ? (usePortrait ? PageViewMode.single : PageViewMode.double)
             : this.pageViewMode);
@@ -327,6 +438,7 @@ class FlipSettings {
       // Legacy fields omitted
       swipeDistance: swipeDistance ?? this.swipeDistance,
       showPageCorners: showPageCorners ?? this.showPageCorners,
+      cornerHoverSize: cornerHoverSize ?? this.cornerHoverSize,
       // Legacy fields omitted
       cornerTriggerAreaSize:
           cornerTriggerAreaSize ?? this.cornerTriggerAreaSize,
@@ -347,6 +459,17 @@ class FlipSettings {
       directionFromDrag: directionFromDrag ?? this.directionFromDrag,
       keepGrabOffset: keepGrabOffset ?? this.keepGrabOffset,
       flipOnTap: flipOnTap ?? this.flipOnTap,
+      hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      hardCover: hardCover ?? this.hardCover,
+      paperGloss: paperGloss ?? this.paperGloss,
+      respectReducedMotion: respectReducedMotion ?? this.respectReducedMotion,
+      showPageEdges: showPageEdges ?? this.showPageEdges,
+      pageEdgeWidth: pageEdgeWidth ?? this.pageEdgeWidth,
+      peekOnOpen: peekOnOpen ?? this.peekOnOpen,
+      hardPages: hardPages ?? this.hardPages,
+      keyboardNavigation: keyboardNavigation ?? this.keyboardNavigation,
+      mouseWheelNavigation: mouseWheelNavigation ?? this.mouseWheelNavigation,
+      adaptiveShadows: adaptiveShadows ?? this.adaptiveShadows,
       pageBackgroundColor: pageBackgroundColor ?? this.pageBackgroundColor,
       pageBorderColor: pageBorderColor ?? this.pageBorderColor,
     );

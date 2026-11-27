@@ -60,7 +60,16 @@ class FlipCalculation {
     final result = <Point>[];
     bool clipBottom = false;
 
-    result.add(rect.topLeft);
+    // A bottom-corner fold whose fold line cuts the side (not the top edge)
+    // shows a triangle: side cut, bottom cut and the corner tip. The page's
+    // top-left is then far outside the flap; including it stretched the
+    // flap into a band across the page (a white bar on small folds, such as
+    // a hovered or peeking corner).
+    final bool skipTopLeft =
+        corner == FlipCorner.bottom &&
+        topIntersectPoint == null &&
+        sideIntersectPoint != null;
+    if (!skipTopLeft) result.add(rect.topLeft);
     if (topIntersectPoint != null) {
       result.add(topIntersectPoint!);
     }
