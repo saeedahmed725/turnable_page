@@ -40,18 +40,8 @@ class PageFlipController {
   VoidCallback? _resetZoomCallback;
   bool Function()? _isZoomedGetter;
 
-  initializeController({required PageFlip pageFlip}) {
-    _attached = pageFlip;
-  }
-
-  /// Detaches [pageFlip] if it is the one attached (called by the view on
-  /// dispose).
-  void detach(PageFlip pageFlip) {
-    if (identical(_attached, pageFlip)) {
-      _attached = null;
-      _resetZoomCallback = null;
-      _isZoomedGetter = null;
-    }
+  void initializeController({required PageFlip pageFlip}) {
+    _pageFlip = pageFlip;
   }
 
   /// Internal setter for the PageFlip instance

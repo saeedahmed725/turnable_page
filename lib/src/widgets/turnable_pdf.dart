@@ -243,7 +243,18 @@ class TurnablePdf extends StatefulWidget {
   );
 
   static Future<void> initPDFLoaders() async {
-    pdfrxFlutterInitialize();
+    final cacheDir = Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}pdfrx_cache',
+    );
+    if (!await cacheDir.exists()) {
+      await cacheDir.create(recursive: true);
+    }
+    Pdfrx.cacheDirectoryPath ??= cacheDir.path;
+
+    Pdfrx.loadAsset ??= (String name) async {
+      final data = await rootBundle.load(name);
+      return data.buffer.asUint8List();
+    };
   }
 
   @override
