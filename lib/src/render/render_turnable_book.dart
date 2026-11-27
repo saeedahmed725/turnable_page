@@ -344,16 +344,20 @@ class RenderTurnableBook extends RenderBox
   BookOrientation calculateBoundsRect() {
     final blockWidth = size.width;
     final middlePoint = model.Point(blockWidth / 2, size.height / 2);
-    final ratio = (settings.height > 0) ? settings.width / settings.height : 1.0;
+    final ratio = (settings.height > 0)
+        ? settings.width / settings.height
+        : 1.0;
     double pageWidth = settings.width > 0 ? settings.width : blockWidth;
     double pageHeight = settings.height > 0 ? settings.height : size.height;
 
-    final isSingle = settings.pageViewMode == PageViewMode.single ||
+    final isSingle =
+        settings.pageViewMode == PageViewMode.single ||
         (settings.pageViewMode == PageViewMode.auto &&
             blockWidth < (settings.width > 0 ? settings.width * 2 : 600));
 
-    final BookOrientation orientation =
-        isSingle ? BookOrientation.portrait : BookOrientation.landscape;
+    final BookOrientation orientation = isSingle
+        ? BookOrientation.portrait
+        : BookOrientation.landscape;
 
     double left = middlePoint.x - pageWidth;
 
@@ -719,7 +723,9 @@ class RenderTurnableBook extends RenderBox
     // Replicates canvas.translate(pageAnchor) + canvas.rotate(angle).
     // We use Offset.zero for the push* calls so effectiveTransform = childTransform.
     final Matrix4 childTransform = Matrix4.translationValues(
-      pageAnchor.dx, pageAnchor.dy, 0.0,
+      pageAnchor.dx,
+      pageAnchor.dy,
+      0.0,
     )..rotateZ(angle);
 
     // Inner painter: background fill (prevents transparent-widget flicker) + child.
@@ -758,7 +764,7 @@ class RenderTurnableBook extends RenderBox
       context.pushClipPath(
         needsCompositing,
         Offset.zero,
-        Offset.zero & size,          // ← full render-box area, NOT clip bounds
+        Offset.zero & size, // ← full render-box area, NOT clip bounds
         worldClipPath,
         (PaintingContext clipCtx, Offset clipOff) {
           // Step 2 ── apply translate + rotate for the child content only.
@@ -882,7 +888,10 @@ class RenderTurnableBook extends RenderBox
             .clamp(0.0, 1.0),
       );
       canvas.save();
-      canvas.translate(globalPos.x + rootOffset.dx, globalPos.y + rootOffset.dy);
+      canvas.translate(
+        globalPos.x + rootOffset.dx,
+        globalPos.y + rootOffset.dy,
+      );
       canvas.drawPath(
         path,
         Paint()
@@ -935,8 +944,8 @@ class RenderTurnableBook extends RenderBox
 
   void _paintSpineGradient(Canvas canvas, Rect area, double strength) {
     final baseColor = settings.centerShadowColor;
-    final baseAlpha =
-        (baseColor.a * settings.maxShadowOpacity * strength).clamp(0.0, 1.0);
+    final baseAlpha = (baseColor.a * settings.maxShadowOpacity * strength)
+        .clamp(0.0, 1.0);
     final gradient = ui.Gradient.linear(
       area.centerLeft,
       area.centerRight,
@@ -955,7 +964,8 @@ class RenderTurnableBook extends RenderBox
 
   void _drawBookShadow(Canvas canvas, PageRect rect, Offset root) {
     if (!settings.drawShadow) return;
-    if (_orientation != BookOrientation.portrait && !settings.showCenterShadow) {
+    if (_orientation != BookOrientation.portrait &&
+        !settings.showCenterShadow) {
       return;
     }
     if (_orientation == BookOrientation.portrait && settings.hideLeftShadow) {
@@ -1223,7 +1233,10 @@ class RenderTurnableBook extends RenderBox
   void handleEvent(PointerEvent event, HitTestEntry entry) {
     final timeMs = event.timeStamp.inMicroseconds / 1000.0;
     if (event is PointerDownEvent) {
-      _arenaEntry = GestureBinding.instance.gestureArena.add(event.pointer, this);
+      _arenaEntry = GestureBinding.instance.gestureArena.add(
+        event.pointer,
+        this,
+      );
       _handlePointerDown(getPointerOffset(event: event), timeMs);
     } else if (event is PointerMoveEvent) {
       _handlePointerMove(getPointerOffset(event: event), timeMs);
@@ -1350,13 +1363,16 @@ class RenderTurnableBook extends RenderBox
       // Normal drag (no interactive child consumed hit):
       if (!_isDragging) {
         if (absDeltaX > _minMoveThreshold || deltaY > _minMoveThreshold) {
-          if (!settings.onlyVerticalPageFlip && !isOnCorner && deltaY > absDeltaX) {
+          if (!settings.onlyVerticalPageFlip &&
+              !isOnCorner &&
+              deltaY > absDeltaX) {
             _isVerticalScrollLocked = true;
             _arenaEntry?.resolve(GestureDisposition.rejected);
             _arenaEntry = null;
             return;
           }
-          if (absDeltaX >= _minMoveThreshold || (isOnCorner && deltaY >= _minMoveThreshold)) {
+          if (absDeltaX >= _minMoveThreshold ||
+              (isOnCorner && deltaY >= _minMoveThreshold)) {
             _isDragging = true;
             _arenaEntry?.resolve(GestureDisposition.accepted);
             _beginUserDrag(deltaX, timeMs);
@@ -1411,13 +1427,17 @@ class RenderTurnableBook extends RenderBox
       if (isLandscape) {
         if (isTouchOnLeftSide) {
           if (pageFlip.canFlipPrev()) {
-            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            final corner = point.y < rect.height * 0.5
+                ? FlipCorner.top
+                : FlipCorner.bottom;
             pageFlip.flipPrev(corner);
             ensureAnimating();
           }
         } else {
           if (pageFlip.canFlipNext()) {
-            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            final corner = point.y < rect.height * 0.5
+                ? FlipCorner.top
+                : FlipCorner.bottom;
             pageFlip.flipNext(corner);
             ensureAnimating();
           }
@@ -1426,13 +1446,17 @@ class RenderTurnableBook extends RenderBox
         final halfWidth = rect.left + rect.pageWidth * 0.5;
         if (point.x < halfWidth) {
           if (pageFlip.canFlipPrev()) {
-            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            final corner = point.y < rect.height * 0.5
+                ? FlipCorner.top
+                : FlipCorner.bottom;
             pageFlip.flipPrev(corner);
             ensureAnimating();
           }
         } else {
           if (pageFlip.canFlipNext()) {
-            final corner = point.y < rect.height * 0.5 ? FlipCorner.top : FlipCorner.bottom;
+            final corner = point.y < rect.height * 0.5
+                ? FlipCorner.top
+                : FlipCorner.bottom;
             pageFlip.flipNext(corner);
             ensureAnimating();
           }
@@ -1514,7 +1538,10 @@ class RenderTurnableBook extends RenderBox
       // (e.g. 150px of the page appeared on touch), and that head start made
       // even a tiny drag complete the turn on release.
       final rect = getRect();
-      _dragShift = model.Point(rect.left + rect.pageWidth + 2 - start.x, shiftY);
+      _dragShift = model.Point(
+        rect.left + rect.pageWidth + 2 - start.x,
+        shiftY,
+      );
     }
     pageFlip.startUserTouch(_shiftDrag(start), timeMs);
     ensureAnimating();

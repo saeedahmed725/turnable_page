@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../turnable_page.dart';
@@ -25,8 +25,7 @@ class TurnablePageView extends StatefulWidget {
 
   /// Builds the widgets shown on the empty sides of a lone cover spread
   /// (see [CoverSide]). Only used with `FlipSettings.showCover`.
-  final Widget Function(BuildContext context, CoverSide side)?
-      coverSideBuilder;
+  final Widget Function(BuildContext context, CoverSide side)? coverSideBuilder;
 
   /// Number of pages kept built on EACH side of the current page when the
   /// book is large (more than [virtualWindowingThreshold] pages). Pages
@@ -249,7 +248,9 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       final phase = SchedulerBinding.instance.schedulerPhase;
       if (phase == SchedulerPhase.persistentCallbacks ||
           phase == SchedulerPhase.midFrameMicrotasks) {
-        SchedulerBinding.instance.addPostFrameCallback((_) => applyPageChange());
+        SchedulerBinding.instance.addPostFrameCallback(
+          (_) => applyPageChange(),
+        );
       } else {
         applyPageChange();
       }
@@ -267,8 +268,7 @@ class _TurnablePageViewState extends State<TurnablePageView> {
   /// a turn does not also pay for building/disposing off-screen pages.
   void _updateWindowFor(int page) {
     if (!_usesWindowing || page == _windowCenter) return;
-    final needsNow =
-        (page - _windowCenter).abs() + 1 > widget.pageCacheExtent;
+    final needsNow = (page - _windowCenter).abs() + 1 > widget.pageCacheExtent;
     if (needsNow) {
       setState(() => _windowCenter = page);
       return;
@@ -325,32 +325,28 @@ class _TurnablePageViewState extends State<TurnablePageView> {
       _pageCache.removeWhere((i, _) => i < windowStart || i > windowEnd);
     }
 
-    List<Widget> children = List<Widget>.generate(
-      widget.pageCount,
-      (index) {
-        if (index < windowStart || index > windowEnd) {
-          return PageHost(
-            key: ValueKey('page_host_$index'),
-            index: index,
-            child: const SizedBox.shrink(),
-          );
-        }
-
-        // Reusing the identical widget instance lets the framework skip
-        // rebuilding pages that were already built.
-        final content = _pageCache.putIfAbsent(
-          index,
-          () => _buildPage(context, index, isRtl, effectiveDir),
-        );
-
+    List<Widget> children = List<Widget>.generate(widget.pageCount, (index) {
+      if (index < windowStart || index > windowEnd) {
         return PageHost(
           key: ValueKey('page_host_$index'),
           index: index,
-          child: content,
+          child: const SizedBox.shrink(),
         );
-      },
-      growable: false,
-    );
+      }
+
+      // Reusing the identical widget instance lets the framework skip
+      // rebuilding pages that were already built.
+      final content = _pageCache.putIfAbsent(
+        index,
+        () => _buildPage(context, index, isRtl, effectiveDir),
+      );
+
+      return PageHost(
+        key: ValueKey('page_host_$index'),
+        index: index,
+        child: content,
+      );
+    }, growable: false);
 
     // The cover side widgets go after the pages, front first.
     final sideBuilder = _settings.showCover ? widget.coverSideBuilder : null;
@@ -413,8 +409,11 @@ class _TurnablePageViewState extends State<TurnablePageView> {
                 if (_isZoomed) {
                   _resetZoom();
                 } else {
-                  _transformationController.value =
-                      Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+                  _transformationController.value = Matrix4.diagonal3Values(
+                    2.0,
+                    2.0,
+                    1.0,
+                  );
                 }
               }
             : null,
@@ -432,4 +431,3 @@ class _TurnablePageViewState extends State<TurnablePageView> {
     return content;
   }
 }
-

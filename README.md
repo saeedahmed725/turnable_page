@@ -28,7 +28,7 @@ A high-performance Flutter package that provides a realistic **3D page-flipping 
 
 ```yaml
 dependencies:
-  turnable_page: ^2.1.0
+  turnable_page: ^2.1.1
 ```
 
 ```dart
@@ -228,4 +228,4 @@ Bug reports and feature requests are welcome on the [issue tracker](https://gith
 
 ## License
 
-Turnable Page Proprietary License (TPPL). See [LICENSE](LICENSE).
+Turnable Page Proprietary License (TPPL) v1.1. You may use the package, unmodified, in any app, commercial apps included. Modifying, copying, redistributing or selling the package itself needs written permission. See [LICENSE](LICENSE).

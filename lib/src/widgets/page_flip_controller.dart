@@ -37,6 +37,7 @@ class PageFlipController {
     }
     return p;
   }
+
   VoidCallback? _resetZoomCallback;
   bool Function()? _isZoomedGetter;
 

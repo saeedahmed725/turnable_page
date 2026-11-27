@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../model/paper_boundary_decoration.dart';
 
@@ -21,12 +21,8 @@ class PaperWidget extends StatelessWidget {
     this.isEnabled = true,
   });
 
-  static const EdgeInsetsDirectional defaultPadding = EdgeInsetsDirectional.only(
-    start: 4.0,
-    end: 4.0,
-    top: 1.0,
-    bottom: 2.0,
-  );
+  static const EdgeInsetsDirectional defaultPadding =
+      EdgeInsetsDirectional.only(start: 4.0, end: 4.0, top: 1.0, bottom: 2.0);
 
   /// Space the frame adds around the book with [defaultPadding] (it is
   /// applied three times: outer, middle and inner layer). Zero when the
@@ -201,4 +197,3 @@ class PaperWidget extends StatelessWidget {
     );
   }
 }
-

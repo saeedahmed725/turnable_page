@@ -82,7 +82,8 @@ class FlipProcess {
     // positions with x > 0 (back coordinates) are off-screen. Starting there
     // wasted the first part of the animation on an invisible page and then
     // rushed the visible part, so start right at the spine instead.
-    final isPortraitBack = render.getOrientation() == BookOrientation.portrait &&
+    final isPortraitBack =
+        render.getOrientation() == BookOrientation.portrait &&
         calc!.getDirection() == FlipDirection.back;
     final xStart = isPortraitBack ? -1.0 : rect.pageWidth - topMargins;
 
@@ -258,8 +259,9 @@ class FlipProcess {
       return;
     }
 
-    final threshold =
-        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+    final threshold = render.getOrientation() == BookOrientation.portrait
+        ? 0.35
+        : 0.5;
 
     if (progress >= threshold) {
       animateFlippingTo(
@@ -268,11 +270,7 @@ class FlipProcess {
         true,
       );
     } else {
-      animateFlippingTo(
-        pos,
-        Point(_cancelX(rect), y.toDouble()),
-        false,
-      );
+      animateFlippingTo(pos, Point(_cancelX(rect), y.toDouble()), false);
     }
   }
 
@@ -317,8 +315,9 @@ class FlipProcess {
     // A flick away from center (back towards starting edge) cancels the flip.
     final isFlick = fastSwipe || velocity.abs() > 300.0;
 
-    final threshold =
-        render.getOrientation() == BookOrientation.portrait ? 0.35 : 0.5;
+    final threshold = render.getOrientation() == BookOrientation.portrait
+        ? 0.35
+        : 0.5;
 
     if (isFlick && progress > 0.05) {
       complete = swipeTowardsCenter;
@@ -333,11 +332,7 @@ class FlipProcess {
         true,
       );
     } else {
-      animateFlippingTo(
-        pos,
-        Point(_cancelX(rect), y.toDouble()),
-        false,
-      );
+      animateFlippingTo(pos, Point(_cancelX(rect), y.toDouble()), false);
     }
   }
 
@@ -408,7 +403,8 @@ class FlipProcess {
     // corner distance therefore made back turns look about twice as fast
     // ("snatched"). Give them ~1.8x the frame budget (measured) so both
     // directions reveal the page at the same pace.
-    final isPortraitBack = render.getOrientation() == BookOrientation.portrait &&
+    final isPortraitBack =
+        render.getOrientation() == BookOrientation.portrait &&
         calc?.getDirection() == FlipDirection.back;
     // Forward turn in single-page mode: the corner travels two page widths
     // but only the first one is on screen. With a strong ease-out the flap
@@ -416,7 +412,8 @@ class FlipProcess {
     // turn), so forward turns looked snatched. Completed forward turns use a
     // gentler curve and a bigger frame budget so the visible edge moves at
     // the same pace in both directions.
-    final isPortraitForwardTurn = isTurned &&
+    final isPortraitForwardTurn =
+        isTurned &&
         render.getOrientation() == BookOrientation.portrait &&
         calc?.getDirection() == FlipDirection.forward;
     final speedFactor = isPortraitBack
@@ -433,8 +430,9 @@ class FlipProcess {
     // grow before shrinking back, which looked broken; a full turn
     // (~2 page widths) keeps the full arc.
     final rectForSag = getBoundsRect();
-    final sagScale =
-        (distance / (2 * rectForSag.pageWidth)).clamp(0.0, 1.0).toDouble();
+    final sagScale = (distance / (2 * rectForSag.pageWidth))
+        .clamp(0.0, 1.0)
+        .toDouble();
     final sagAmp = settings.sagAmplitude * rectForSag.height * sagScale;
 
     // Scratch calculation used to validate every frame up-front. Frames whose
@@ -634,7 +632,8 @@ class FlipProcess {
       return false;
     }
 
-    final isVerticalCorner = bookPos.y < operatingDistance ||
+    final isVerticalCorner =
+        bookPos.y < operatingDistance ||
         bookPos.y > rect.height - operatingDistance;
     if (!isVerticalCorner) return false;
 

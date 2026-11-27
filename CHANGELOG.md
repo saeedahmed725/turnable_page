@@ -2,13 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 2.1.1 - 2026-11-27
 ### ✨ Features
 - **`coverSideBuilder`** on `TurnablePage`: fill the empty sides next to the covers (with `showCover` in a two-page spread) with your own widgets, such as endpapers or a logo. `CoverSide.front` is the side left of the front cover, `CoverSide.back` the side right of a lone last page. The widgets are interactive and turn with the pages.
 
 ### 🐛 Fixes
 - **With `showCover`, the empty side of the cover spread showed a copy of the page being turned** while turning back to the front cover (or forward to a lone last page), then turned blank when the turn ended. It now shows plain paper (or the `coverSideBuilder` widget) during the whole turn.
 - **The spine shadow no longer pops onto the new page at the end of a turn** in a two-page spread. It now belongs to the turning sheet, on its spine edge, and grows as the sheet lands.
+
+### 🔧 Changes
+- **License updated to TPPL v1.1**: you may use the package, unmodified, in any app, commercial apps included. Modifying, copying, redistributing or selling the package itself still needs permission. See [LICENSE](https://github.com/saeedahmed725/turnable_page/blob/main/LICENSE).
+- Supports `pdfrx` 3.x (`>=2.4.4 <4.0.0`).
+- The package no longer imports `package:flutter/material.dart`, ahead of its deprecation.
+- Homepage moved to the documentation website.
 
 ## 2.1.0 - 2026-11-27
 ### ✨ Features
@@ -71,8 +77,8 @@ All notable changes to this project will be documented in this file.
 
 ## 1.0.2 - 2026-09-13
 ### ✨ New Features
-- **Configurable Center Shadow**: Added `showCenterShadow` to [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) to toggle the spine crease shadow between pages on or off.
-- **Independent Shadow Colors**: Added individual color settings in [FlipSettings](file:///e:/flutter/packages/turnable_page/lib/src/flip/flip_settings.dart) for every shadow:
+- **Configurable Center Shadow**: Added `showCenterShadow` to `FlipSettings` to toggle the spine crease shadow between pages on or off.
+- **Independent Shadow Colors**: Added individual color settings in `FlipSettings` for every shadow:
   - `centerShadowColor`: Spine/crease shadow between two-page spreads.
   - `outerShadowColor`: Shadow cast on the page beneath the turning page.
   - `innerShadowColor`: Shadow cast on the back/inside of the curled page.

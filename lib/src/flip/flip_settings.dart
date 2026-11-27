@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../enums/page_view_mode.dart';
 import '../enums/size_type.dart';
@@ -253,10 +253,11 @@ class FlipSettings {
     this.flipOnTap = true,
     this.pageBackgroundColor = const Color(0xFFFFFFFF),
     this.pageBorderColor,
-  }) : pageViewMode = pageViewMode ??
-            (usePortrait != null
-                ? (usePortrait ? PageViewMode.single : PageViewMode.double)
-                : PageViewMode.single);
+  }) : pageViewMode =
+           pageViewMode ??
+           (usePortrait != null
+               ? (usePortrait ? PageViewMode.single : PageViewMode.double)
+               : PageViewMode.single);
 
   FlipSettings copyWith({
     int? startPage,
@@ -300,7 +301,8 @@ class FlipSettings {
     Color? pageBackgroundColor,
     Color? pageBorderColor,
   }) {
-    final resolvedMode = pageViewMode ??
+    final resolvedMode =
+        pageViewMode ??
         (usePortrait != null
             ? (usePortrait ? PageViewMode.single : PageViewMode.double)
             : this.pageViewMode);

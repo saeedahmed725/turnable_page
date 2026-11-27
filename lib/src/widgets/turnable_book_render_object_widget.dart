@@ -25,18 +25,19 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
     this.coverSideCount = 0,
     List<Widget>? children,
   }) : super(
-          children: children ??
-              List.generate(
-                pageCount,
-                (i) => PageHost(
-                  key: ValueKey('page_host_$i'),
-                  index: i,
-                  child: builder != null
-                      ? builder(WidgetsBinding.instance.rootElement!, i)
-                      : const SizedBox.shrink(),
-                ),
-              ),
-        );
+         children:
+             children ??
+             List.generate(
+               pageCount,
+               (i) => PageHost(
+                 key: ValueKey('page_host_$i'),
+                 index: i,
+                 child: builder != null
+                     ? builder(WidgetsBinding.instance.rootElement!, i)
+                     : const SizedBox.shrink(),
+               ),
+             ),
+       );
 
   @override
   RenderTurnableBook createRenderObject(BuildContext context) {
@@ -56,4 +57,3 @@ class TurnableBookRenderObjectWidget extends MultiChildRenderObjectWidget {
     renderObject.coverSideCount = coverSideCount;
   }
 }
-

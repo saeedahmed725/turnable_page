@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:turnable_page/src/widgets/paper_widget.dart';
 
@@ -319,7 +319,7 @@ class _TurnablePdfState extends State<TurnablePdf> {
       decoration: BoxDecoration(
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: const Color(0xFF000000).withValues(alpha: 0.3),
             blurRadius: 4,
             offset: const Offset(0, 0),
           ),
@@ -468,7 +468,7 @@ class _TurnablePdfState extends State<TurnablePdf> {
                 decoration:
                     widget.boxDecoration ??
                     BoxDecoration(
-                      color: Colors.white,
+                      color: Color(0xFFFFFFFF),
                       borderRadius: BorderRadius.horizontal(
                         left: index % 2 == 0 ? Radius.circular(8) : Radius.zero,
                         right: index % 2 == 1
@@ -478,7 +478,7 @@ class _TurnablePdfState extends State<TurnablePdf> {
                       boxShadow: const [
                         BoxShadow(
                           blurRadius: 6,
-                          color: Colors.black26,
+                          color: Color(0x42000000),
                           offset: Offset(0, 2),
                         ),
                       ],
@@ -528,29 +528,56 @@ class _PDFErrorPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.picture_as_pdf, size: 45, color: Colors.red[400]),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF5350),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'PDF',
+                style: TextStyle(
+                  color: Color(0xFFFFFFFF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: Colors.red[700]),
+              style: const TextStyle(
+                color: Color(0xFFD32F2F),
+                fontSize: 22,
+                fontWeight: FontWeight.w500,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              style: const TextStyle(color: Color(0xFF757575), fontSize: 14),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+              GestureDetector(
+                onTap: onRetry,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFD32F2F)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Retry',
+                    style: TextStyle(color: Color(0xFFD32F2F), fontSize: 14),
+                  ),
+                ),
               ),
             ],
           ],
@@ -584,7 +611,7 @@ class _ShimmerEffectState extends State<_ShimmerEffect>
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.background ?? Colors.grey.shade300;
+    final baseColor = widget.background ?? const Color(0xFFE0E0E0);
     final highlight = HSLColor.fromColor(baseColor)
         .withLightness(
           (HSLColor.fromColor(baseColor).lightness + 0.1).clamp(0.0, 1.0),

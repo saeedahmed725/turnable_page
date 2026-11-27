@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../enums/cover_side.dart';
 import '../enums/page_view_mode.dart';
@@ -51,14 +51,16 @@ class TurnablePage extends StatelessWidget {
     bool? enableDoubleTapZoom,
     double? minScale,
     double? maxScale,
-  })  : pageViewMode = pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
-        settings = (settings ?? FlipSettings()).copyWith(
-          pageViewMode: pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
-          enableZoom: enableZoom,
-          enableDoubleTapZoom: enableDoubleTapZoom,
-          minScale: minScale,
-          maxScale: maxScale,
-        ) {
+  }) : pageViewMode =
+           pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+       settings = (settings ?? FlipSettings()).copyWith(
+         pageViewMode:
+             pageViewMode ?? settings?.pageViewMode ?? PageViewMode.single,
+         enableZoom: enableZoom,
+         enableDoubleTapZoom: enableDoubleTapZoom,
+         minScale: minScale,
+         maxScale: maxScale,
+       ) {
     assert(
       this.settings.startPageIndex >= 0,
       'Page count must be greater than 0',
@@ -141,7 +143,8 @@ class TurnablePage extends StatelessWidget {
           pageCacheExtent: pageCacheExtent,
           coverSideBuilder: coverSideBuilder == null
               ? null
-              : (context, side) => coverSideBuilder!(context, side, constraints),
+              : (context, side) =>
+                    coverSideBuilder!(context, side, constraints),
         );
       },
     );
